@@ -1,0 +1,340 @@
+local game = game
+local workspace = workspace
+local task = task
+local pcall = pcall
+local ipairs = ipairs
+local table = table
+local string = string
+local Enum = Enum
+local Vector3 = Vector3
+local UDim2 = UDim2
+
+local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local LocalPlayer = Players.LocalPlayer
+
+-- Load WindUI Library
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+
+-- GUI Initialization
+local Window = WindUI:CreateWindow({
+    Title = "Toilet Collapsed Universe",
+    Icon = "sparkles",
+    Author = "MIKO HUB",
+    Folder = "MIKO HUB",
+    Size = UDim2.fromOffset(580, 460),
+    Transparent = true,
+    Theme = "Dark",
+})
+
+local MainTab = Window:Tab({ Title = "Auto Farm", Icon = "shopping-cart" })
+local GodTab = Window:Tab({ Title = "God Mode", Icon = "zap" })
+local DiscordTab = Window:Tab({ Title = "sv dis yap ping", Icon = "message-square" })
+
+-- Configurations & Variables
+local AutoFarmEnabled = false
+local ReturnToOldPos = false
+local savedPosition = nil
+
+local AutoSpamEEnabled = false
+local InstantHoldEnabled = true
+
+local PickupDelay = 0.15
+local ScanDelay = 0.8
+local SpamSpeed = 0.02
+local DiscordLink = "https://discord.gg/7ZgvMqEpKG"
+
+-- Core Helpers
+local function getRootPart()
+    local char = LocalPlayer.Character
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if hum and root and hum.Health > 0 then
+            return root
+        end
+    end
+    return nil
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    savedPosition = nil
+end)
+
+local function stopVelocity(root)
+    if root then
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+    end
+end
+
+local function unanchorRoot(root)
+    if root then
+        root.Anchored = false
+    end
+end
+
+local function isValidItem(obj, prompt)
+    if not obj or not obj.Parent then return false end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        local pChar = player.Character
+        if pChar and (obj == pChar or obj:IsDescendantOf(pChar)) then
+            return false
+        end
+    end
+
+    local ancestorModel = obj:FindFirstAncestorOfClass("Model") or obj
+    if ancestorModel then
+        if ancestorModel:FindFirstChildOfClass("Humanoid") or ancestorModel:FindFirstChildOfClass("AnimationController") then
+            return false
+        end
+    end
+    if obj:FindFirstChildOfClass("Humanoid") or obj:FindFirstChildOfClass("AnimationController") then
+        return false
+    end
+
+    if obj:IsA("Seat") or obj:IsA("VehicleSeat") or obj:FindFirstChildOfClass("Seat") or obj:FindFirstChildOfClass("VehicleSeat") then
+        return false
+    end
+
+    if obj:IsA("BasePart") then
+        local sz = obj.Size
+        if sz.X > 25 or sz.Y > 25 or sz.Z > 25 then
+            return false
+        end
+    end
+
+    local parentName = string.lower(obj.Parent.Name)
+    if parentName == "map" or parentName == "enemies" or parentName == "npcs" or parentName == "bosses" then
+        return false
+    end
+
+    if prompt then
+        local actionText = string.lower(prompt.ActionText or "")
+        local objectText = string.lower(prompt.ObjectText or "")
+        local badWords = {"revive", "cứu", "help", "heal", "carry", "rescue", "drive", "ride", "enter", "vehicle", "shop", "buy", "talk"}
+        
+        for _, badWord in ipairs(badWords) do
+            if string.find(actionText, badWord) or string.find(objectText, badWord) then
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+local function getMapItems()
+    local items = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            local parent = obj.Parent
+            if parent and isValidItem(parent, obj) and not table.find(items, parent) then
+                table.insert(items, parent)
+            end
+        elseif obj:IsA("TouchTransmitter") then
+            local parent = obj.Parent
+            if parent and isValidItem(parent, nil) and not table.find(items, parent) then
+                table.insert(items, parent)
+            end
+        elseif obj:IsA("Tool") and obj.Parent == workspace then
+            if isValidItem(obj, nil) and not table.find(items, obj) then
+                table.insert(items, obj)
+            end
+        end
+    end
+    return items
+end
+
+local function forcePickupItem(root, item)
+    if not item or not item.Parent or not root then return end
+
+    local prompt = item:FindFirstChildOfClass("ProximityPrompt") 
+                or item:FindFirstChildWhichIsA("ProximityPrompt", true)
+    
+    if prompt then
+        prompt.HoldDuration = 0
+        prompt.RequiresLineOfSight = false
+        if fireproximityprompt then
+            fireproximityprompt(prompt, 0)
+            fireproximityprompt(prompt, 1)
+        end
+    end
+
+    local targetPart = item:IsA("BasePart") and item or item:FindFirstChildWhichIsA("BasePart", true)
+    if targetPart and firetouchinterest then
+        firetouchinterest(root, targetPart, 0)
+        task.wait(0.01)
+        firetouchinterest(root, targetPart, 1)
+
+        local char = LocalPlayer.Character
+        if char then
+            local leg = char:FindFirstChild("RightFoot") or char:FindFirstChild("Right Leg")
+            if leg then
+                firetouchinterest(leg, targetPart, 0)
+                firetouchinterest(leg, targetPart, 1)
+            end
+        end
+    end
+end
+
+-- GUI Elements
+MainTab:Toggle({
+    Title = "Auto Farm Item",
+    Desc = "Automatically teleport and pick up all items on the map",
+    Value = false,
+    Callback = function(state)
+        AutoFarmEnabled = state
+        local root = getRootPart()
+        if state then
+            if ReturnToOldPos and root then savedPosition = root.CFrame end
+        else
+            unanchorRoot(root)
+        end
+        WindUI:Notify({
+            Title = "Auto Farm",
+            Content = state and "Auto Farm Enabled!" or "Auto Farm Disabled.",
+            Duration = 2,
+        })
+    end
+})
+
+MainTab:Toggle({
+    Title = "Return to Original Position",
+    Desc = "Save current position and return after collecting items",
+    Value = false,
+    Callback = function(state)
+        ReturnToOldPos = state
+        local root = getRootPart()
+        if state then
+            if root then savedPosition = root.CFrame end
+        else
+            savedPosition = nil
+            unanchorRoot(root)
+        end
+        WindUI:Notify({
+            Title = "Auto Farm",
+            Content = state and "Auto Return Enabled (Position Saved)!" or "Auto Return Disabled.",
+            Duration = 2,
+        })
+    end
+})
+
+MainTab:Slider({
+    Title = "Pickup Speed (Seconds)",
+    Desc = "Delay duration between each item pickup",
+    Step = 0.02,
+    Value = { Min = 0.05, Max = 0.5, Default = 0.15 },
+    Callback = function(val) PickupDelay = val end
+})
+
+GodTab:Toggle({
+    Title = "Auto Spam E",
+    Desc = "Automatically spams the E key",
+    Value = false,
+    Callback = function(state)
+        AutoSpamEEnabled = state
+        WindUI:Notify({
+            Title = "God Mode",
+            Content = state and "Auto Instant Spam E Enabled!" or "Auto Spam E Disabled.",
+            Duration = 2,
+        })
+    end
+})
+
+GodTab:Slider({
+    Title = "Spam E Speed (Seconds)",
+    Desc = "Delay interval between E key presses",
+    Step = 0.01,
+    Value = { Min = 0.01, Max = 0.5, Default = 0.02 },
+    Callback = function(val) SpamSpeed = val end
+})
+
+DiscordTab:Button({
+    Title = "Copy Discord Server Link",
+    Desc = DiscordLink,
+    Callback = function()
+        local clipFunc = setclipboard or toclipboard
+        if clipFunc then
+            clipFunc(DiscordLink)
+            WindUI:Notify({ Title = "Discord Server", Content = "Discord link copied to clipboard!", Duration = 3 })
+        else
+            WindUI:Notify({ Title = "Error", Content = "Your executor does not support setclipboard!", Duration = 3 })
+        end
+    end
+})
+
+-- Background Threads
+task.spawn(function()
+    while true do
+        if AutoSpamEEnabled or InstantHoldEnabled then
+            for _, prompt in ipairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    prompt.HoldDuration = 0
+                end
+            end
+        end
+        task.wait(0.5)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if AutoSpamEEnabled then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+            task.wait(0.01)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+        end
+        task.wait(SpamSpeed)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(ScanDelay)
+        if AutoFarmEnabled then
+            local root = getRootPart()
+            if root then
+                local items = getMapItems()
+                if #items > 0 then
+                    for _, item in ipairs(items) do
+                        if not AutoFarmEnabled then break end
+                        if item and item.Parent and isValidItem(item, nil) then
+                            local targetCFrame = item:IsA("BasePart") and item.CFrame or item:GetPivot()
+                            if targetCFrame then
+                                pcall(function()
+                                    root.CFrame = targetCFrame
+                                    stopVelocity(root)
+                                    forcePickupItem(root, item)
+                                    root.Anchored = true
+                                    task.wait(0.05)
+
+                                    local retryCount = 0
+                                    repeat
+                                        if not item or not item.Parent then break end
+                                        forcePickupItem(root, item)
+                                        retryCount = retryCount + 1
+                                        task.wait(0.05)
+                                    until not item or not item.Parent or retryCount >= 3
+
+                                    task.wait(PickupDelay)
+                                end)
+                                unanchorRoot(root)
+                            end
+                        end
+                    end
+                    if root and savedPosition and ReturnToOldPos and AutoFarmEnabled then
+                        unanchorRoot(root)
+                        root.CFrame = savedPosition
+                        stopVelocity(root)
+                    end
+                elseif root and savedPosition and ReturnToOldPos then
+                    unanchorRoot(root)
+                    root.CFrame = savedPosition
+                    stopVelocity(root)
+                end
+            end
+        end
+    end
+end)
