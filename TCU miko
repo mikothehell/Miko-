@@ -58,14 +58,9 @@ local function getRootPart()
     return nil
 end
 
--- Reset and auto update position on character respawn
+-- Reset saved position on respawn
 LocalPlayer.CharacterAdded:Connect(function()
     savedPosition = nil
-    task.wait(1.5)
-    local root = getRootPart()
-    if root and AutoFarmEnabled then
-        savedPosition = root.CFrame
-    end
 end)
 
 -- Stop movement velocity
@@ -155,27 +150,40 @@ local function getMapItems()
     return items
 end
 
--- Trigger pickup on target
-local function triggerPickup(root, itemData)
-    if not root or not itemData or not itemData.Target or not itemData.Target.Parent then return end
+-- Force pickup using ALL character body parts
+local function triggerPickup(char, itemData)
+    if not char or not itemData or not itemData.Target or not itemData.Target.Parent then return end
 
     -- 1. Trigger ProximityPrompt
     if itemData.Prompt then
         local prompt = itemData.Prompt
-        prompt.HoldDuration = 0
-        prompt.RequiresLineOfSight = false
-        if fireproximityprompt then
-            fireproximityprompt(prompt, 0)
-            fireproximityprompt(prompt, 1)
+        if prompt and prompt.Parent then
+            pcall(function()
+                prompt.HoldDuration = 0
+                prompt.RequiresLineOfSight = false
+                prompt.MaxActivationDistance = 9999
+                prompt.Enabled = true
+                if fireproximityprompt then
+                    fireproximityprompt(prompt, 0)
+                    task.wait(0.01)
+                    fireproximityprompt(prompt, 1)
+                end
+            end)
         end
     end
 
-    -- 2. Trigger TouchInterest
-    local part = itemData.Part or (itemData.Target:IsA("BasePart") and itemData.Target or itemData.Target:FindFirstChildWhichIsA("BasePart", true))
-    if part and firetouchinterest then
-        firetouchinterest(root, part, 0)
-        task.wait(0.01)
-        firetouchinterest(root, part, 1)
+    -- 2. Trigger TouchInterest across ALL character parts (Root, Head, Legs, Arms)
+    local targetPart = itemData.Part or (itemData.Target:IsA("BasePart") and itemData.Target or itemData.Target:FindFirstChildWhichIsA("BasePart", true))
+    if targetPart and firetouchinterest then
+        for _, part in ipairs(char:GetChildren()) do
+            if part:IsA("BasePart") then
+                pcall(function()
+                    firetouchinterest(part, targetPart, 0)
+                    task.wait(0.01)
+                    firetouchinterest(part, targetPart, 1)
+                end)
+            end
+        end
     end
 end
 
@@ -203,7 +211,7 @@ MainTab:Toggle({
                 root.CFrame = savedPosition
                 stopVelocity(root)
             end
-            savedPosition = nil -- Reset for next session
+            savedPosition = nil
             if root then root.Anchored = false end
         end
 
@@ -330,6 +338,8 @@ task.spawn(function()
             for _, prompt in ipairs(workspace:GetDescendants()) do
                 if prompt:IsA("ProximityPrompt") then
                     prompt.HoldDuration = 0
+                    prompt.RequiresLineOfSight = false
+                    prompt.MaxActivationDistance = 9999
                 end
             end
         end
@@ -349,17 +359,18 @@ task.spawn(function()
 end)
 
 -- ----------------------------------------------------
--- AUTO FARM BACKGROUND LOOP (WITH FIXED RETURN LOGIC)
+-- AUTO FARM BACKGROUND LOOP (OPTIMIZED PICKUP & RETURN)
 -- ----------------------------------------------------
 task.spawn(function()
     while true do
         task.wait(ScanDelay)
 
         if AutoFarmEnabled then
+            local char = LocalPlayer.Character
             local root = getRootPart()
 
-            if root then
-                -- Ensure saved position is recorded BEFORE any teleport occurs
+            if root and char then
+                -- Save position BEFORE starting teleporting
                 if ReturnToOldPos and not savedPosition then
                     savedPosition = root.CFrame
                 end
@@ -385,16 +396,18 @@ task.spawn(function()
                             if targetCFrame then
                                 pcall(function()
                                     root.Anchored = false
-                                    root.CFrame = targetCFrame
+                                    -- Teleport slightly above item (+0.5 stud) to avoid floor clipping
+                                    root.CFrame = targetCFrame * CFrame.new(0, 0.5, 0)
                                     stopVelocity(root)
 
-                                    -- Initial trigger
-                                    triggerPickup(root, itemData)
+                                    -- Wait 0.05s for server to register teleported position
                                     task.wait(0.05)
 
-                                    -- Retry trigger
-                                    if target and target.Parent then
-                                        triggerPickup(root, itemData)
+                                    -- Retry pickup 3 times to ensure server receives touch/prompt
+                                    for i = 1, 3 do
+                                        if not target or not target.Parent then break end
+                                        triggerPickup(char, itemData)
+                                        task.wait(0.04)
                                     end
 
                                     task.wait(PickupDelay)
@@ -403,14 +416,14 @@ task.spawn(function()
                         end
                     end
 
-                    -- Return to home position after loop ends
+                    -- Return to home position after loop finishes
                     if root and savedPosition and ReturnToOldPos and AutoFarmEnabled then
                         root.Anchored = false
                         root.CFrame = savedPosition
                         stopVelocity(root)
                     end
                 else
-                    -- No items found: Return to saved position if enabled
+                    -- No items: return to home position if enabled
                     if root and savedPosition and ReturnToOldPos then
                         root.Anchored = false
                         root.CFrame = savedPosition
