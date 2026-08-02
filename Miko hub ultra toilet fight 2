@@ -3,7 +3,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
     Name = "Ultra Toilet Fight 2 by miko hub",
     LoadingTitle = "Remake all ye",
-    LoadingSubtitle = "by dev miko and yuuwu_",
+    LoadingSubtitle = "by dev miko",
     ConfigurationSaving = { Enabled = false },
     KeySystem = false
 })
