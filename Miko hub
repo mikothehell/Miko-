@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))() 
 
 local Window = Rayfield:CreateWindow({ 
-    Name = "Ultra Toilet Fight 2 beta by miko", 
-    LoadingTitle = "by miko This is just a beta version", 
-    LoadingSubtitle = "by miko dev", 
+    Name = "Ultra Toilet Fight 2 by miko hub", 
+    LoadingTitle = "Remake all ye", 
+    LoadingSubtitle = "by dev miko", 
     ConfigurationSaving = { Enabled = false }, 
     KeySystem = false 
 }) 
@@ -19,13 +19,18 @@ local LocalPlayer = Players.LocalPlayer
 local autoFarm = false 
 local autoLoot = false 
 local expandHitbox = false 
+local dodgeWhenAttacked = false 
+
 local hitboxSize = 50 
 local maxTpDistance = 5000 
 local farmDistance = 7 
-local farmPosition = "Phía Trên" 
+local farmPosition = "Above" 
 local currentTarget = nil 
 local isCollectingLoot = false 
 local blacklistedTargets = {} 
+
+-- Health Counter System
+local lastMyHealth = 100
 
 -- Skill Key Variables
 local useLMB = false 
@@ -35,7 +40,7 @@ local useKeyR = false
 local useKeyF = false 
 
 -- =================================================== 
--- FAST LOOT COLLECTION 
+-- FIX AUTO LOOT ITEM (SCAN WORKSPACE & BACKPACK)
 -- =================================================== 
 local function InstantCollectPrompt(prompt) 
     if not prompt or not prompt:IsA("ProximityPrompt") or not prompt.Enabled then return end 
@@ -59,24 +64,70 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
     end 
 end) 
 
-local function GetNearbyLootPrompt(pos, maxDist) 
-    maxDist = maxDist or 25 
-    for _, v in ipairs(Workspace:GetChildren()) do 
-        if v:IsA("ProximityPrompt") and v.Parent and v.Parent:IsA("BasePart") then 
-            if (v.Parent.Position - pos).Magnitude <= maxDist then return v end 
-        elseif v:IsA("Model") or v:IsA("Folder") then 
-            for _, child in ipairs(v:GetChildren()) do 
-                if child:IsA("ProximityPrompt") and child.Parent and child.Parent:IsA("BasePart") then 
-                    if (child.Parent.Position - pos).Magnitude <= maxDist then return child end 
-                end 
-            end 
-        end 
-    end 
-    return nil 
-end 
+local function ScanAndCollectAllLoot()
+    if not autoLoot then return end
+    local myChar = LocalPlayer.Character
+    local root = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    pcall(function()
+        -- 1. Scan ProximityPrompt (Chests, Manual Loot Items)
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if not autoLoot then break end
+            if obj:IsA("ProximityPrompt") and obj.Enabled then
+                local parentPart = obj.Parent
+                if parentPart then
+                    local targetPos = parentPart:IsA("BasePart") and parentPart.Position or (parentPart:IsA("Model") and parentPart:GetPivot().Position)
+                    if targetPos then
+                        isCollectingLoot = true
+                        root.CFrame = CFrame.new(targetPos) * CFrame.new(0, 1.5, 0)
+                        root.AssemblyLinearVelocity = Vector3.zero
+                        InstantCollectPrompt(obj)
+                        task.wait(0.08)
+                        isCollectingLoot = false
+                    end
+                end
+            end
+        end
+
+        -- 2. Scan Floor Items/Coins/Drops (TouchInterest / Direct TP)
+        for _, obj in ipairs(Workspace:GetChildren()) do
+            if not autoLoot then break end
+            local nameLower = obj.Name:lower()
+            if obj:IsA("BasePart") or obj:IsA("Model") then
+                if nameLower:find("coin") or nameLower:find("point") or nameLower:find("drop") or nameLower:find("item") or nameLower:find("card") or nameLower:find("cash") or nameLower:find("box") then
+                    local targetCF = obj:IsA("BasePart") and obj.CFrame or obj:GetPivot()
+                    if (targetCF.Position - root.Position).Magnitude <= maxTpDistance then
+                        isCollectingLoot = true
+                        root.CFrame = targetCF * CFrame.new(0, 1, 0)
+                        root.AssemblyLinearVelocity = Vector3.zero
+                        
+                        local touch = obj:FindFirstChildOfClass("TouchTransmitter") or (obj:IsA("BasePart") and obj)
+                        if touch and firetouchinterest then
+                            firetouchinterest(root, obj:IsA("BasePart") and obj or obj.PrimaryPart, 0)
+                            task.wait(0.02)
+                            firetouchinterest(root, obj:IsA("BasePart") and obj or obj.PrimaryPart, 1)
+                        end
+                        task.wait(0.08)
+                        isCollectingLoot = false
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Independent Auto Loot Loop
+task.spawn(function()
+    while task.wait(0.15) do
+        if autoLoot and not isCollectingLoot then
+            ScanAndCollectAllLoot()
+        end
+    end
+end)
 
 -- =================================================== 
--- ENEMY FILTERING (OPTIMIZED) 
+-- ENEMY FILTERING
 -- =================================================== 
 local function IsEnemy(model) 
     if not model or not model:IsA("Model") then return false end 
@@ -98,6 +149,7 @@ local function GetNearestEnemy()
     local myPos = myChar.HumanoidRootPart.Position 
     local nearest = nil 
     local shortestDistance = maxTpDistance 
+    
     local function CheckModel(v) 
         if v:IsA("Model") and IsEnemy(v) then 
             local enemyRoot = v:FindFirstChild("HumanoidRootPart") or v:FindFirstChild("Head") or v.PrimaryPart 
@@ -110,6 +162,7 @@ local function GetNearestEnemy()
             end 
         end 
     end 
+    
     for _, v in ipairs(Workspace:GetChildren()) do 
         CheckModel(v) 
         if v:IsA("Folder") or (v:IsA("Model") and not IsEnemy(v)) then 
@@ -119,27 +172,58 @@ local function GetNearestEnemy()
     return nearest 
 end 
 
+-- HÀM TÍNH TOÁN VỊ TRÍ CHUẨN THEO VẬT LÝ VÀ CHUẨN TRỤC TOẠ ĐỘ
+local function GetTargetCFrame(targetRoot) 
+    local targetPos = targetRoot.Position
+    local targetLookVector = targetRoot.CFrame.LookVector
+    local finalPos = targetPos
+    
+    if farmPosition == "Above" then 
+        finalPos = targetPos + Vector3.new(0, farmDistance, 0)
+    elseif farmPosition == "Underground" then 
+        finalPos = targetPos - Vector3.new(0, farmDistance, 0)
+    elseif farmPosition == "Front" then 
+        finalPos = targetPos + (targetLookVector * farmDistance)
+    elseif farmPosition == "Behind" then 
+        finalPos = targetPos - (targetLookVector * farmDistance)
+    end 
+    
+    return CFrame.new(finalPos, targetPos) 
+end
+
 -- =================================================== 
--- RAYFIELD TAB: AUTO FARM & LOOT 
+-- RAYFIELD INTERFACE 
 -- =================================================== 
 local CombatTab = Window:CreateTab("Auto Farm & Loot", 4483362458) 
 
-CombatTab:CreateSection("1. Cấu Hình Vị Trí Farm & Auto Farm") 
+CombatTab:CreateSection("1. Farm") 
 
 CombatTab:CreateToggle({ 
-    Name = "Bật Auto Farm", 
+    Name = "Enable Auto Farm", 
     CurrentValue = false, 
     Flag = "AutoFarmToggle", 
     Callback = function(Value) 
         autoFarm = Value 
-        if not Value then currentTarget = nil isCollectingLoot = false end 
+        if not Value then 
+            currentTarget = nil 
+            isCollectingLoot = false 
+        end 
+    end, 
+}) 
+
+CombatTab:CreateToggle({ 
+    Name = "Dodge When Attacked", 
+    CurrentValue = false, 
+    Flag = "DodgeAttackingToggle", 
+    Callback = function(Value) 
+        dodgeWhenAttacked = Value 
     end, 
 }) 
 
 CombatTab:CreateDropdown({ 
-    Name = "Vị Trí Đứng Farm Quái", 
-    Options = {"Phía Trên", "Dưới Lòng Đất", "Phía Trước", "Phía Sau"}, 
-    CurrentOption = {"Phía Trên"}, 
+    Name = "Farm Position", 
+    Options = {"Above", "Underground", "Front", "Behind"}, 
+    CurrentOption = {"Above"}, 
     MultipleOptions = false, 
     Flag = "FarmPosDropdown", 
     Callback = function(Option) 
@@ -148,8 +232,8 @@ CombatTab:CreateDropdown({
 }) 
 
 CombatTab:CreateSlider({ 
-    Name = "Khoảng Cách Farm (Studs)", 
-    Range = {2, 30}, 
+    Name = "Farm Distance (Studs)", 
+    Range = {2, 50}, 
     Increment = 1, 
     Suffix = "Studs", 
     CurrentValue = 7, 
@@ -158,47 +242,37 @@ CombatTab:CreateSlider({
 }) 
 
 CombatTab:CreateToggle({ 
-    Name = "Auto Lượm Đồ (Chỉ Nhảy Khi Có Đồ Rơi)", 
+    Name = "Auto Item TP", 
     CurrentValue = false, 
     Flag = "AutoLootToggle", 
     Callback = function(Value) autoLoot = Value end, 
 }) 
 
-CombatTab:CreateSlider({ 
-    Name = "Tầm Quét Tìm Quái Wave", 
-    Range = {100, 10000}, 
-    Increment = 100, 
-    Suffix = "Studs", 
-    CurrentValue = 5000, 
-    Flag = "MaxDistSlider", 
-    Callback = function(Value) maxTpDistance = Value end, 
-}) 
-
 CombatTab:CreateButton({ 
-    Name = "⚠️ Bỏ Qua Quái Kẹt Hiện Tại", 
+    Name = "Skip Current Enemy", 
     Callback = function() 
         if currentTarget and currentTarget.Parent then 
             blacklistedTargets[currentTarget.Parent] = true 
             currentTarget = nil 
-            Rayfield:Notify({ Title = "Combat", Content = "Đã bỏ qua quái kẹt!", Duration = 2 }) 
+            Rayfield:Notify({ Title = "Combat", Content = "Skipped current enemy!", Duration = 2 }) 
         end 
     end, 
 }) 
 
-CombatTab:CreateSection("2. Phím Skill Tự Động Spam") 
+CombatTab:CreateSection("2. Skill Auto Key") 
 
-CombatTab:CreateToggle({ Name = "Auto Click Chuột Trái (LMB)", CurrentValue = false, Flag = "LmbToggle", Callback = function(Value) useLMB = Value end }) 
-CombatTab:CreateToggle({ Name = "Auto Phím [ E ]", CurrentValue = false, Flag = "KeyEToggle", Callback = function(Value) useKeyE = Value end }) 
-CombatTab:CreateToggle({ Name = "Auto Phím [ Q ]", CurrentValue = false, Flag = "KeyQToggle", Callback = function(Value) useKeyQ = Value end }) 
-CombatTab:CreateToggle({ Name = "Auto Phím [ R ]", CurrentValue = false, Flag = "KeyRToggle", Callback = function(Value) useKeyR = Value end }) 
-CombatTab:CreateToggle({ Name = "Auto Phím [ F ]", CurrentValue = false, Flag = "KeyFToggle", Callback = function(Value) useKeyF = Value end }) 
+CombatTab:CreateToggle({ Name = "Auto Punch", CurrentValue = false, Flag = "LmbToggle", Callback = function(Value) useLMB = Value end }) 
+CombatTab:CreateToggle({ Name = "Auto Key [ E ]", CurrentValue = false, Flag = "KeyEToggle", Callback = function(Value) useKeyE = Value end }) 
+CombatTab:CreateToggle({ Name = "Auto Key [ Q ]", CurrentValue = false, Flag = "KeyQToggle", Callback = function(Value) useKeyQ = Value end }) 
+CombatTab:CreateToggle({ Name = "Auto Key [ R ]", CurrentValue = false, Flag = "KeyRToggle", Callback = function(Value) useKeyR = Value end }) 
+CombatTab:CreateToggle({ Name = "Auto Key [ F ]", CurrentValue = false, Flag = "KeyFToggle", Callback = function(Value) useKeyF = Value end }) 
 
-CombatTab:CreateSection("3. Hitbox Phóng To (Max 100)") 
+CombatTab:CreateSection("3. Hitbox") 
 
-CombatTab:CreateToggle({ Name = "Phóng To Hitbox Quái", CurrentValue = false, Flag = "HitboxToggle", Callback = function(Value) expandHitbox = Value end }) 
+CombatTab:CreateToggle({ Name = "Hitbox", CurrentValue = false, Flag = "HitboxToggle", Callback = function(Value) expandHitbox = Value end }) 
 
 CombatTab:CreateSlider({ 
-    Name = "Kích Thước Hitbox", 
+    Name = "Hitbox Size", 
     Range = {3, 100}, 
     Increment = 1, 
     Suffix = "Size", 
@@ -208,38 +282,34 @@ CombatTab:CreateSlider({
 }) 
 
 -- =================================================== 
--- BACKEND LOGIC 
+-- AUTO FARM LOGIC
 -- =================================================== 
 task.spawn(function() 
-    while task.wait(0.15) do 
+    while task.wait(0.12) do 
         if autoFarm and not isCollectingLoot then 
             pcall(function() 
-                local isTargetAlive = currentTarget and currentTarget.Parent and currentTarget.Parent:FindFirstChildOfClass("Humanoid") and currentTarget.Parent:FindFirstChildOfClass("Humanoid").Health > 0 
+                local myChar = LocalPlayer.Character
+                local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+                
+                -- Chỉ né khi BẬT nút Dodge When Attacked và BỊ MẤT MÁU
+                if myHum then
+                    if dodgeWhenAttacked and myHum.Health < lastMyHealth then
+                        if farmPosition == "Above" then
+                            farmPosition = "Underground"
+                        elseif farmPosition == "Underground" then
+                            farmPosition = "Behind"
+                        else
+                            farmPosition = "Above"
+                        end
+                    end
+                    lastMyHealth = myHum.Health
+                end
+
+                local isTargetAlive = currentTarget and currentTarget.Parent 
+                    and currentTarget.Parent:FindFirstChildOfClass("Humanoid") 
+                    and currentTarget.Parent:FindFirstChildOfClass("Humanoid").Health > 0 
+                
                 if not isTargetAlive then 
-                    if currentTarget then 
-                        local deathPos = currentTarget.Position 
-                        currentTarget = nil 
-                        if autoLoot then 
-                            local dropPrompt = GetNearbyLootPrompt(deathPos, 25) 
-                            if dropPrompt then 
-                                isCollectingLoot = true 
-                                local lootPart = dropPrompt.Parent 
-                                local startTime = tick() 
-                                while tick() - startTime < 0.35 and dropPrompt and dropPrompt.Parent and autoFarm do 
-                                    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") 
-                                    if root and lootPart then 
-                                        root.CFrame = lootPart.CFrame * CFrame.new(0, 1.5, 0) 
-                                        root.AssemblyLinearVelocity = Vector3.zero 
-                                        InstantCollectPrompt(dropPrompt) 
-                                    else 
-                                        break 
-                                    end 
-                                    task.wait(0.05) 
-                                end 
-                                isCollectingLoot = false 
-                            end 
-                        end 
-                    end 
                     currentTarget = GetNearestEnemy() 
                 end 
             end) 
@@ -247,24 +317,7 @@ task.spawn(function()
     end 
 end) 
 
-local function GetTargetCFrame(targetRoot) 
-    local targetCF = targetRoot.CFrame 
-    if farmPosition == "Phía Trên" then 
-        local pos = targetCF * CFrame.new(0, farmDistance, 0) 
-        return CFrame.new(pos.Position, targetRoot.Position) 
-    elseif farmPosition == "Dưới Lòng Đất" then 
-        local pos = targetCF * CFrame.new(0, -farmDistance, 0) 
-        return CFrame.new(pos.Position, targetRoot.Position) 
-    elseif farmPosition == "Phía Trước" then 
-        local pos = targetCF * CFrame.new(0, 0, -farmDistance) 
-        return CFrame.new(pos.Position, targetRoot.Position) 
-    elseif farmPosition == "Phía Sau" then 
-        local pos = targetCF * CFrame.new(0, 0, farmDistance) 
-        return CFrame.new(pos.Position, targetRoot.Position) 
-    end 
-    return targetCF * CFrame.new(0, farmDistance, 0) 
-end 
-
+-- Lock CFrame during Farm
 RunService.RenderStepped:Connect(function() 
     if autoFarm and not isCollectingLoot and currentTarget and currentTarget.Parent then 
         local hum = currentTarget.Parent:FindFirstChildOfClass("Humanoid") 
@@ -281,40 +334,22 @@ RunService.RenderStepped:Connect(function()
     end 
 end) 
 
+-- Auto Attack
 task.spawn(function() 
-    while task.wait(0.1) do 
+    while task.wait(0.08) do 
         if autoFarm and not isCollectingLoot then 
             pcall(function() 
-                if useLMB then 
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0) 
-                    task.wait(0.01) 
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0) 
-                end 
-                if useKeyE then 
-                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game) 
-                    task.wait(0.01) 
-                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game) 
-                end 
-                if useKeyQ then 
-                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game) 
-                    task.wait(0.01) 
-                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Q, false, game) 
-                end 
-                if useKeyR then 
-                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game) 
-                    task.wait(0.01) 
-                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game) 
-                end 
-                if useKeyF then 
-                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
-                    task.wait(0.01) 
-                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game) 
-                end 
+                if useLMB then VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0) task.wait(0.01) VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0) end 
+                if useKeyE then VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game) task.wait(0.01) VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game) end 
+                if useKeyQ then VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game) task.wait(0.01) VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Q, false, game) end 
+                if useKeyR then VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game) task.wait(0.01) VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game) end 
+                if useKeyF then VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) task.wait(0.01) VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game) end 
             end) 
         end 
     end 
 end) 
 
+-- Hitbox Resize
 task.spawn(function() 
     while task.wait(1) do 
         if expandHitbox then 
@@ -351,7 +386,7 @@ end)
 
 Rayfield:Notify({ 
     Title = "Ultra Toilet Fight 2", 
-    Content = "beta!", 
+    Content = "Fixed All!", 
     Duration = 4, 
     Image = 4483362458, 
 })
