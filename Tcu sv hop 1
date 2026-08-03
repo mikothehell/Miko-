@@ -1,25 +1,16 @@
 -- ====================================================
--- KIỂM TRA CHỐNG CHẠY TRÙNG SCRIPT NỐI TIẾP
--- ====================================================
-if getgenv().MIKO_HUB_LOADED then
-    return
-end
-getgenv().MIKO_HUB_LOADED = true
-
--- ====================================================
 -- 1. CẤU HÌNH LINK RAW SCRIPT & HÀM QUEUE TELEPORT CHUẨN
 -- ====================================================
-local SCRIPT_URL = "https://raw.githubusercontent.com/mikothehell/Miko-/refs/heads/main/Tcu%20sv%20hop"
+local SCRIPT_URL = "https://raw.githubusercontent.com/mikothehell/Miko-/refs/heads/main/Tcu%20sv%20hop%201"
 
 local function SaveScriptForTeleport()
     local teleQueue = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport) or queue_on_teleport
     if teleQueue then
         pcall(function()
-            -- Thêm Tham số thời gian (?t=...) để ÉP Executor luôn tải bản mới nhất từ Github, KHÔNG lấy cache cũ
+            -- Tự động nạp lại script khi qua server mới/cũ mà không bị chặn
             teleQueue([[
                 repeat task.wait() until game:IsLoaded()
-                getgenv().MIKO_HUB_LOADED = nil
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/mikothehell/Miko-/refs/heads/main/Tcu%20sv%20hop?t=" .. tostring(os.time())))()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/mikothehell/Miko-/refs/heads/main/Tcu%20sv%20hop%201?t=" .. tostring(os.time())))()
             ]])
         end)
     end
@@ -97,21 +88,20 @@ local function HopServer(reason)
     reason = reason or "Đang chuyển Server..."
     WindUI:Notify({ Title = "Server Hop", Content = reason, Duration = 3 })
 
-    getgenv().MIKO_HUB_LOADED = nil
     SaveScriptForTeleport()
 
     task.spawn(function()
         local teleported = false
 
-        -- Quét danh sách Server Public
+        -- Quét danh sách Server Public ngẫu nhiên (tránh bị vào lại SV cũ nhiều lần)
         pcall(function()
-            local ApiUrl = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+            local ApiUrl = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
             local rawData = game:HttpGet(ApiUrl)
             local decoded = HttpService:JSONDecode(rawData)
 
             if decoded and decoded.data then
                 for _, s in ipairs(decoded.data) do
-                    if s.playing < s.maxPlayers then
+                    if s.playing < s.maxPlayers and s.id ~= game.JobId then
                         TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
                         teleported = true
                         break
@@ -120,7 +110,7 @@ local function HopServer(reason)
             end
         end)
 
-        -- Phương thức dự phòng nếu API gặp lỗi
+        -- Dự phòng nếu không tìm được server khác
         if not teleported then
             pcall(function()
                 TeleportService:Teleport(game.PlaceId, LocalPlayer)
@@ -257,7 +247,7 @@ local function triggerPickup(char, itemData)
 end
 
 -- ====================================================
--- CREATING GUI TABS (CHỈ CÒN 3 TAB: AUTO ITEM, GOD MODE, DISCORD)
+-- CREATING GUI TABS
 -- ====================================================
 local ItemTab = Window:Tab({ Title = "Auto Item", Icon = "shopping-cart" })
 local GodTab = Window:Tab({ Title = "God Mode", Icon = "zap" })
