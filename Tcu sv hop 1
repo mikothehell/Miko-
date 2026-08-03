@@ -1,0 +1,475 @@
+-- ====================================================
+-- KIỂM TRA CHỐNG CHẠY TRÙNG SCRIPT NỐI TIẾP
+-- ====================================================
+if getgenv().MIKO_HUB_LOADED then
+    return
+end
+getgenv().MIKO_HUB_LOADED = true
+
+-- ====================================================
+-- 1. CẤU HÌNH LINK RAW SCRIPT & HÀM QUEUE TELEPORT CHUẨN
+-- ====================================================
+local SCRIPT_URL = "https://raw.githubusercontent.com/mikothehell/Miko-/refs/heads/main/Tcu%20sv%20hop"
+
+local function SaveScriptForTeleport()
+    local teleQueue = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport) or queue_on_teleport
+    if teleQueue then
+        pcall(function()
+            -- Thêm Tham số thời gian (?t=...) để ÉP Executor luôn tải bản mới nhất từ Github, KHÔNG lấy cache cũ
+            teleQueue([[
+                repeat task.wait() until game:IsLoaded()
+                getgenv().MIKO_HUB_LOADED = nil
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/mikothehell/Miko-/refs/heads/main/Tcu%20sv%20hop?t=" .. tostring(os.time())))()
+            ]])
+        end)
+    end
+end
+
+-- ====================================================
+-- LOAD WINDUI LIBRARY
+-- ====================================================
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+
+-- Create GUI Window
+local Window = WindUI:CreateWindow({
+    Title = "Toilet Collapsed Universe",
+    Icon = "sparkles",
+    Author = "MIKO HUB",
+    Folder = "MIKO HUB",
+    Size = UDim2.fromOffset(600, 480),
+    Transparent = true,
+    Theme = "Dark",
+})
+
+-- Roblox Services
+local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local Workspace = game:GetService("Workspace")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local LocalPlayer = Players.LocalPlayer
+
+-- ====================================================
+-- STATE VARIABLES
+-- ====================================================
+local AutoFarmEnabled = true        
+local AutoServerHopItem = true      
+local AutoServerHopDeath = true     
+local ReturnToOldPos = false
+local savedPosition = nil
+local PickupDelay = 0.15
+local ScanDelay = 0.3
+
+-- God Mode & Skills
+local AutoSpamEEnabled = false
+local InstantHoldEnabled = true
+local SpamSpeed = 0.02
+
+-- Misc
+local AntiAFKEnabled = true
+local DiscordLink = "https://discord.gg/7ZgvMqEpKG"
+local isHopping = false
+
+-- ====================================================
+-- HELPER FUNCTIONS & SERVER HOP
+-- ====================================================
+local function getRootPart()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum and hum.Health > 0 then
+            return char.HumanoidRootPart
+        end
+    end
+    return nil
+end
+
+local function stopVelocity(root)
+    if root then
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+    end
+end
+
+local function HopServer(reason)
+    if isHopping then return end
+    isHopping = true
+    reason = reason or "Đang chuyển Server..."
+    WindUI:Notify({ Title = "Server Hop", Content = reason, Duration = 3 })
+
+    getgenv().MIKO_HUB_LOADED = nil
+    SaveScriptForTeleport()
+
+    task.spawn(function()
+        local teleported = false
+
+        -- Quét danh sách Server Public
+        pcall(function()
+            local ApiUrl = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+            local rawData = game:HttpGet(ApiUrl)
+            local decoded = HttpService:JSONDecode(rawData)
+
+            if decoded and decoded.data then
+                for _, s in ipairs(decoded.data) do
+                    if s.playing < s.maxPlayers then
+                        TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
+                        teleported = true
+                        break
+                    end
+                end
+            end
+        end)
+
+        -- Phương thức dự phòng nếu API gặp lỗi
+        if not teleported then
+            pcall(function()
+                TeleportService:Teleport(game.PlaceId, LocalPlayer)
+            end)
+        end
+        
+        task.wait(6)
+        isHopping = false
+    end)
+end
+
+-- ====================================================
+-- LẮNG NGHE SỰ KIỆN CHẾT ĐỂ HOP SERVER
+-- ====================================================
+local function setupDeathListener(character)
+    if not character then return end
+    local hum = character:WaitForChild("Humanoid", 5)
+    if hum then
+        hum.Died:Connect(function()
+            if AutoServerHopDeath then
+                HopServer("Bạn đã chết! Đang đổi sang Server mới...")
+            end
+        end)
+    end
+end
+
+if LocalPlayer.Character then
+    setupDeathListener(LocalPlayer.Character)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    savedPosition = nil
+    setupDeathListener(char)
+end)
+
+local function isPlayerCharacter(obj)
+    for _, p in ipairs(Players:GetPlayers()) do
+        local pChar = p.Character
+        if pChar and (obj == pChar or obj:IsDescendantOf(pChar)) then
+            return true
+        end
+    end
+    return false
+end
+
+-- ====================================================
+-- ITEM FARMING LOGIC
+-- ====================================================
+local function isValidItem(obj, prompt)
+    if not obj or not obj.Parent then return false end
+    if isPlayerCharacter(obj) then return false end
+
+    if obj:IsA("Seat") or obj:IsA("VehicleSeat") or obj:FindFirstChildOfClass("Seat") or obj:FindFirstChildOfClass("VehicleSeat") then
+        return false
+    end
+
+    local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+    if model and not model:IsA("Tool") then
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        if hum then return false end
+    end
+
+    if prompt then
+        local actionText = string.lower(prompt.ActionText or "")
+        local objectText = string.lower(prompt.ObjectText or "")
+        local badWords = {"revive", "cứu", "help", "heal", "carry", "rescue", "drive", "ride", "enter", "vehicle", "shop", "buy", "talk"}
+        for _, badWord in ipairs(badWords) do
+            if string.find(actionText, badWord) or string.find(objectText, badWord) then
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+local function getMapItems()
+    local items = {}
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            local parent = obj.Parent
+            if parent and isValidItem(parent, obj) then
+                table.insert(items, { Type = "Prompt", Target = parent, Prompt = obj })
+            end
+        elseif obj:IsA("TouchTransmitter") then
+            local part = obj.Parent
+            if part and part:IsA("BasePart") and isValidItem(part, nil) then
+                table.insert(items, { Type = "Touch", Target = part, Part = part })
+            end
+        elseif obj:IsA("Tool") and obj.Parent == Workspace then
+            if isValidItem(obj, nil) then
+                local handle = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
+                if handle then
+                    table.insert(items, { Type = "Tool", Target = obj, Part = handle })
+                end
+            end
+        end
+    end
+    return items
+end
+
+local function triggerPickup(char, itemData)
+    if not char or not itemData or not itemData.Target or not itemData.Target.Parent then return end
+
+    if itemData.Prompt then
+        local prompt = itemData.Prompt
+        if prompt and prompt.Parent then
+            pcall(function()
+                prompt.HoldDuration = 0
+                prompt.RequiresLineOfSight = false
+                prompt.MaxActivationDistance = 9999
+                prompt.Enabled = true
+                if fireproximityprompt then
+                    fireproximityprompt(prompt, 0)
+                    task.wait(0.01)
+                    fireproximityprompt(prompt, 1)
+                end
+            end)
+        end
+    end
+
+    local targetPart = itemData.Part or (itemData.Target:IsA("BasePart") and itemData.Target or itemData.Target:FindFirstChildWhichIsA("BasePart", true))
+    if targetPart and firetouchinterest then
+        for _, part in ipairs(char:GetChildren()) do
+            if part:IsA("BasePart") then
+                pcall(function()
+                    firetouchinterest(part, targetPart, 0)
+                    task.wait(0.01)
+                    firetouchinterest(part, targetPart, 1)
+                end)
+            end
+        end
+    end
+end
+
+-- ====================================================
+-- CREATING GUI TABS (CHỈ CÒN 3 TAB: AUTO ITEM, GOD MODE, DISCORD)
+-- ====================================================
+local ItemTab = Window:Tab({ Title = "Auto Item", Icon = "shopping-cart" })
+local GodTab = Window:Tab({ Title = "God Mode", Icon = "zap" })
+local DiscordTab = Window:Tab({ Title = "Discord", Icon = "message-square" })
+
+-- ----------------------------------------------------
+-- 1. TAB AUTO FARM ITEM & HOP SERVER
+-- ----------------------------------------------------
+ItemTab:Toggle({
+    Title = "Auto Farm Item",
+    Desc = "Tự động teleport và nhặt vật phẩm trên bản đồ",
+    Value = AutoFarmEnabled,
+    Callback = function(state)
+        AutoFarmEnabled = state
+        local root = getRootPart()
+        if state then
+            if root and not savedPosition then savedPosition = root.CFrame end
+        else
+            if ReturnToOldPos and savedPosition and root then
+                root.Anchored = false
+                root.CFrame = savedPosition
+                stopVelocity(root)
+            end
+            savedPosition = nil
+            if root then root.Anchored = false end
+        end
+    end
+})
+
+ItemTab:Toggle({
+    Title = "Auto Hop (Hết Item Tự Đổi SV)",
+    Desc = "Tự đổi server khi nhặt sạch item trên bản đồ",
+    Value = AutoServerHopItem,
+    Callback = function(state)
+        AutoServerHopItem = state
+    end
+})
+
+ItemTab:Toggle({
+    Title = "Auto Hop Khi Chết (Hop On Death)",
+    Desc = "Tự động đổi server mới ngay lập tức khi nhân vật bị chết",
+    Value = AutoServerHopDeath,
+    Callback = function(state)
+        AutoServerHopDeath = state
+    end
+})
+
+ItemTab:Button({
+    Title = "Force Hop Server (Bấm để Hop ngay)",
+    Desc = "Thủ công chuyển sang Server khác ngay lập tức",
+    Callback = function()
+        HopServer("Bấm Hop thủ công! Đang đổi Server...")
+    end
+})
+
+ItemTab:Slider({
+    Title = "Pickup Speed (Seconds)",
+    Desc = "Thời gian nghỉ giữa mỗi lần nhặt item",
+    Step = 0.02,
+    Value = { Min = 0.05, Max = 0.5, Default = 0.15 },
+    Callback = function(val) PickupDelay = val end
+})
+
+-- ----------------------------------------------------
+-- 2. TAB GOD MODE & MISC
+-- ----------------------------------------------------
+GodTab:Toggle({
+    Title = "Auto Spam E",
+    Desc = "Tự động bấm/spam phím E liên tục",
+    Value = false,
+    Callback = function(state)
+        AutoSpamEEnabled = state
+    end
+})
+
+GodTab:Slider({
+    Title = "Spam E Speed (Seconds)",
+    Desc = "Tốc độ spam phím E",
+    Step = 0.01,
+    Value = { Min = 0.01, Max = 0.5, Default = 0.02 },
+    Callback = function(val) SpamSpeed = val end
+})
+
+GodTab:Toggle({
+    Title = "Anti-AFK (Chống Văng Game)",
+    Desc = "Chống văng game do treo máy sau 20 phút",
+    Value = true,
+    Callback = function(state) AntiAFKEnabled = state end
+})
+
+-- ----------------------------------------------------
+-- 3. TAB DISCORD
+-- ----------------------------------------------------
+DiscordTab:Button({
+    Title = "Copy Discord Server Link",
+    Desc = DiscordLink,
+    Callback = function()
+        if setclipboard then
+            setclipboard(DiscordLink)
+            WindUI:Notify({ Title = "Discord", Content = "Đã copy link Discord!", Duration = 3 })
+        elseif toclipboard then
+            toclipboard(DiscordLink)
+            WindUI:Notify({ Title = "Discord", Content = "Đã copy link Discord!", Duration = 3 })
+        end
+    end
+})
+
+-- ====================================================
+-- BACKGROUND LOOPS & EVENTS
+-- ====================================================
+
+-- 1. Anti-AFK Listener
+LocalPlayer.Idled:Connect(function()
+    if AntiAFKEnabled then
+        VirtualInputManager:Button2Down(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
+        task.wait(1)
+        VirtualInputManager:Button2Up(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
+    end
+end)
+
+-- 2. Instant Hold & Auto Spam E Loop
+task.spawn(function()
+    while true do
+        if AutoSpamEEnabled or InstantHoldEnabled then
+            for _, prompt in ipairs(Workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    prompt.HoldDuration = 0
+                    prompt.RequiresLineOfSight = false
+                    prompt.MaxActivationDistance = 9999
+                end
+            end
+        end
+        task.wait(0.5)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if AutoSpamEEnabled then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+            task.wait(0.01)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+        end
+        task.wait(SpamSpeed)
+    end
+end)
+
+-- 3. Auto Farm Item Loop
+task.spawn(function()
+    task.wait(3)
+    local emptyCheckCounter = 0
+
+    while true do
+        task.wait(ScanDelay)
+        if AutoFarmEnabled and not isHopping then
+            local char = LocalPlayer.Character
+            local root = getRootPart()
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+            if hum and hum.Health > 0 and root then
+                local items = getMapItems()
+                
+                if #items > 0 then
+                    emptyCheckCounter = 0
+                    local pickedAny = false
+
+                    for _, itemData in ipairs(items) do
+                        if not AutoFarmEnabled or isHopping then break end
+                        if hum.Health <= 0 then break end
+
+                        local target = itemData.Target
+                        if target and target.Parent then
+                            local targetCFrame = nil
+                            if itemData.Part then
+                                targetCFrame = itemData.Part.CFrame
+                            elseif target:IsA("BasePart") then
+                                targetCFrame = target.CFrame
+                            elseif target:IsA("Model") or target:IsA("Tool") then
+                                targetCFrame = target:GetPivot()
+                            end
+
+                            if targetCFrame then
+                                pcall(function()
+                                    root.Anchored = false
+                                    root.CFrame = targetCFrame * CFrame.new(0, 0.5, 0)
+                                    stopVelocity(root)
+                                    task.wait(0.05)
+
+                                    for i = 1, 2 do
+                                        if not target or not target.Parent or hum.Health <= 0 then break end
+                                        triggerPickup(char, itemData)
+                                        task.wait(0.03)
+                                    end
+
+                                    pickedAny = true
+                                    task.wait(PickupDelay)
+                                end)
+                            end
+                        end
+                    end
+
+                    local remainingItems = getMapItems()
+                    if (#remainingItems == 0 or not pickedAny) and AutoServerHopItem then
+                        HopServer("Đã thu thập xong Item! Đang chuyển Server...")
+                    end
+                else
+                    emptyCheckCounter = emptyCheckCounter + 1
+                    if AutoServerHopItem and emptyCheckCounter >= 2 then
+                        HopServer("Không có Item trên Map! Đang đổi Server...")
+                    end
+                end
+            end
+        end
+    end
+end)
