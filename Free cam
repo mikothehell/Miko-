@@ -1,0 +1,296 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- [[ FREECAM CONFIGURATION ]]
+local CamActive = false
+local CamSpeed = 1
+local CamFOV = 70
+local SavedCameraType = Camera.CameraType
+local SavedSubject = Camera.CameraSubject
+local CamCFrame = Camera.CFrame
+
+-- Independent camera rotation variables
+local CameraRotationX = 0
+local CameraRotationY = 0
+
+-- [[ MODERN GUI INITIALIZATION ]]
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "FreecamGui_Modern"
+ScreenGui.ResetOnSpawn = false
+
+-- Thử gán vào CoreGui nếu hỗ trợ, nếu không sẽ vào PlayerGui
+local success, _ = pcall(function()
+    ScreenGui.Parent = game:GetService("CoreGui")
+end)
+if not success then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Main Frame
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 200, 0, 280)
+MainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true
+
+local MainCorner = Instance.new("UICorner", MainFrame)
+MainCorner.CornerRadius = UDim.new(0, 14)
+
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Color = Color3.fromRGB(45, 50, 65)
+MainStroke.Thickness = 1.5
+
+-- Top Bar / Header Container
+local Header = Instance.new("Frame", MainFrame)
+Header.Size = UDim2.new(1, 0, 0, 40)
+Header.BackgroundTransparency = 1
+
+-- Title
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(0, 100, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "FREECAM"
+Title.TextColor3 = Color3.fromRGB(240, 240, 245)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Red Dot Button
+local RedDot = Instance.new("TextButton", Header)
+RedDot.Size = UDim2.new(0, 12, 0, 12)
+RedDot.Position = UDim2.new(1, -22, 0.5, -6)
+RedDot.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
+RedDot.BorderSizePixel = 0
+RedDot.Text = ""
+Instance.new("UICorner", RedDot).CornerRadius = UDim.new(1, 0)
+
+-- Hide/Show Button
+local HideBtn = Instance.new("TextButton", Header)
+HideBtn.Size = UDim2.new(0, 40, 0, 24)
+HideBtn.Position = UDim2.new(1, -68, 0.5, -12)
+HideBtn.BackgroundTransparency = 1
+HideBtn.Text = "HIDE"
+HideBtn.TextColor3 = Color3.fromRGB(130, 135, 150)
+HideBtn.Font = Enum.Font.GothamBold
+HideBtn.TextSize = 11
+
+-- Content Container
+local Content = Instance.new("Frame", MainFrame)
+Content.Size = UDim2.new(1, 0, 1, -40)
+Content.Position = UDim2.new(0, 0, 0, 40)
+Content.BackgroundTransparency = 1
+
+-- FOV Section Container
+local FOVContainer = Instance.new("Frame", Content)
+FOVContainer.Size = UDim2.new(1, -30, 0, 35)
+FOVContainer.Position = UDim2.new(0, 15, 0, 0)
+FOVContainer.BackgroundTransparency = 1
+
+local FOVLabel = Instance.new("TextLabel", FOVContainer)
+FOVLabel.Size = UDim2.new(1, 0, 0, 15)
+FOVLabel.BackgroundTransparency = 1
+FOVLabel.Text = "FOV: 70"
+FOVLabel.TextColor3 = Color3.fromRGB(0, 170, 255)
+FOVLabel.Font = Enum.Font.GothamBold
+FOVLabel.TextSize = 12
+FOVLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- FOV Slider Background
+local FOVSlider = Instance.new("TextButton", FOVContainer)
+FOVSlider.Size = UDim2.new(1, 0, 0, 6)
+FOVSlider.Position = UDim2.new(0, 0, 0, 22)
+FOVSlider.BackgroundColor3 = Color3.fromRGB(30, 35, 45)
+FOVSlider.Text = ""
+Instance.new("UICorner", FOVSlider).CornerRadius = UDim.new(1, 0)
+
+-- FOV Progress Bar
+local FOVProgress = Instance.new("Frame", FOVSlider)
+FOVProgress.Size = UDim2.new(0.444, 0, 1, 0) -- Default for FOV 70 (30 to 120 range)
+FOVProgress.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+FOVProgress.BorderSizePixel = 0
+Instance.new("UICorner", FOVProgress).CornerRadius = UDim.new(1, 0)
+
+-- Helper function to create stylish buttons
+local function CreateButton(name, text, positionY)
+    local btn = Instance.new("TextButton", Content)
+    btn.Name = name
+    btn.Size = UDim2.new(1, -30, 0, 36)
+    btn.Position = UDim2.new(0, 15, 0, positionY)
+    btn.BackgroundColor3 = Color3.fromRGB(28, 32, 42)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(230, 235, 245)
+    btn.Font = Enum.Font.GothamMedium
+    btn.TextSize = 12
+    
+    local btnCorner = Instance.new("UICorner", btn)
+    btnCorner.CornerRadius = UDim.new(0, 8)
+    
+    local btnStroke = Instance.new("UIStroke", btn)
+    btnStroke.Color = Color3.fromRGB(45, 50, 65)
+    btnStroke.Thickness = 1
+    
+    return btn
+end
+
+-- Buttons
+local StatusBtn = CreateButton("StatusBtn", "STATUS: OFF", 45)
+local SpeedBtn = CreateButton("SpeedBtn", "SPEED: 1x", 90)
+local TeleportBtn = CreateButton("TeleportBtn", "TELEPORT HERE", 135)
+
+-- Made by Miko Credits Label
+local CreditLabel = Instance.new("TextLabel", MainFrame)
+CreditLabel.Size = UDim2.new(1, 0, 0, 20)
+CreditLabel.Position = UDim2.new(0, 0, 1, -22)
+CreditLabel.BackgroundTransparency = 1
+CreditLabel.Text = "Made by Miko"
+CreditLabel.TextColor3 = Color3.fromRGB(90, 95, 110)
+CreditLabel.Font = Enum.Font.GothamMedium
+CreditLabel.TextSize = 10
+
+-- [[ LOGIC AND EVENTS ]]
+
+-- Character anchor function
+local function SetCharacterAnchor(anchor)
+    local char = LocalPlayer.Character
+    if char then
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.Anchored = anchor
+        end
+    end
+end
+
+-- 1. Toggle Freecam Status
+local function ToggleFreecam()
+    CamActive = not CamActive
+    if CamActive then
+        StatusBtn.Text = "STATUS: ON"
+        StatusBtn.BackgroundColor3 = Color3.fromRGB(20, 75, 45)
+        StatusBtn.TextColor3 = Color3.fromRGB(100, 255, 160)
+        StatusBtn:FindFirstChildOfClass("UIStroke").Color = Color3.fromRGB(40, 140, 80)
+        
+        SavedCameraType = Camera.CameraType
+        SavedSubject = Camera.CameraSubject
+        CamCFrame = Camera.CFrame
+        
+        local _, y, z = Camera.CFrame:ToOrientation()
+        CameraRotationX = y
+        CameraRotationY = z
+        
+        Camera.CameraType = Enum.CameraType.Scriptable
+        SetCharacterAnchor(true)
+    else
+        StatusBtn.Text = "STATUS: OFF"
+        StatusBtn.BackgroundColor3 = Color3.fromRGB(28, 32, 42)
+        StatusBtn.TextColor3 = Color3.fromRGB(230, 235, 245)
+        StatusBtn:FindFirstChildOfClass("UIStroke").Color = Color3.fromRGB(45, 50, 65)
+        
+        Camera.CameraType = SavedCameraType
+        Camera.CameraSubject = SavedSubject
+        SetCharacterAnchor(false)
+    end
+end
+
+StatusBtn.MouseButton1Click:Connect(ToggleFreecam)
+
+-- 2. Speed Cycle
+local Speeds = {1, 2, 5, 10, 20, 0.5}
+local currentSpeedIndex = 1
+SpeedBtn.MouseButton1Click:Connect(function()
+    currentSpeedIndex = currentSpeedIndex + 1
+    if currentSpeedIndex > #Speeds then currentSpeedIndex = 1 end
+    CamSpeed = Speeds[currentSpeedIndex]
+    SpeedBtn.Text = "SPEED: " .. CamSpeed .. "x"
+end)
+
+-- 3. FOV Slider Control
+FOVSlider.MouseButton1Click:Connect(function()
+    local mousePos = UserInputService:GetMouseLocation()
+    local relativeX = mousePos.X - FOVSlider.AbsolutePosition.X
+    local percentage = math.clamp(relativeX / FOVSlider.AbsoluteSize.X, 0, 1)
+    
+    CamFOV = math.floor(30 + (percentage * 90))
+    FOVProgress.Size = UDim2.new(percentage, 0, 1, 0)
+    FOVLabel.Text = "FOV: " .. CamFOV
+    Camera.FieldOfView = CamFOV
+end)
+
+-- 4. Teleport Character to Freecam Position
+TeleportBtn.MouseButton1Click:Connect(function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.Anchored = false
+        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(Camera.CFrame.Position)
+        if CamActive then LocalPlayer.Character.HumanoidRootPart.Anchored = true end
+    end
+end)
+
+-- 5. Minimize / Restore Menu
+local IsHidden = false
+local function ToggleMenuVisibility()
+    if IsHidden then
+        MainFrame:TweenSize(UDim2.new(0, 200, 0, 280), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.25, true)
+        HideBtn.Text = "HIDE"
+        Content.Visible = true
+        CreditLabel.Visible = true
+    else
+        MainFrame:TweenSize(UDim2.new(0, 200, 0, 40), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.25, true)
+        HideBtn.Text = "SHOW"
+        Content.Visible = false
+        CreditLabel.Visible = false
+    end
+    IsHidden = not IsHidden
+end
+
+HideBtn.MouseButton1Click:Connect(ToggleMenuVisibility)
+RedDot.MouseButton1Click:Connect(ToggleMenuVisibility)
+
+-- 6. Screen Drag / Touch Swipe for Camera Rotation
+UserInputService.InputChanged:Connect(function(input)
+    if not CamActive then return end
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+        local sensitivity = 0.005
+        CameraRotationX = CameraRotationX - input.Delta.X * sensitivity
+        CameraRotationY = math.clamp(CameraRotationY - input.Delta.Y * sensitivity, -math.rad(80), math.rad(80))
+    end
+end)
+
+-- 7. RenderStepped Loop: Movement Vector Handling
+RunService.RenderStepped:Connect(function(dt)
+    if CamActive then
+        Camera.FieldOfView = CamFOV
+        
+        local finalRotation = CFrame.Angles(0, CameraRotationX, 0) * CFrame.Angles(CameraRotationY, 0, 0)
+        Camera.CFrame = CFrame.new(CamCFrame.Position) * finalRotation
+        
+        local moveDirection = Vector3.new(0, 0, 0)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            moveDirection = LocalPlayer.Character.Humanoid.MoveDirection
+        end
+        
+        if moveDirection.Magnitude > 0 then
+            local forwardVector = Camera.CFrame.LookVector
+            local rightVector = Camera.CFrame.RightVector
+            
+            local camActiveCFrame = Camera.CFrame
+            local forwardInput = moveDirection:Dot(Vector3.new(camActiveCFrame.LookVector.X, 0, camActiveCFrame.LookVector.Z).Unit)
+            local sideInput = moveDirection:Dot(Vector3.new(camActiveCFrame.RightVector.X, 0, camActiveCFrame.RightVector.Z).Unit)
+            
+            local flyVector = (forwardVector * forwardInput) + (rightVector * sideInput)
+            
+            if flyVector.Magnitude > 0 then
+                flyVector = flyVector.Unit
+                CamCFrame = CFrame.new(CamCFrame.Position + (flyVector * (CamSpeed * 60 * dt)))
+            end
+        end
+        
+        Camera.CFrame = CFrame.new(CamCFrame.Position) * finalRotation
+    end
+end)
