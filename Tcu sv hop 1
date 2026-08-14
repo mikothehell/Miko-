@@ -63,7 +63,7 @@ local function SaveScriptForTeleport()
                 repeat task.wait() until game:IsLoaded() and game:GetService("Players").LocalPlayer
                 _G.MIKO_HUB_RUNNING = nil
                 task.wait(0.5)
-                loadstring(game:HttpGet(""))()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/mikothehell/Miko-/refs/heads/main/Tcu%20sv%20hop%201"))()
             ]])
         end)
     end
