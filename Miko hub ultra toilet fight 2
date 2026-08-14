@@ -1,16 +1,10 @@
-local success, Rayfield = pcall(function()
-    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-end)
-
-if not success or not Rayfield then
-    warn("not working son!")
-    return
-end
+local success, Rayfield = pcall(function() return loadstring(game:HttpGet('https://sirius.menu/rayfield'))() end)
+if not success or not Rayfield then warn("not working son!") return end
 
 local Window = Rayfield:CreateWindow({
    Name = "Ultra Toilet Fight 2 - Miko Hub",
    LoadingTitle = "Ultra Toilet Fight 2",
-   LoadingSubtitle = "by dev miko",
+   LoadingSubtitle = "by dev miko (Fixed Hitbox)",
    ConfigurationSaving = { Enabled = false },
    KeySystem = false
 })
@@ -36,7 +30,7 @@ local dodgeWhenAttacked = false
 local enableSpeed = false
 local enableJump = false
 
-local hitboxSize = 29 -- Đã cập nhật thành 29
+local hitboxSize = 29 
 local maxTpDistance = 5000
 local farmDistance = 7
 local walkSpeedValue = 16
@@ -236,7 +230,6 @@ end
 -- ===================================================
 -- RAYFIELD INTERFACE
 -- ===================================================
-
 local FarmTab = Window:CreateTab("Auto Farm & Loot", 4483362458)
 FarmTab:CreateSection("1. Farm Options")
 
@@ -357,7 +350,7 @@ SkillTab:CreateSlider({
    Range = {3, 100},
    Increment = 1,
    Suffix = "Size",
-   CurrentValue = 29, -- Đã cập nhật mặc định là 29
+   CurrentValue = 29, 
    Flag = "HitboxSizeSlider",
    Callback = function(Value) hitboxSize = Value end,
 })
@@ -524,28 +517,31 @@ task.spawn(function()
     end
 end)
 
+-- FIXED HITBOX LOGIC (Hỗ trợ Toilet lớn/boss không bị chìm xuống đất)
 local function ApplyHitbox(v)
     if v:IsA("Model") and IsEnemy(v) then
-        local enemyRoot = v:FindFirstChild("HumanoidRootPart") or v:FindFirstChild("Head")
-        if enemyRoot then
-            -- Áp dụng hitbox 29
-            if enemyRoot.Size ~= Vector3.new(hitboxSize, hitboxSize, hitboxSize) then
-                enemyRoot.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-            end
-            if not enemyRoot:GetAttribute("HitboxResized") then
-                enemyRoot:SetAttribute("HitboxResized", true)
-                enemyRoot.Transparency = 0.7
-                enemyRoot.BrickColor = BrickColor.new("Really blue")
-                enemyRoot.Material = Enum.Material.Neon
-                enemyRoot.CanCollide = false
-                enemyRoot.CanTouch = false
+        -- Mở rộng cả HumanoidRootPart và Head để bắt trọn những con Toilet lớn
+        local partsToExpand = {v:FindFirstChild("HumanoidRootPart"), v:FindFirstChild("Head")}
+        for _, part in ipairs(partsToExpand) do
+            if part and part:IsA("BasePart") then
+                if part.Size ~= Vector3.new(hitboxSize, hitboxSize, hitboxSize) then
+                    part.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                end
+                if not part:GetAttribute("HitboxResized") then
+                    part:SetAttribute("HitboxResized", true)
+                    part.Transparency = 0.6
+                    part.BrickColor = BrickColor.new("Really blue")
+                    part.Material = Enum.Material.Neon
+                    part.CanCollide = false
+                    part.CanTouch = false
+                end
             end
         end
     end
 end
 
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(0.5) do
         if expandHitbox then
             pcall(function()
                 for _, v in ipairs(Workspace:GetChildren()) do
@@ -563,7 +559,7 @@ end)
 
 Rayfield:Notify({
    Title = "Miko Hub Loaded",
-   Content = "mini up!",
+   Content = "Fixed Big Toilet Hitbox Successfully!",
    Duration = 4,
    Image = 4483362458,
 })
