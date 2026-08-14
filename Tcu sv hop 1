@@ -470,3 +470,93 @@ task.spawn(function()
 end)
 
 print("MIKO HUB loaded smoothly!")
+
+
+-- Instant Hold & Auto Spam E Loop (Tăng thời gian chờ lên 1s để giảm tải)
+task.spawn(function()
+    while true do
+        if Config.AutoSpamEEnabled or InstantHoldEnabled then
+            for _, prompt in ipairs(Workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    prompt.HoldDuration = 0
+                    prompt.RequiresLineOfSight = false
+                    prompt.MaxActivationDistance = 9999
+                end
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if Config.AutoSpamEEnabled then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+            task.wait(0.01)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+        end
+        task.wait(Config.SpamSpeed)
+    end
+end)
+
+-- Auto Farm Loop (Tối ưu hóa để chạy mượt mà không bị khựng hình)
+task.spawn(function()
+    task.wait(3)
+    local emptyCheckCounter = 0
+    while true do
+        task.wait(ScanDelay)
+        if Config.AutoFarmEnabled and not isHopping then
+            local char = LocalPlayer.Character
+            local root = getRootPart()
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 and root then
+                local items = getMapItems()
+                if #items > 0 then
+                    emptyCheckCounter = 0
+                    local pickedAny = false
+                    for _, itemData in ipairs(items) do
+                        if not Config.AutoFarmEnabled or isHopping then break end
+                        if hum.Health <= 0 then break end
+                        local target = itemData.Target
+                        if target and target.Parent then
+                            local targetCFrame = nil
+                            if itemData.Part then
+                                targetCFrame = itemData.Part.CFrame
+                            elseif target:IsA("BasePart") then
+                                targetCFrame = target.CFrame
+                            elseif target:IsA("Model") or target:IsA("Tool") then
+                                targetCFrame = target:GetPivot()
+                            end
+                            if targetCFrame then
+                                pcall(function()
+                                    root.Anchored = false
+                                    root.CFrame = targetCFrame * CFrame.new(0, 0.5, 0)
+                                    stopVelocity(root)
+                                    task.wait(0.02)
+                                    for i = 1, 2 do
+                                        if not target or not target.Parent or hum.Health <= 0 then break end
+                                        triggerPickup(char, itemData)
+                                        task.wait(0.02)
+                                    end
+                                    pickedAny = true
+                                    task.wait(Config.PickupDelay)
+                                end)
+                            end
+                        end
+                    end
+                    local remainingItems = getMapItems()
+                    if (#remainingItems == 0 or not pickedAny) and Config.AutoServerHopItem then
+                        HopServer("Finished collecting items! Hopping server...")
+                    end
+                else
+                    emptyCheckCounter = emptyCheckCounter + 1
+                    if Config.AutoServerHopItem and emptyCheckCounter >= 3 then
+                        HopServer("No items found on map! Hopping server...")
+                    end
+                end
+            end
+        end
+    end
+end)
+
+print("MIKO HUB loaded smoothly!")
