@@ -1,569 +1,471 @@
-local success, Rayfield = pcall(function()
-    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-end)
-
-if not success or not Rayfield then
-    warn("not working son!")
-    return
-end
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Ultra Toilet Fight 2 - Miko Hub",
-   LoadingTitle = "Ultra Toilet Fight 2",
-   LoadingSubtitle = "by dev miko",
+   Name = "Super Toilet Fight Miko Hub",
+   LoadingTitle = "dev miko",
+   LoadingSubtitle = "Fixed Toilet Target System",
    ConfigurationSaving = { Enabled = false },
+   Discord = {
+      Enabled = true,
+      Invite = "jZxZmGr6zy",
+      RememberJoins = true
+   },
    KeySystem = false
 })
 
-local Players = game:GetService("Players")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local ProximityPromptService = game:GetService("ProximityPromptService")
-local VirtualUser = game:GetService("VirtualUser")
-local TeleportService = game:GetService("TeleportService")
+-- GLOBAL CONFIGURATION
+_G.AutoFarm = false
+_G.FarmPosition = "Underground"
+_G.FarmDistance = 8
 
+_G.SuperHitbox = false
+_G.HitboxSize = 40
+_G.FastAttack = false
+_G.WalkSpeedValue = 16
+
+_G.AutoSkill = false       
+_G.SkillDelay = 0.3        
+_G.AutoPunch = false       
+
+_G.AntiAFK = true
+
+_G.SelectedSkills = {
+    [1] = true, [2] = true, [3] = true, [4] = true, [5] = true,
+    [6] = true, [7] = true, [8] = true, [9] = true, [10] = true
+}
+
+_G.AutoLetterKeys = false
+_G.SelectedLetterKeys = {}
+
+local letterList = {"Q", "E", "R", "T", "Y", "U", "I", "O", "P", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M"}
+for _, k in ipairs(letterList) do
+    _G.SelectedLetterKeys[k] = false
+end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 
--- ===================================================
--- CONTROL VARIABLES
--- ===================================================
-local autoFarm = false
-local smartFarmEnabled = false 
-local autoLoot = false
-local expandHitbox = false
-local dodgeWhenAttacked = false
-local enableSpeed = false
-local enableJump = false
-
-local hitboxSize = 29 -- Đã cập nhật thành 29
-local maxTpDistance = 5000
-local farmDistance = 7
-local walkSpeedValue = 16
-local jumpPowerValue = 50
-local farmPosition = "Above"
-
 local currentTarget = nil
-local isCollectingLoot = false
-local blacklistedTargets = {}
+local lastSkillUsedTime = 0
+local isExecutingSkills = false
 
--- Health Counter System
-local lastMyHealth = 100
-local lastDodgeTime = 0
-local dodgeCooldown = 1.5 
+local skillKeyCodes = {
+    [1] = Enum.KeyCode.One, [2] = Enum.KeyCode.Two, [3] = Enum.KeyCode.Three,
+    [4] = Enum.KeyCode.Four, [5] = Enum.KeyCode.Five, [6] = Enum.KeyCode.Six,
+    [7] = Enum.KeyCode.Seven, [8] = Enum.KeyCode.Eight, [9] = Enum.KeyCode.Nine,
+    [10] = Enum.KeyCode.Zero
+}
 
--- Smart Farm Variables
-local lastTargetPosition = Vector3.new(0, 0, 0)
-local lastEnemyHealth = 100
-local missAttackCount = 0
-local maxMissBeforeSwitch = 5
-local smartFarmModes = {"Above", "Front", "Behind"}
-local smartFarmIndex = 1
-
--- Skill Key Variables
-local useLMB = false
-local activeKeys = {}
-local keyList = {"Q", "E", "R", "T", "Y", "U", "I", "O", "P", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M"}
-
-for _, k in ipairs(keyList) do
-    activeKeys[k] = false
-end
-
--- ===================================================
--- ANTI-AFK SYSTEM
--- ===================================================
-LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new(0, 0))
-    Rayfield:Notify({ Title = "Anti-AFK", Content = "Đã chặn Roblox Kick AFK!", Duration = 3 })
-end)
-
--- ===================================================
--- AUTO LOOT ITEM & PROXIMITY PROMPT
--- ===================================================
-local function InstantCollectPrompt(prompt)
-    if not prompt or not prompt:IsA("ProximityPrompt") or not prompt.Enabled then return end
-    pcall(function()
-        prompt.RequiresLineOfSight = false
-        prompt.HoldDuration = 0
-        prompt.MaxActivationDistance = 9999
-        if fireproximityprompt then
-            fireproximityprompt(prompt)
-        else
-            prompt:InputHoldBegin()
-            task.wait()
-            prompt:InputHoldEnd()
-        end
-    end)
-end
-
-ProximityPromptService.PromptShown:Connect(function(prompt)
-    if autoLoot or isCollectingLoot then
-        InstantCollectPrompt(prompt)
+-- HÀM NHẬN DIỆN TOILET CHUẨN XÁC 100%
+local function isValidToilet(mob)
+    if not mob or not mob:IsA("Model") then return false end
+    
+    local char = LocalPlayer.Character
+    if char and (mob == char or mob:IsDescendantOf(char)) then 
+        return false 
     end
-end)
-
-local function ScanAndCollectAllLoot()
-    if not autoLoot then return end
-    local myChar = LocalPlayer.Character
-    local root = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    pcall(function()
-        for _, parentObj in ipairs(Workspace:GetChildren()) do
-            if not autoLoot then break end
-            
-            if parentObj:IsA("BasePart") or parentObj:IsA("Model") or parentObj:IsA("Folder") then
-                for _, obj in ipairs(parentObj:GetChildren()) do
-                    if obj:IsA("ProximityPrompt") and obj.Enabled then
-                        local parentPart = obj.Parent
-                        if parentPart then
-                            local targetPos = parentPart:IsA("BasePart") and parentPart.Position or (parentPart:IsA("Model") and parentPart:GetPivot().Position)
-                            if targetPos then
-                                isCollectingLoot = true
-                                root.CFrame = CFrame.new(targetPos) * CFrame.new(0, 1.5, 0)
-                                root.AssemblyLinearVelocity = Vector3.zero
-                                InstantCollectPrompt(obj)
-                                task.wait(0.08)
-                                isCollectingLoot = false
-                            end
-                        end
-                    end
-                end
-
-                local nameLower = parentObj.Name:lower()
-                if parentObj:IsA("BasePart") or parentObj:IsA("Model") then
-                    if nameLower:find("coin") or nameLower:find("point") or nameLower:find("drop") or nameLower:find("item") or nameLower:find("card") or nameLower:find("cash") or nameLower:find("box") then
-                        local targetCF = parentObj:IsA("BasePart") and parentObj.CFrame or parentObj:GetPivot()
-                        if (targetCF.Position - root.Position).Magnitude <= maxTpDistance then
-                            isCollectingLoot = true
-                            root.CFrame = targetCF * CFrame.new(0, 1, 0)
-                            root.AssemblyLinearVelocity = Vector3.zero
-                            local touch = parentObj:FindFirstChildOfClass("TouchTransmitter") or (parentObj:IsA("BasePart") and parentObj)
-                            if touch and firetouchinterest then
-                                firetouchinterest(root, parentObj:IsA("BasePart") and parentObj or parentObj.PrimaryPart, 0)
-                                task.wait(0.02)
-                                firetouchinterest(root, parentObj:IsA("BasePart") and parentObj or parentObj.PrimaryPart, 1)
-                            end
-                            task.wait(0.08)
-                            isCollectingLoot = false
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-task.spawn(function()
-    while task.wait(0.15) do
-        if autoLoot and not isCollectingLoot then
-            ScanAndCollectAllLoot()
-        end
-    end
-end)
-
--- ===================================================
--- ENEMY FILTERING & FARM UTILITIES
--- ===================================================
-local function IsEnemy(model)
-    if not model or not model:IsA("Model") then return false end
-    if model == LocalPlayer.Character then return false end
-    if Players:GetPlayerFromCharacter(model) then return false end
-    if blacklistedTargets[model] then return false end
-
-    local hum = model:FindFirstChildOfClass("Humanoid")
+    
+    -- Kiểm tra xem có phải người chơi khác không
+    if Players:GetPlayerFromCharacter(mob) then return false end
+    
+    local hum = mob:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return false end
-
-    local root = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Head") or model.PrimaryPart
-    if not root or root.Anchored then return false end
-
-    local nameLower = model.Name:lower()
-    if string.find(nameLower, "shop") or string.find(nameLower, "display") or string.find(nameLower, "showcase") or string.find(nameLower, "lobby") or string.find(nameLower, "store") or string.find(nameLower, "building") or string.find(nameLower, "glass") or string.find(nameLower, "npc") then
+    
+    local mobName = string.lower(mob.Name)
+    local parentName = mob.Parent and string.lower(mob.Parent.Name) or ""
+    
+    -- Loại trừ NPC sảnh/Lobby/Dummy
+    if string.find(mobName, "dummy") or string.find(mobName, "shop") or string.find(mobName, "roblox") then
         return false
     end
-    return true
-end
-
-local function GetNearestEnemy()
-    local myChar = LocalPlayer.Character
-    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
-    local myPos = myChar.HumanoidRootPart.Position
-    local nearest = nil
-    local shortestDistance = maxTpDistance
-
-    local function CheckModel(v)
-        if v:IsA("Model") and IsEnemy(v) then
-            local enemyRoot = v:FindFirstChild("HumanoidRootPart") or v:FindFirstChild("Head") or v.PrimaryPart
-            if enemyRoot then
-                local dist = (myPos - enemyRoot.Position).Magnitude
-                if dist < shortestDistance then
-                    shortestDistance = dist
-                    nearest = enemyRoot
-                end
-            end
-        end
+    if string.find(parentName, "lobby") or string.find(parentName, "safe") then
+        return false
+    end
+    
+    -- Bắt buộc là Toilet hoặc Mob trong khu vực chiến đấu
+    if string.find(mobName, "toilet") or string.find(parentName, "toilet") or string.find(parentName, "wave") or string.find(parentName, "enemy") or string.find(parentName, "enemies") or string.find(parentName, "mobs") then
+        return true
+    end
+    
+    -- Nếu không khớp tên folder nhưng có Humanoid và ở ngoài khu vực chiến đấu thì vẫn chấp nhận
+    local hrp = mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChild("Head") or mob.PrimaryPart
+    if hrp then
+        return true
     end
 
-    for _, v in ipairs(Workspace:GetChildren()) do
-        CheckModel(v)
-        if v:IsA("Folder") or (v:IsA("Model") and not IsEnemy(v)) then
-            for _, child in ipairs(v:GetChildren()) do
-                CheckModel(child)
-            end
-        end
-    end
-    return nearest
+    return false
 end
 
-local function GetTargetCFrame(targetRoot)
-    local targetPos = targetRoot.Position
-    local targetLookVector = targetRoot.CFrame.LookVector
-    local finalPos = targetPos
-
-    if farmPosition == "Above" then
-        finalPos = targetPos + Vector3.new(0, farmDistance, 0)
-    elseif farmPosition == "Underground" then
-        finalPos = targetPos - Vector3.new(0, farmDistance, 0)
-    elseif farmPosition == "Front" then
-        finalPos = targetPos + (targetLookVector * farmDistance)
-    elseif farmPosition == "Behind" then
-        finalPos = targetPos - (targetLookVector * farmDistance)
-    end
-    return CFrame.new(finalPos, targetPos)
-end
-
--- ===================================================
--- RAYFIELD INTERFACE
--- ===================================================
-
-local FarmTab = Window:CreateTab("Auto Farm & Loot", 4483362458)
-FarmTab:CreateSection("1. Farm Options")
-
-local farmDistSliderObj
+-- TAB 1: AUTO FARM & GODMODE
+local FarmTab = Window:CreateTab("Auto Farm", 4483362458)
 
 FarmTab:CreateToggle({
    Name = "Enable Auto Farm",
    CurrentValue = false,
    Flag = "AutoFarmToggle",
    Callback = function(Value)
-       autoFarm = Value
-       if not Value then
-           currentTarget = nil
-           isCollectingLoot = false
-           missAttackCount = 0
-           lastEnemyHealth = 100
-       end
-   end,
-})
-
-FarmTab:CreateToggle({
-   Name = "Enable Smart Farm",
-   CurrentValue = false,
-   Flag = "SmartFarmToggle",
-   Callback = function(Value)
-       smartFarmEnabled = Value
-   end,
-})
-
-FarmTab:CreateToggle({
-   Name = "Dodge When Attacked",
-   CurrentValue = false,
-   Flag = "DodgeAttackingToggle",
-   Callback = function(Value)
-       dodgeWhenAttacked = Value
+      _G.AutoFarm = Value
+      if not Value then currentTarget = nil end
    end,
 })
 
 FarmTab:CreateDropdown({
-   Name = "Farm Position",
-   Options = {"Above", "Underground", "Front", "Behind"},
-   CurrentOption = {"Above"},
+   Name = "Farm Position (Underground = Godmode)",
+   Options = {"Underground", "Above", "Behind", "In Front"},
+   CurrentOption = {"Underground"},
    MultipleOptions = false,
    Flag = "FarmPosDropdown",
    Callback = function(Option)
-       farmPosition = type(Option) == "table" and Option[1] or Option
+      _G.FarmPosition = type(Option) == "table" and Option[1] or Option
    end,
 })
 
-farmDistSliderObj = FarmTab:CreateSlider({
-   Name = "Farm Distance (Studs)",
-   Range = {2, 50},
+FarmTab:CreateSlider({
+   Name = "Farm Distance",
+   Range = {-50, 100},
    Increment = 1,
    Suffix = "Studs",
-   CurrentValue = 7,
+   CurrentValue = 8,
    Flag = "FarmDistSlider",
    Callback = function(Value)
-       farmDistance = Value
+      _G.FarmDistance = Value
    end,
 })
 
-FarmTab:CreateSection("2. Item Auto Collect")
+-- TAB 2: EXPLOITS & HITBOX
+local ExploitTab = Window:CreateTab("Exploits", 4483362458)
 
-FarmTab:CreateToggle({
-   Name = "Auto Item TP / Loot",
+ExploitTab:CreateToggle({
+   Name = "Super Hitbox (Fix Reach Touch)",
    CurrentValue = false,
-   Flag = "AutoLootToggle",
+   Flag = "SuperHitboxToggle",
    Callback = function(Value)
-       autoLoot = Value
+      _G.SuperHitbox = Value
    end,
 })
 
-FarmTab:CreateButton({
-   Name = "Skip Current Enemy",
-   Callback = function()
-       if currentTarget and currentTarget.Parent then
-           blacklistedTargets[currentTarget.Parent] = true
-           currentTarget = nil
-           Rayfield:Notify({ Title = "Combat", Content = "Skipped current enemy!", Duration = 2 })
-       end
+ExploitTab:CreateSlider({
+   Name = "Hitbox Size",
+   Range = {15, 300},
+   Increment = 5,
+   Suffix = "Studs",
+   CurrentValue = 40,
+   Flag = "HitboxSizeSlider",
+   Callback = function(Value)
+      _G.HitboxSize = Value
    end,
 })
 
-local SkillTab = Window:CreateTab("Skills & Hitbox", 4483362458)
-
-SkillTab:CreateSection("Auto Attack / Mouse")
-SkillTab:CreateToggle({ 
-    Name = "Auto Punch", 
-    CurrentValue = false, 
-    Flag = "LmbToggle", 
-    Callback = function(V) useLMB = V end 
+ExploitTab:CreateToggle({
+   Name = "Fast Attack (0.05s)",
+   CurrentValue = false,
+   Flag = "FastAttackToggle",
+   Callback = function(Value)
+      _G.FastAttack = Value
+   end,
 })
 
-SkillTab:CreateSection("Auto Keys")
+ExploitTab:CreateSlider({
+   Name = "WalkSpeed",
+   Range = {16, 300},
+   Increment = 2,
+   Suffix = "Speed",
+   CurrentValue = 16,
+   Flag = "SpeedSlider",
+   Callback = function(Value)
+      _G.WalkSpeedValue = Value
+      pcall(function() LocalPlayer.Character.Humanoid.WalkSpeed = Value end)
+   end,
+})
 
-for _, keyName in ipairs(keyList) do
-    SkillTab:CreateToggle({
-        Name = "Auto Key [ " .. keyName .. " ]",
-        CurrentValue = false,
-        Flag = "KeyToggle_" .. keyName,
-        Callback = function(Value)
-            activeKeys[keyName] = Value
-        end
-    })
-end
-
-SkillTab:CreateSection("Hitbox Mod")
+-- TAB 3: CUSTOM SKILL SELECTION
+local SkillTab = Window:CreateTab("Skill Selection", 4483362458)
 
 SkillTab:CreateToggle({
-   Name = "Expand Hitbox",
+   Name = "Enable Auto Skill",
    CurrentValue = false,
-   Flag = "HitboxToggle",
-   Callback = function(Value) expandHitbox = Value end
+   Flag = "AutoSkillToggle",
+   Callback = function(Value) _G.AutoSkill = Value end,
+})
+
+SkillTab:CreateToggle({
+   Name = "Auto Punch / Normal Attack",
+   CurrentValue = false,
+   Flag = "AutoPunchToggle",
+   Callback = function(Value) _G.AutoPunch = Value end,
 })
 
 SkillTab:CreateSlider({
-   Name = "Hitbox Size",
-   Range = {3, 100},
-   Increment = 1,
-   Suffix = "Size",
-   CurrentValue = 29, -- Đã cập nhật mặc định là 29
-   Flag = "HitboxSizeSlider",
-   Callback = function(Value) hitboxSize = Value end,
+   Name = "Skill Delay Speed",
+   Range = {0.01, 3},
+   Increment = 0.05,
+   Suffix = "Seconds",
+   CurrentValue = 0.3,
+   Flag = "SkillDelaySlider",
+   Callback = function(Value) _G.SkillDelay = Value end,
 })
 
-local PlayerTab = Window:CreateTab("Player & Utility", 4483362458)
+for i = 1, 10 do
+    local label = i == 10 and "Use Skill 10 (Key 0)" or ("Use Skill " .. i .. " (Key " .. i .. ")")
+    SkillTab:CreateToggle({
+       Name = label,
+       CurrentValue = true,
+       Flag = "UseSkillToggle_" .. i,
+       Callback = function(Value)
+          _G.SelectedSkills[i] = Value
+       end,
+    })
+end
 
-PlayerTab:CreateSection("Player Movement")
+-- TAB 4: AUTO KEYS (A-Z)
+local LetterKeyTab = Window:CreateTab("Auto Keys (A-Z)", 4483362458)
 
-PlayerTab:CreateToggle({
-   Name = "Enable Custom Speed",
+LetterKeyTab:CreateToggle({
+   Name = "Enable Auto Letter Keys",
    CurrentValue = false,
-   Flag = "EnableSpeedToggle",
-   Callback = function(Value) enableSpeed = Value end,
+   Flag = "AutoLetterKeysToggle",
+   Callback = function(Value) _G.AutoLetterKeys = Value end,
 })
 
-PlayerTab:CreateSlider({
-   Name = "WalkSpeed",
-   Range = {16, 250},
-   Increment = 1,
-   CurrentValue = 16,
-   Flag = "WalkSpeedSlider",
-   Callback = function(Value) walkSpeedValue = Value end,
+for _, keyChar in ipairs(letterList) do
+    LetterKeyTab:CreateToggle({
+       Name = "Auto Key [ " .. keyChar .. " ]",
+       CurrentValue = false,
+       Flag = "LetterKeyToggle_" .. keyChar,
+       Callback = function(Value)
+          _G.SelectedLetterKeys[keyChar] = Value
+       end,
+    })
+end
+
+-- TAB 5: SETTINGS
+local SettingTab = Window:CreateTab("Settings", 4483362458)
+
+SettingTab:CreateToggle({
+   Name = "Anti-AFK",
+   CurrentValue = true,
+   Flag = "AntiAFKToggle",
+   Callback = function(Value) _G.AntiAFK = Value end,
 })
 
-PlayerTab:CreateToggle({
-   Name = "Enable Custom Jump",
-   CurrentValue = false,
-   Flag = "EnableJumpToggle",
-   Callback = function(Value) enableJump = Value end,
-})
-
-PlayerTab:CreateSlider({
-   Name = "JumpPower",
-   Range = {50, 300},
-   Increment = 5,
-   CurrentValue = 50,
-   Flag = "JumpPowerSlider",
-   Callback = function(Value) jumpPowerValue = Value end,
-})
-
-PlayerTab:CreateSection("Server Utilities")
-
-PlayerTab:CreateButton({
-   Name = "Rejoin Server (Vào Lại Server)",
-   Callback = function()
-       TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-   end,
-})
-
--- ===================================================
--- BACKGROUND LOOPS & LOGIC IMPLEMENTATION
--- ===================================================
-
-RunService.RenderStepped:Connect(function()
-    pcall(function()
-        local myChar = LocalPlayer.Character
-        if myChar then
-            local hum = myChar:FindFirstChildOfClass("Humanoid")
-            if hum then
-                if enableSpeed then hum.WalkSpeed = walkSpeedValue end
-                if enableJump then 
-                    hum.UseJumpPower = true
-                    hum.JumpPower = jumpPowerValue 
-                end
-            end
-        end
-    end)
+-- Anti-AFK Handler
+LocalPlayer.Idled:Connect(function()
+    if _G.AntiAFK then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new(0, 0))
+    end
 end)
 
-task.spawn(function()
-    while task.wait(0.2) do
-        if autoFarm and not isCollectingLoot then
-            pcall(function()
-                local myChar = LocalPlayer.Character
-                local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
-                
-                if myHum then
-                    if dodgeWhenAttacked and myHum.Health < lastMyHealth and (tick() - lastDodgeTime > dodgeCooldown) then
-                        lastDodgeTime = tick()
-                        if smartFarmEnabled then
-                            smartFarmIndex = (smartFarmIndex % #smartFarmModes) + 1
-                            farmPosition = smartFarmModes[smartFarmIndex]
-                        end
-                    end
-                    lastMyHealth = myHum.Health
-                end
+-- Character Respawn Handler
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    currentTarget = nil
+    local hum = newChar:WaitForChild("Humanoid", 5)
+    if hum then hum.WalkSpeed = _G.WalkSpeedValue end
+    newChar:WaitForChild("HumanoidRootPart", 5)
+    task.wait(1)
+end)
 
-                local isTargetAlive = currentTarget and currentTarget.Parent and currentTarget.Parent:FindFirstChildOfClass("Humanoid") and currentTarget.Parent:FindFirstChildOfClass("Humanoid").Health > 0
-                if not isTargetAlive then
-                    currentTarget = GetNearestEnemy()
-                    missAttackCount = 0
-                else
-                    local targetHum = currentTarget.Parent:FindFirstChildOfClass("Humanoid")
-                    if targetHum then
-                        if smartFarmEnabled then
-                            if targetHum.Health == lastEnemyHealth and (currentTarget.Position - lastTargetPosition).Magnitude < 1 then
-                                missAttackCount = missAttackCount + 1
-                                if missAttackCount >= maxMissBeforeSwitch then
-                                    missAttackCount = 0
-                                    
-                                    smartFarmIndex = (smartFarmIndex % #smartFarmModes) + 1
-                                    farmPosition = smartFarmModes[smartFarmIndex]
-                                    
-                                    farmDistance = math.max(6, farmDistance - 2)
-                                    
-                                    if farmDistSliderObj and farmDistSliderObj.Set then
-                                        farmDistSliderObj:Set({farmDistance})
-                                    end
+-- NOCLIP HANDLER
+RunService.Stepped:Connect(function()
+    if _G.AutoFarm and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- HITBOX LOOP DÀNH RIÊNG CHO TOILET
+task.spawn(function()
+    while task.wait(0.15) do
+        if _G.SuperHitbox then
+            pcall(function()
+                local char = LocalPlayer.Character
+                for _, v in pairs(workspace:GetDescendants()) do
+                    if v:IsA("Humanoid") and v.Parent and isValidToilet(v.Parent) then
+                        local mob = v.Parent
+                        if mob ~= char then
+                            for _, part in pairs(mob:GetDescendants()) do
+                                if part:IsA("BasePart") then
+                                    part.Size = Vector3.new(_G.HitboxSize, _G.HitboxSize, _G.HitboxSize)
+                                    part.Transparency = 0.75
+                                    part.BrickColor = BrickColor.new("Really red")
+                                    part.Material = Enum.Material.Neon
+                                    part.CanCollide = false
+                                    part.CanTouch = true
                                 end
-                            else
-                                missAttackCount = 0
                             end
                         end
-                        lastEnemyHealth = targetHum.Health
                     end
-                    lastTargetPosition = currentTarget.Position
-                end
-            end)
-        else
-            missAttackCount = 0
-            lastEnemyHealth = 100
-        end
-    end
-end)
-
-RunService.RenderStepped:Connect(function()
-    if autoFarm and not isCollectingLoot and currentTarget and currentTarget.Parent then
-        local hum = currentTarget.Parent:FindFirstChildOfClass("Humanoid")
-        if hum and hum.Health > 0 then
-            pcall(function()
-                local myChar = LocalPlayer.Character
-                if myChar and myChar:FindFirstChild("HumanoidRootPart") then
-                    local myRoot = myChar.HumanoidRootPart
-                    myRoot.CFrame = GetTargetCFrame(currentTarget)
-                    myRoot.AssemblyLinearVelocity = Vector3.zero
                 end
             end)
         end
     end
 end)
 
-task.spawn(function()
-    while task.wait(0.1) do
-        if autoFarm and not isCollectingLoot then
-            pcall(function()
-                if useLMB then
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                    task.wait(0.015)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+local function calculateFarmCFrame(enemyHrp)
+    local pos = _G.FarmPosition
+    local dist = _G.FarmDistance
+    
+    if pos == "Above" then
+        return enemyHrp.CFrame * CFrame.new(0, dist, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+    elseif pos == "Underground" then
+        return enemyHrp.CFrame * CFrame.new(0, -dist, 0) * CFrame.Angles(math.rad(90), 0, 0)
+    elseif pos == "Behind" then
+        return enemyHrp.CFrame * CFrame.new(0, 0, dist)
+    elseif pos == "In Front" then
+        return enemyHrp.CFrame * CFrame.new(0, 0, -dist) * CFrame.Angles(0, math.rad(180), 0)
+    end
+    
+    return enemyHrp.CFrame * CFrame.new(0, -dist, 0)
+end
+
+-- HÀM QUÉT TOILET GẦN NHẤT
+local function getNearestToilet()
+    local closest = nil
+    local shortestDist = math.huge
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    local myPos = char.HumanoidRootPart.Position
+
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("Humanoid") and v.Parent and isValidToilet(v.Parent) then
+            local mob = v.Parent
+            local hrp = mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChild("Head") or mob:FindFirstChild("Torso") or mob.PrimaryPart
+            if hrp then
+                local dist = (myPos - hrp.Position).Magnitude
+                if dist < shortestDist then
+                    shortestDist = dist
+                    closest = mob
                 end
-                
-                for keyName, isEnabled in pairs(activeKeys) do
-                    if isEnabled then
-                        local keyCode = Enum.KeyCode[keyName]
-                        if keyCode then
-                            VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
-                            task.wait(0.015)
-                            VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+            end
+        end
+    end
+    return closest
+end
+
+-- VÒNG LẶP DI CHUYỂN AUTO FARM TOILET
+RunService.Heartbeat:Connect(function()
+    if _G.AutoFarm and LocalPlayer.Character then
+        local char = LocalPlayer.Character
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+
+        if hrp and hum and hum.Health > 0 then
+            if hum:GetState() == Enum.HumanoidStateType.Freefall or hum:GetState() == Enum.HumanoidStateType.Physics then
+                hum:ChangeState(Enum.HumanoidStateType.Running)
+            end
+
+            if currentTarget then
+                if not currentTarget.Parent or not isValidToilet(currentTarget) then
+                    currentTarget = nil
+                end
+            end
+
+            if currentTarget then
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.AssemblyAngularVelocity = Vector3.zero
+
+                local enemyHrp = currentTarget:FindFirstChild("HumanoidRootPart") or currentTarget:FindFirstChild("Head") or currentTarget:FindFirstChild("Torso") or currentTarget.PrimaryPart
+                if enemyHrp then
+                    hrp.CFrame = calculateFarmCFrame(enemyHrp)
+                end
+            end
+        end
+    end
+end)
+
+local function executeSmartCombat(char)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    if _G.AutoSkill and not isExecutingSkills then
+        local currentTime = tick()
+        if currentTime - lastSkillUsedTime >= _G.SkillDelay then
+            lastSkillUsedTime = currentTime
+            isExecutingSkills = true
+
+            task.spawn(function()
+                local backpack = LocalPlayer:FindFirstChild("Backpack")
+                local tools = {}
+                if backpack then
+                    for _, item in pairs(backpack:GetChildren()) do
+                        if item:IsA("Tool") then
+                            table.insert(tools, item)
                         end
                     end
                 end
+
+                for i = 1, 10 do
+                    if not _G.AutoSkill or not _G.AutoFarm then break end
+                    if _G.SelectedSkills[i] then
+                        local key = skillKeyCodes[i]
+                        if key then
+                            VirtualInputManager:SendKeyEvent(true, key, false, game)
+                            task.wait(0.02)
+                            VirtualInputManager:SendKeyEvent(false, key, false, game)
+                        end
+
+                        if tools[i] and tools[i].Parent == backpack then
+                            pcall(function()
+                                hum:EquipTool(tools[i])
+                                task.wait(0.02)
+                                tools[i]:Activate()
+                            end)
+                        end
+
+                        task.wait(0.02)
+                    end
+                end
+
+                isExecutingSkills = false
             end)
         end
     end
-end)
 
-local function ApplyHitbox(v)
-    if v:IsA("Model") and IsEnemy(v) then
-        local enemyRoot = v:FindFirstChild("HumanoidRootPart") or v:FindFirstChild("Head")
-        if enemyRoot then
-            -- Áp dụng hitbox 29
-            if enemyRoot.Size ~= Vector3.new(hitboxSize, hitboxSize, hitboxSize) then
-                enemyRoot.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+    if _G.AutoLetterKeys then
+        task.spawn(function()
+            for keyChar, isEnabled in pairs(_G.SelectedLetterKeys) do
+                if isEnabled and Enum.KeyCode[keyChar] then
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[keyChar], false, game)
+                    task.wait(0.015)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[keyChar], false, game)
+                end
             end
-            if not enemyRoot:GetAttribute("HitboxResized") then
-                enemyRoot:SetAttribute("HitboxResized", true)
-                enemyRoot.Transparency = 0.7
-                enemyRoot.BrickColor = BrickColor.new("Really blue")
-                enemyRoot.Material = Enum.Material.Neon
-                enemyRoot.CanCollide = false
-                enemyRoot.CanTouch = false
-            end
-        end
+        end)
+    end
+
+    if _G.AutoPunch then
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        task.wait(0.01)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     end
 end
 
+-- MAIN FARM THREAD (LIÊN TỤC QUÉT TOILET CHÍNH XÁC)
 task.spawn(function()
-    while task.wait(1) do
-        if expandHitbox then
+    while true do
+        local loopSpeed = _G.FastAttack and 0.05 or 0.1
+        task.wait(loopSpeed)
+        if _G.AutoFarm then
             pcall(function()
-                for _, v in ipairs(Workspace:GetChildren()) do
-                    ApplyHitbox(v)
-                    if v:IsA("Folder") then
-                        for _, child in ipairs(v:GetChildren()) do
-                            ApplyHitbox(child)
-                        end
-                    end
+                local char = LocalPlayer.Character
+                if not char then return end
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then return end
+                
+                if not currentTarget or not isValidToilet(currentTarget) then
+                    currentTarget = getNearestToilet()
+                end
+                
+                if currentTarget then
+                    executeSmartCombat(char)
                 end
             end)
         end
     end
 end)
-
-Rayfield:Notify({
-   Title = "Miko Hub Loaded",
-   Content = "mini up!",
-   Duration = 4,
-   Image = 4483362458,
-})
