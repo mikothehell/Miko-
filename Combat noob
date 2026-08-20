@@ -1,0 +1,364 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local VirtualUser = game:GetService("VirtualUser")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Load Rayfield UI Framework
+local Rayfield
+local success, result = pcall(function()
+    return loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+end)
+
+if success and result then
+    Rayfield = result
+else
+    Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
+end
+
+-- Optimization Caches & References
+local TargetCache = {}
+local NextCacheRefresh = 0
+local RemoteCache = {}
+
+-- Configuration State
+local Config = {
+    AutoFarm = false,
+    AutoPunch = false,
+    UndergroundDepth = 12,
+    HitboxExpander = false,
+    HitboxSize = 25,
+    TargetName = "",
+    AntiAFK = true,
+    FarmRange = 10000
+}
+
+-- Anti-AFK Hook
+pcall(function()
+    LocalPlayer.Idled:Connect(function()
+        if Config.AntiAFK then
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new(0, 0))
+        end
+    end)
+end)
+
+-- Dynamic Remote Finder & Cache
+local function CacheCombatRemotes()
+    RemoteCache = {}
+    
+    local function ScanContainer(container)
+        if not container then return end
+        for _, obj in ipairs(container:GetDescendants()) do
+            if obj:IsA("RemoteEvent") then
+                local lname = string.lower(obj.Name)
+                if string.find(lname, "punch") or string.find(lname, "attack") or string.find(lname, "hit") or string.find(lname, "combat") or string.find(lname, "damage") or string.find(lname, "m1") then
+                    table.insert(RemoteCache, obj)
+                end
+            end
+        end
+    end
+
+    ScanContainer(ReplicatedStorage)
+    if LocalPlayer.Character then
+        ScanContainer(LocalPlayer.Character)
+    end
+end
+
+-- Refresh Remotes Initially and on Character Respawn
+CacheCombatRemotes()
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(1)
+    CacheCombatRemotes()
+end)
+
+-- Target Entity Validation
+local function IsValidTarget(model)
+    if not model or not model:IsA("Model") then return false end
+    if model == LocalPlayer.Character or model:IsDescendantOf(LocalPlayer.Character) then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+    
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Head") or model.PrimaryPart
+    
+    if not hum or hum.Health <= 0 or not hrp then return false end
+    
+    local targetFilter = string.lower(Config.TargetName or "")
+    if targetFilter == "" then
+        return true
+    end
+
+    local mobName = string.lower(model.Name)
+    if string.find(mobName, targetFilter) then
+        return true
+    end
+    
+    return false
+end
+
+-- Hitbox Validation
+local function IsValidHitboxTarget(model)
+    if not model or not model:IsA("Model") then return false end
+    if model == LocalPlayer.Character or model:IsDescendantOf(LocalPlayer.Character) then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+    
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return false end
+    
+    local mobName = string.lower(model.Name)
+    if string.find(mobName, "dummy") or string.find(mobName, "shop") then return false end
+    
+    return true
+end
+
+-- Spatial Target Finder with Bounding Extents
+local function GetClosestTargetUnderground()
+    local char = LocalPlayer.Character
+    if not char then return nil end
+    local myHrp = char:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return nil end
+    
+    local now = os.clock()
+    if now > NextCacheRefresh then
+        TargetCache = {}
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("Model") and IsValidTarget(obj) then
+                table.insert(TargetCache, obj)
+            end
+        end
+        NextCacheRefresh = now + 0.2
+    end
+    
+    local myPos = myHrp.Position
+    local closest, shortestDist = nil, Config.FarmRange
+    
+    for i = #TargetCache, 1, -1 do
+        local mob = TargetCache[i]
+        if mob and mob.Parent and IsValidTarget(mob) then
+            local hrp = mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChild("Head") or mob.PrimaryPart
+            if hrp then
+                local dist = (hrp.Position - myPos).Magnitude
+                if dist < shortestDist then
+                    shortestDist = dist
+                    closest = mob
+                end
+            end
+        else
+            table.remove(TargetCache, i)
+        end
+    end
+    
+    return closest
+end
+
+-- Precise M1 / Tool Attack Execution with Input Simulation
+local function PerformPunch()
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    -- 1. Robust Tool Activation & Simulation Fallback
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool then
+        tool:Activate()
+    else
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            local firstTool = backpack:FindFirstChildOfClass("Tool")
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if firstTool and hum then
+                hum:EquipTool(firstTool)
+                task.defer(function()
+                    firstTool:Activate()
+                end)
+            end
+        end
+    end
+
+    -- Force Mouse Click simulation for UIs/Tools bound to M1/Punch text triggers
+    pcall(function()
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        task.wait(0.02)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    end)
+
+    -- 2. Direct Network Event Firing
+    if #RemoteCache == 0 then
+        CacheCombatRemotes()
+    end
+
+    local target = GetClosestTargetUnderground()
+    for _, remote in ipairs(RemoteCache) do
+        if remote and remote.Parent then
+            pcall(function()
+                if target then
+                    local targetHrp = target:FindFirstChild("HumanoidRootPart") or target.PrimaryPart
+                    remote:FireServer(target, targetHrp and targetHrp.Position)
+                else
+                    remote:FireServer()
+                end
+            end)
+        end
+    end
+end
+
+-- Safe Position Lock & Upward Look Subterranean Engine
+RunService.Stepped:Connect(function()
+    if not Config.AutoFarm then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
+    
+    for _, part in ipairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+    
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
+    hrp.AssemblyLinearVelocity = Vector3.zero
+    hrp.AssemblyAngularVelocity = Vector3.zero
+    
+    local target = GetClosestTargetUnderground()
+    if target then
+        local targetHrp = target:FindFirstChild("HumanoidRootPart") or target:FindFirstChild("Head") or target.PrimaryPart
+        
+        if targetHrp then
+            -- Position strictly underneath the target and look straight UP toward them
+            local targetPos = targetHrp.Position - Vector3.new(0, Config.UndergroundDepth, 0)
+            hrp.CFrame = CFrame.lookAt(targetPos, targetHrp.Position)
+        end
+    end
+end)
+
+-- Active Combat Loop
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if Config.AutoPunch or Config.AutoFarm then
+            PerformPunch()
+        end
+    end
+end)
+
+-- Hitbox Expansion Engine
+task.spawn(function()
+    while true do
+        task.wait(0.3)
+        if Config.HitboxExpander then
+            pcall(function()
+                for _, obj in ipairs(Workspace:GetDescendants()) do
+                    if obj:IsA("Model") and IsValidHitboxTarget(obj) then
+                        for _, part in ipairs(obj:GetChildren()) do
+                            if part:IsA("BasePart") then
+                                part.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
+                                part.Transparency = 0.7
+                                part.BrickColor = BrickColor.new("Really red")
+                                part.Material = Enum.Material.ForceField
+                                part.CanCollide = false
+                                part.CanTouch = true
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- Rayfield Window Construct
+local Window = Rayfield:CreateWindow({
+    Name = "CNSD: Reborn miko hub",
+    LoadingTitle = "new game",
+    LoadingSubtitle = "by miko",
+    ConfigurationSaving = { Enabled = false },
+    Discord = { Enabled = false },
+    KeySystem = false
+})
+
+local FarmTab = Window:CreateTab("Auto Farm", 4483362458)
+local CombatTab = Window:CreateTab("Combat & Hitbox", 4483362458)
+local SettingsTab = Window:CreateTab("Settings", 4483362458)
+
+-- Controls Interface
+FarmTab:CreateToggle({
+    Name = "Subterranean Auto-Farm Engine",
+    CurrentValue = false,
+    Flag = "AutoFarmToggle",
+    Callback = function(Value)
+        Config.AutoFarm = Value
+    end,
+})
+
+FarmTab:CreateSlider({
+    Name = "Subterranean Depth Offset",
+    Range = {5, 40},
+    Increment = 1,
+    Suffix = "Studs Underground",
+    CurrentValue = 12,
+    Flag = "UndergroundDepthSlider",
+    Callback = function(Value)
+        Config.UndergroundDepth = Value
+    end,
+})
+
+CombatTab:CreateToggle({
+    Name = "Auto Punch / Direct Attack",
+    CurrentValue = false,
+    Flag = "AutoPunchToggle",
+    Callback = function(Value)
+        Config.AutoPunch = Value
+    end,
+})
+
+CombatTab:CreateToggle({
+    Name = "Hitbox Expander",
+    CurrentValue = false,
+    Flag = "HitboxToggle",
+    Callback = function(Value)
+        Config.HitboxExpander = Value
+    end,
+})
+
+CombatTab:CreateSlider({
+    Name = "Hitbox Size",
+    Range = {5, 100},
+    Increment = 1,
+    Suffix = "Studs",
+    CurrentValue = 25,
+    Flag = "HitboxSizeSlider",
+    Callback = function(Value)
+        Config.HitboxSize = Value
+    end,
+})
+
+SettingsTab:CreateToggle({
+    Name = "Anti-AFK Protection",
+    CurrentValue = true,
+    Flag = "AntiAFKToggle",
+    Callback = function(Value)
+        Config.AntiAFK = Value
+    end,
+})
+
+SettingsTab:CreateInput({
+    Name = "Target Entity Name Filter",
+    PlaceholderText = "noob",
+    RemoveTextOnFocusLost = false,
+    Callback = function(Text)
+        Config.TargetName = Text or "noob"
+    end,
+})
+
+Rayfield:Notify({
+    Title = "miko hub",
+    Content = "dev miko!",
+    Duration = 3.5,
+    Image = 4483362458,
+})
