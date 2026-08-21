@@ -1,1 +1,634 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Super Toilet Fight Miko Hub",
+    LoadingTitle = "dev miko",
+    LoadingSubtitle = "up mini",
+    ConfigurationSaving = { Enabled = false },
+    Discord = { Enabled = true, Invite = "jZxZmGr6zy", RememberJoins = true },
+    KeySystem = false
+})
+
+-- GLOBAL CONFIGURATION
+_G.AutoFarm = false
+_G.FarmPosition = "Underground"
+_G.FarmDistance = 8
+_G.SuperHitbox = false
+_G.HitboxSize = 40
+_G.FastAttack = false
+_G.WalkSpeedValue = 16
+_G.AutoSkill = false
+_G.SkillDelay = 0.3
+_G.AutoPunch = false
+_G.AntiAFK = true
+_G.SelectedSkills = {
+    [1] = true, [2] = true, [3] = true, [4] = true, [5] = true,
+    [6] = true, [7] = true, [8] = true, [9] = true, [10] = true
+}
+_G.AutoLetterKeys = false
+_G.SelectedLetterKeys = {}
+
+-- Auto Mode & Map Selection Configuration
+_G.AutoSelectMode = false
+_G.SelectedGameMode = "Medium"
+
+_G.AutoSelectMap = false
+_G.SelectedGameMap = "Baseplate"
+
+local letterList = {"Q", "E", "R", "T", "Y", "U", "I", "O", "P", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M"}
+for _, k in ipairs(letterList) do
+    _G.SelectedLetterKeys[k] = false
+end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualUser = game:GetService("VirtualUser")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local currentTarget = nil
+local lastSkillUsedTime = 0
+local isExecutingSkills = false
+
+local skillKeyCodes = {
+    [1] = Enum.KeyCode.One,
+    [2] = Enum.KeyCode.Two,
+    [3] = Enum.KeyCode.Three,
+    [4] = Enum.KeyCode.Four,
+    [5] = Enum.KeyCode.Five,
+    [6] = Enum.KeyCode.Six,
+    [7] = Enum.KeyCode.Seven,
+    [8] = Enum.KeyCode.Eight,
+    [9] = Enum.KeyCode.Nine,
+    [10] = Enum.KeyCode.Zero
+}
+
+-- STRICT & ACCURATE TOILET TARGET FINDER (FIXED NPC & LOBBY TARGET BUG)
+local function isValidToilet(mob)
+    if not mob or not mob:IsA("Model") then return false end
+    
+    local char = LocalPlayer.Character
+    if char and (mob == char or mob:IsDescendantOf(char)) then return false end
+    if Players:GetPlayerFromCharacter(mob) then return false end
+    
+    local hum = mob:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return false end
+    
+    local mobName = string.lower(mob.Name)
+    local parentName = mob.Parent and string.lower(mob.Parent.Name) or ""
+    
+    -- Danh sách các từ khóa NPC / Sảnh / Leaderboard cần BỎ QUA
+    local blacklist = {
+        "dummy", "shop", "roblox", "lobby", "safe", "leaderboard", 
+        "cameraman", "speaker", "tvman", "scientist", "morph", 
+        "selector", "display", "stand", "pad", "spawn", "quest", 
+        "npc", "reward", "rank", "top", "statue"
+    }
+    
+    for _, word in ipairs(blacklist) do
+        if string.find(mobName, word) or string.find(parentName, word) then
+            return false
+        end
+    end
+    
+    -- Kiểm tra nếu nằm trong thư mục quái chuẩn của Game
+    if string.find(parentName, "wave") or string.find(parentName, "enemy") or string.find(parentName, "enemies") or string.find(parentName, "mobs") or string.find(parentName, "spawns") then
+        return true
+    end
+    
+    -- Kiểm tra tên quái có chứa từ khóa Toilet / Enemy không
+    if string.find(mobName, "toilet") or string.find(mobName, "skibidi") or string.find(mobName, "astro") or string.find(mobName, "boss") or string.find(mobName, "mutant") or string.find(mobName, "parasite") then
+        return true
+    end
+    
+    -- Nếu không nằm trong folder quái và không có từ khóa quái -> Bỏ qua
+    return false
+end
+
+-- TAB 1: AUTO FARM & GODMODE
+local FarmTab = Window:CreateTab("Auto Farm", 4483362458)
+
+FarmTab:CreateToggle({
+    Name = "Enable Auto Farm",
+    CurrentValue = false,
+    Flag = "AutoFarmToggle",
+    Callback = function(Value)
+        _G.AutoFarm = Value
+        if not Value then currentTarget = nil end
+    end,
+})
+
+FarmTab:CreateDropdown({
+    Name = "Farm Position (Underground = Godmode)",
+    Options = {"Underground", "Above", "Behind", "In Front"},
+    CurrentOption = {"Underground"},
+    MultipleOptions = false,
+    Flag = "FarmPosDropdown",
+    Callback = function(Option)
+        _G.FarmPosition = type(Option) == "table" and Option[1] or Option
+    end,
+})
+
+FarmTab:CreateSlider({
+    Name = "Farm Distance",
+    Range = {-50, 100},
+    Increment = 1,
+    Suffix = "Studs",
+    CurrentValue = 8,
+    Flag = "FarmDistSlider",
+    Callback = function(Value)
+        _G.FarmDistance = Value
+    end,
+})
+
+-- TAB 2: AUTO SELECT MODE
+local ModeTab = Window:CreateTab("Auto Select Mode", 4483362458)
+
+ModeTab:CreateToggle({
+    Name = "Enable Auto Select Mode",
+    CurrentValue = false,
+    Flag = "AutoSelectModeToggle",
+    Callback = function(Value)
+        _G.AutoSelectMode = Value
+    end,
+})
+
+ModeTab:CreateDropdown({
+    Name = "Select Game Mode",
+    Options = {"Easy", "Medium", "Hard", "Nightmare", "Boss Rush", "Astro Invasion"},
+    CurrentOption = {"Medium"},
+    MultipleOptions = false,
+    Flag = "GameModeDropdown",
+    Callback = function(Option)
+        _G.SelectedGameMode = type(Option) == "table" and Option[1] or Option
+    end,
+})
+
+-- TAB 3: AUTO SELECT MAP
+local MapTab = Window:CreateTab("Auto Select Map", 4483362458)
+
+MapTab:CreateToggle({
+    Name = "Enable Auto Select Map",
+    CurrentValue = false,
+    Flag = "AutoSelectMapToggle",
+    Callback = function(Value)
+        _G.AutoSelectMap = Value
+    end,
+})
+
+MapTab:CreateDropdown({
+    Name = "Select Game Map",
+    Options = {"Baseplate", "City", "Desert", "Snow", "Space"},
+    CurrentOption = {"Baseplate"},
+    MultipleOptions = false,
+    Flag = "GameMapDropdown",
+    Callback = function(Option)
+        _G.SelectedGameMap = type(Option) == "table" and Option[1] or Option
+    end,
+})
+
+-- TAB 4: EXPLOITS & HITBOX
+local ExploitTab = Window:CreateTab("Exploits", 4483362458)
+
+ExploitTab:CreateToggle({
+    Name = "Super Hitbox (Fix Reach Touch)",
+    CurrentValue = false,
+    Flag = "SuperHitboxToggle",
+    Callback = function(Value)
+        _G.SuperHitbox = Value
+    end,
+})
+
+ExploitTab:CreateSlider({
+    Name = "Hitbox Size",
+    Range = {15, 300},
+    Increment = 5,
+    Suffix = "Studs",
+    CurrentValue = 40,
+    Flag = "HitboxSizeSlider",
+    Callback = function(Value)
+        _G.HitboxSize = Value
+    end,
+})
+
+ExploitTab:CreateToggle({
+    Name = "Fast Attack (0.05s)",
+    CurrentValue = false,
+    Flag = "FastAttackToggle",
+    Callback = function(Value)
+        _G.FastAttack = Value
+    end,
+})
+
+ExploitTab:CreateSlider({
+    Name = "WalkSpeed",
+    Range = {16, 300},
+    Increment = 2,
+    Suffix = "Speed",
+    CurrentValue = 16,
+    Flag = "SpeedSlider",
+    Callback = function(Value)
+        _G.WalkSpeedValue = Value
+        pcall(function() LocalPlayer.Character.Humanoid.WalkSpeed = Value end)
+    end,
+})
+
+-- TAB 5: CUSTOM SKILL SELECTION
+local SkillTab = Window:CreateTab("Skill Selection", 4483362458)
+
+SkillTab:CreateToggle({
+    Name = "Enable Auto Skill",
+    CurrentValue = false,
+    Flag = "AutoSkillToggle",
+    Callback = function(Value)
+        _G.AutoSkill = Value
+    end,
+})
+
+SkillTab:CreateToggle({
+    Name = "Auto Punch / Normal Attack",
+    CurrentValue = false,
+    Flag = "AutoPunchToggle",
+    Callback = function(Value)
+        _G.AutoPunch = Value
+    end,
+})
+
+SkillTab:CreateSlider({
+    Name = "Skill Delay Speed",
+    Range = {0.01, 3},
+    Increment = 0.05,
+    Suffix = "Seconds",
+    CurrentValue = 0.3,
+    Flag = "SkillDelaySlider",
+    Callback = function(Value)
+        _G.SkillDelay = Value
+    end,
+})
+
+for i = 1, 10 do
+    local label = i == 10 and "Use Skill 10 (Key 0)" or ("Use Skill " .. i .. " (Key " .. i .. ")")
+    SkillTab:CreateToggle({
+        Name = label,
+        CurrentValue = true,
+        Flag = "UseSkillToggle_" .. i,
+        Callback = function(Value)
+            _G.SelectedSkills[i] = Value
+        end,
+    })
+end
+
+-- TAB 6: AUTO KEYS (A-Z)
+local LetterKeyTab = Window:CreateTab("Auto Keys (A-Z)", 4483362458)
+
+LetterKeyTab:CreateToggle({
+    Name = "Enable Auto Letter Keys",
+    CurrentValue = false,
+    Flag = "AutoLetterKeysToggle",
+    Callback = function(Value)
+        _G.AutoLetterKeys = Value
+    end,
+})
+
+for _, keyChar in ipairs(letterList) do
+    LetterKeyTab:CreateToggle({
+        Name = "Auto Key [ " .. keyChar .. " ]",
+        CurrentValue = false,
+        Flag = "LetterKeyToggle_" .. keyChar,
+        Callback = function(Value)
+            _G.SelectedLetterKeys[keyChar] = Value
+        end,
+    })
+end
+
+-- TAB 7: SETTINGS
+local SettingTab = Window:CreateTab("Settings", 4483362458)
+
+SettingTab:CreateToggle({
+    Name = "Anti-AFK",
+    CurrentValue = true,
+    Flag = "AntiAFKToggle",
+    Callback = function(Value)
+        _G.AntiAFK = Value
+    end,
+})
+
+-- Anti-AFK Handler
+LocalPlayer.Idled:Connect(function()
+    if _G.AntiAFK then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new(0, 0))
+    end
+end)
+
+-- Character Respawn Handler
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    currentTarget = nil
+    local hum = newChar:WaitForChild("Humanoid", 5)
+    if hum then hum.WalkSpeed = _G.WalkSpeedValue end
+    newChar:WaitForChild("HumanoidRootPart", 5)
+    task.wait(1)
+end)
+
+-- NOCLIP HANDLER
+RunService.Stepped:Connect(function()
+    if (_G.AutoFarm or _G.AutoSelectMode or _G.AutoSelectMap) and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- ANTI-VOID SAFE TELEPORT FUNCTION
+local function safeTeleportAndTrigger(targetCFrame, targetPart, promptObj)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    hrp.AssemblyLinearVelocity = Vector3.zero
+    hrp.AssemblyAngularVelocity = Vector3.zero
+    hrp.CFrame = targetCFrame
+    
+    hrp.Anchored = true
+
+    if targetPart then
+        firetouchinterest(hrp, targetPart, 0)
+        task.wait(0.01)
+        firetouchinterest(hrp, targetPart, 1)
+    end
+
+    if promptObj then
+        fireproximityprompt(promptObj)
+    end
+
+    task.wait(0.2)
+    hrp.Anchored = false
+end
+
+-- ACCURATE AUTO TELEPORT & TRIGGER ENGINE
+local function triggerTargetSelection(targetName)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    local targetStr = string.lower(targetName)
+    local found = false
+
+    -- 1. Scan ProximityPrompt
+    for _, prompt in pairs(Workspace:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") then
+            local promptText = string.lower(prompt.ObjectText .. " " .. prompt.ActionText .. " " .. prompt.Name)
+            local parentName = prompt.Parent and string.lower(prompt.Parent.Name) or ""
+            
+            if string.find(promptText, targetStr) or string.find(parentName, targetStr) then
+                found = true
+                local parentPart = prompt.Parent:IsA("BasePart") and prompt.Parent or prompt.Parent:FindFirstChildOfClass("BasePart")
+                if parentPart then
+                    safeTeleportAndTrigger(parentPart.CFrame * CFrame.new(0, 3, 0), parentPart, prompt)
+                else
+                    fireproximityprompt(prompt)
+                end
+                break
+            end
+        end
+    end
+    
+    -- 2. Scan Pad / Platform Parts
+    if not found then
+        for _, obj in pairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") or obj:IsA("Model") then
+                local objName = string.lower(obj.Name)
+                local parentName = obj.Parent and string.lower(obj.Parent.Name) or ""
+                
+                if string.find(objName, targetStr) or string.find(parentName, targetStr) then
+                    local padPart = obj:IsA("BasePart") and obj or (obj.PrimaryPart or obj:FindFirstChildOfClass("BasePart"))
+                    if padPart then
+                        local prompt = padPart:FindFirstChildOfClass("ProximityPrompt") or obj:FindFirstChildOfClass("ProximityPrompt")
+                        safeTeleportAndTrigger(padPart.CFrame * CFrame.new(0, 2.5, 0), padPart, prompt)
+                        found = true
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    -- 3. Direct Remote Fallback
+    for _, remote in pairs(ReplicatedStorage:GetDescendants()) do
+        if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+            local rName = string.lower(remote.Name)
+            if string.find(rName, "select") or string.find(rName, "mode") or string.find(rName, "map") or string.find(rName, "join") or string.find(rName, "teleport") then
+                pcall(function()
+                    if remote:IsA("RemoteEvent") then
+                        remote:FireServer(targetName)
+                    else
+                        remote:InvokeServer(targetName)
+                    end
+                end)
+            end
+        end
+    end
+end
+
+-- AUTO SELECT MODE THREAD
+task.spawn(function()
+    while task.wait(0.3) do
+        if _G.AutoSelectMode then
+            pcall(function()
+                triggerTargetSelection(_G.SelectedGameMode)
+            end)
+        end
+    end
+end)
+
+-- AUTO SELECT MAP THREAD
+task.spawn(function()
+    while task.wait(0.3) do
+        if _G.AutoSelectMap then
+            pcall(function()
+                triggerTargetSelection(_G.SelectedGameMap)
+            end)
+        end
+    end
+end)
+
+-- HITBOX LOOP
+task.spawn(function()
+    while task.wait(0.15) do
+        if _G.SuperHitbox then
+            pcall(function()
+                local char = LocalPlayer.Character
+                for _, v in pairs(Workspace:GetDescendants()) do
+                    if v:IsA("Humanoid") and v.Parent and isValidToilet(v.Parent) then
+                        local mob = v.Parent
+                        if mob ~= char then
+                            for _, part in pairs(mob:GetDescendants()) do
+                                if part:IsA("BasePart") then
+                                    part.Size = Vector3.new(_G.HitboxSize, _G.HitboxSize, _G.HitboxSize)
+                                    part.Transparency = 0.75
+                                    part.BrickColor = BrickColor.new("Really red")
+                                    part.Material = Enum.Material.Neon
+                                    part.CanCollide = false
+                                    part.CanTouch = true
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+local function calculateFarmCFrame(enemyHrp)
+    local pos = _G.FarmPosition
+    local dist = _G.FarmDistance
+    if pos == "Above" then
+        return enemyHrp.CFrame * CFrame.new(0, dist, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+    elseif pos == "Underground" then
+        return enemyHrp.CFrame * CFrame.new(0, -dist, 0) * CFrame.Angles(math.rad(90), 0, 0)
+    elseif pos == "Behind" then
+        return enemyHrp.CFrame * CFrame.new(0, 0, dist)
+    elseif pos == "In Front" then
+        return enemyHrp.CFrame * CFrame.new(0, 0, -dist) * CFrame.Angles(0, math.rad(180), 0)
+    end
+    return enemyHrp.CFrame * CFrame.new(0, -dist, 0)
+end
+
+-- NEAREST TOILET FINDER
+local function getNearestToilet()
+    local closest = nil
+    local shortestDist = math.huge
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    local myPos = char.HumanoidRootPart.Position
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("Humanoid") and v.Parent and isValidToilet(v.Parent) then
+            local mob = v.Parent
+            local hrp = mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChild("Head") or mob:FindFirstChild("Torso") or mob.PrimaryPart
+            if hrp then
+                local dist = (myPos - hrp.Position).Magnitude
+                if dist < shortestDist then
+                    shortestDist = dist
+                    closest = mob
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- AUTO FARM HEARTBEAT LOOP
+RunService.Heartbeat:Connect(function()
+    if _G.AutoFarm and LocalPlayer.Character then
+        local char = LocalPlayer.Character
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hrp and hum and hum.Health > 0 then
+            if hum:GetState() == Enum.HumanoidStateType.Freefall or hum:GetState() == Enum.HumanoidStateType.Physics then
+                hum:ChangeState(Enum.HumanoidStateType.Running)
+            end
+            if currentTarget then
+                if not currentTarget.Parent or not isValidToilet(currentTarget) then
+                    currentTarget = nil
+                end
+            end
+            if currentTarget then
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.AssemblyAngularVelocity = Vector3.zero
+                local enemyHrp = currentTarget:FindFirstChild("HumanoidRootPart") or currentTarget:FindFirstChild("Head") or currentTarget:FindFirstChild("Torso") or currentTarget.PrimaryPart
+                if enemyHrp then
+                    hrp.CFrame = calculateFarmCFrame(enemyHrp)
+                end
+            end
+        end
+    end
+end)
+
+local function executeSmartCombat(char)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    if _G.AutoSkill and not isExecutingSkills then
+        local currentTime = tick()
+        if currentTime - lastSkillUsedTime >= _G.SkillDelay then
+            lastSkillUsedTime = currentTime
+            isExecutingSkills = true
+            task.spawn(function()
+                local backpack = LocalPlayer:FindFirstChild("Backpack")
+                local tools = {}
+                if backpack then
+                    for _, item in pairs(backpack:GetChildren()) do
+                        if item:IsA("Tool") then
+                            table.insert(tools, item)
+                        end
+                    end
+                end
+                for i = 1, 10 do
+                    if not _G.AutoSkill or not _G.AutoFarm then break end
+                    if _G.SelectedSkills[i] then
+                        local key = skillKeyCodes[i]
+                        if key then
+                            VirtualInputManager:SendKeyEvent(true, key, false, game)
+                            task.wait(0.02)
+                            VirtualInputManager:SendKeyEvent(false, key, false, game)
+                        end
+                        if tools[i] and tools[i].Parent == backpack then
+                            pcall(function()
+                                hum:EquipTool(tools[i])
+                                task.wait(0.02)
+                                tools[i]:Activate()
+                            end)
+                        end
+                        task.wait(0.02)
+                    end
+                end
+                isExecutingSkills = false
+            end)
+        end
+    end
+    if _G.AutoLetterKeys then
+        task.spawn(function()
+            for keyChar, isEnabled in pairs(_G.SelectedLetterKeys) do
+                if isEnabled and Enum.KeyCode[keyChar] then
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[keyChar], false, game)
+                    task.wait(0.015)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[keyChar], false, game)
+                end
+            end
+        end)
+    end
+    if _G.AutoPunch then
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        task.wait(0.01)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    end
+end
+
+-- MAIN COMBAT THREAD
+task.spawn(function()
+    while true do
+        local loopSpeed = _G.FastAttack and 0.05 or 0.1
+        task.wait(loopSpeed)
+        if _G.AutoFarm then
+            pcall(function()
+                local char = LocalPlayer.Character
+                if not char then return end
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then return end
+                if not currentTarget or not isValidToilet(currentTarget) then
+                    currentTarget = getNearestToilet()
+                end
+                if currentTarget then
+                    executeSmartCombat(char)
+                end
+            end)
+        end
+    end
+end)
 
