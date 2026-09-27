@@ -287,6 +287,10 @@ local function NewCycle(reason)
     State.SetupRunning = false
     State.ReadyDoneThisCycle = false
 
+    -- FIX: Reset Cooldown để có thể Ready ngay lập tức ở Lobby/Màn mới
+    State.LastReady = 0
+    State.LastVote = 0
+
     State.LastBuy = 0
     State.LastTransform = 0
     State.LastBattleArmorUpgrade = 0
@@ -948,9 +952,14 @@ task.spawn(function()
                         tool:Activate()
                     end
 
-                    -- Tích hợp thêm VirtualUser để giả lập click chuột liên tục
+                    -- FIX AUTO PUNCH: Click vào CHÍNH GIỮA MÀN HÌNH thay vì góc (0,0) dính GUI
+                    local cam = workspace.CurrentCamera
+                    local centerPos = cam and Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2) or Vector2.new(500, 500)
+                    
                     VirtualUser:CaptureController()
-                    VirtualUser:ClickButton1(Vector2.new(0, 0))
+                    VirtualUser:Button1Down(centerPos, cam and cam.CFrame or CFrame.new())
+                    task.wait(0.02)
+                    VirtualUser:Button1Up(centerPos, cam and cam.CFrame or CFrame.new())
                 end
             end)
         end
@@ -1185,7 +1194,7 @@ local function StartAutoReadyNow()
             return
         end
 
-        local readyOK = SendReady(false)
+        local readyOK = SendReady(true)
 
         if readyOK then
             print("[Miko Hub] Auto Ready -> READY sent successfully")
@@ -1278,7 +1287,7 @@ local function HookCharacter(character)
         State.SetupRunning = false
         State.FreezeActive = false
 
-        task.wait(2)
+        task.wait(1)
         NewCycle("death")
     end)
 end
@@ -1309,6 +1318,12 @@ LocalPlayer.CharacterAdded:Connect(function(character)
         else
             print("[Miko Hub] CharacterAdded -> reset cycle for new match/respawn")
             NewCycle("respawn")
+            
+            -- FIX AUTO READY: Chờ game load UI Lobby rồi tự kích hoạt lại Auto Ready
+            task.wait(1.2)
+            if AutoReady then
+                StartAutoReadyNow()
+            end
         end
     end)
 end)
