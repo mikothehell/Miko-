@@ -1,0 +1,2666 @@
+--========================================================
+-- MIKO HUB | SMART AUTO - TAB SYSTEM (DELTA SAFE EXECUTION)
+-- Author: dev miko
+--========================================================
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local VirtualUser = game:GetService("VirtualUser")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+--========================================================
+-- SAFE REMOTE GETTERS
+--========================================================
+
+local Events = ReplicatedStorage:WaitForChild("Events", 5)
+
+local ModeVote = Events and Events:WaitForChild("ModeVote", 3)
+local ReadyEvent = Events and Events:WaitForChild("Ready", 3)
+local PurchaseItem = ReplicatedStorage:WaitForChild("PurchaseItem", 3)
+
+local SpawnPartner = Events and Events:FindFirstChild("SpawnPartner")
+local UpgradeEvent = Events and Events:FindFirstChild("UpgradeEvent")
+
+task.spawn(function()
+    if not Events then
+        Events = ReplicatedStorage:WaitForChild("Events")
+    end
+    if Events then
+        ModeVote = ModeVote or Events:WaitForChild("ModeVote", 5)
+        ReadyEvent = ReadyEvent or Events:WaitForChild("Ready", 5)
+        SpawnPartner = SpawnPartner or Events:FindFirstChild("SpawnPartner")
+        UpgradeEvent = UpgradeEvent or Events:FindFirstChild("UpgradeEvent")
+    end
+    PurchaseItem = PurchaseItem or ReplicatedStorage:WaitForChild("PurchaseItem", 5)
+end)
+
+--========================================================
+-- ASSETS & CONFIG
+--========================================================
+
+local ICON_ID = "rbxassetid://80724717345504"
+
+local Modes = {
+    "Easy",
+    "Normal",
+    "Hard",
+    "Infinity",
+    "Strike Back",
+    "Boss Rush",
+    "Shattered Bonds"
+}
+
+local ModeIndex = 6
+local SelectedMode = Modes[ModeIndex]
+
+local AutoMode = false
+local AutoReady = false
+local AutoStartLoop = false
+
+local AutoBuyTransform = false
+local TransformTargets = {
+    "TSM",
+    "TTV"
+}
+local TransformTargetIndex = 1
+local SelectedTransformTarget = TransformTargets[TransformTargetIndex]
+
+local AutoTPFreeze = false
+local AutoTSMBattleArmor = false
+local AutoTTVCinema = false
+
+local AutoUpTechFullAll = false
+local AutoAntiAFK = false
+local AutoSpawn = false
+local AutoReset = false
+local AutoESP = false
+
+-- VOID & POS STATE
+local VoidActive = false
+local VoidDepth = 50
+local preVoidCFrame = nil
+
+local savedPositions = {}
+local positionCounter = 0
+
+-- AUTO FARM & ANTI-VOID STATE
+local UndergroundFarm = false
+local UndergroundDistance = 6
+local AutoPunch = false
+local AutoEquip = false
+local AntiVoid = true
+local VoidYThreshold = -100
+local TargetNames = {"bathub", "bathtub"}
+local lastSafeSurfaceCFrame = nil
+
+local VoteDelay = 2
+local VoteCooldown = 8
+local ReadyCooldown = 8
+
+local BuyDelay = 1
+local TransformDelay = 2
+local TPDelay = 1
+local PostTransformTweenDelay = 5
+local PostTransformTweenRetries = 3
+local PostTransformTweenRetryDelay = 1.5
+local TSMBattleArmorDelay = 1
+local TSMBattleArmorRetryDelay = 2
+local TTVCinemaDelay = 1
+
+local StartLoopDelay = 5
+local SpawnDelay = 1.5
+
+local ResetMin = 3600
+local ResetMax = 7200
+
+local TeleportTargets = {
+    TSM = {
+        Position = Vector3.new(
+            -7202.05810546875,
+            2407.994384765625,
+            63.98310089111328
+        ),
+        Rotation = CFrame.new()
+    },
+
+    TTV = {
+        Position = Vector3.new(
+            -7199.883789,
+            -230.049576,
+            61.849308
+        ),
+        Rotation = CFrame.Angles(math.rad(90), 0, 0)
+    }
+}
+
+local function GetSelectedTeleportTarget()
+    return TeleportTargets[SelectedTransformTarget] or TeleportTargets.TSM
+end
+
+local function GetSelectedTeleportPosition()
+    return GetSelectedTeleportTarget().Position
+end
+
+local function GetSelectedTeleportCFrame()
+    local target = GetSelectedTeleportTarget()
+    return CFrame.new(target.Position) * target.Rotation
+end
+
+--========================================================
+-- STATE
+--========================================================
+
+local State = {
+    Cycle = 0,
+
+    LastVote = 0,
+    LastReady = 0,
+    LastStart = 0,
+
+    SequenceRunning = false,
+    SetupRunning = false,
+    ReadyDoneThisCycle = false,
+
+    LastBuy = 0,
+    LastTransform = 0,
+    LastBattleArmorUpgrade = 0,
+    LastCinemaUpgrade = 0,
+
+    BuyTransformPurchasedThisCycle = false,
+    BuyTransformDoneThisCycle = false,
+
+    TransformInProgress = false,
+    TransformCharacterSwap = false,
+    TransformCompletedThisCycle = false,
+
+    ResetDeadline = nil,
+    Resetting = false,
+
+    CharacterConnection = nil,
+    DeathConnection = nil,
+
+    FreezeActive = false,
+    NoclipActive = false,
+    NoclipParts = {},
+
+    FreezeSnapshot = nil,
+    FreezeHeartbeat = nil
+}
+
+local UpdateStartLoopUI = nil
+local CloseModePicker = function() end
+local CloseTransformPicker = function() end
+
+--========================================================
+-- CHARACTER & MOVEMENT HELPERS
+--========================================================
+
+local function GetCharacter()
+    local character = LocalPlayer.Character
+    if not character then
+        return nil, nil, nil
+    end
+
+    return character,
+        character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso"),
+        character:FindFirstChildOfClass("Humanoid")
+end
+
+local function IsAlive()
+    local _, _, humanoid = GetCharacter()
+    return humanoid ~= nil and humanoid.Health > 0
+end
+
+local function DisableNoclip()
+    State.NoclipActive = false
+
+    local character = LocalPlayer.Character
+
+    if character then
+        for part, oldCanCollide in pairs(State.NoclipParts) do
+            if part and part.Parent then
+                pcall(function()
+                    part.CanCollide = oldCanCollide
+                end)
+            end
+        end
+    end
+
+    State.NoclipParts = {}
+end
+
+local function EnableNoclip()
+    local character = LocalPlayer.Character
+
+    if not character then
+        return false
+    end
+
+    State.NoclipParts = {}
+    State.NoclipActive = true
+
+    for _, obj in ipairs(character:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            State.NoclipParts[obj] = obj.CanCollide
+            pcall(function()
+                obj.CanCollide = false
+            end)
+        end
+    end
+
+    return true
+end
+
+local function Unfreeze()
+    State.FreezeActive = false
+
+    if State.FreezeHeartbeat then
+        pcall(function()
+            State.FreezeHeartbeat:Disconnect()
+        end)
+        State.FreezeHeartbeat = nil
+    end
+
+    local _, hrp, humanoid = GetCharacter()
+
+    if hrp then
+        pcall(function()
+            hrp.Anchored = false
+        end)
+    end
+
+    if humanoid and State.FreezeSnapshot then
+        pcall(function()
+            humanoid.WalkSpeed = State.FreezeSnapshot.WalkSpeed
+            humanoid.JumpPower = State.FreezeSnapshot.JumpPower
+            humanoid.AutoRotate = State.FreezeSnapshot.AutoRotate
+            humanoid.PlatformStand = State.FreezeSnapshot.PlatformStand
+        end)
+    end
+
+    State.FreezeSnapshot = nil
+    DisableNoclip()
+end
+
+--========================================================
+-- NEW CYCLE
+--========================================================
+
+local function NewCycle(reason)
+    Unfreeze()
+
+    State.Cycle += 1
+
+    State.SequenceRunning = false
+    State.SetupRunning = false
+    State.ReadyDoneThisCycle = false
+
+    State.LastBuy = 0
+    State.LastTransform = 0
+    State.LastBattleArmorUpgrade = 0
+    State.LastCinemaUpgrade = 0
+
+    State.BuyTransformPurchasedThisCycle = false
+    State.BuyTransformDoneThisCycle = false
+
+    State.TransformInProgress = false
+    State.TransformCharacterSwap = false
+    State.TransformCompletedThisCycle = false
+
+    print("[Miko Hub] New cycle:", State.Cycle, reason or "")
+end
+
+--========================================================
+-- MODE VOTE & READY
+--========================================================
+
+local function VoteMode(force)
+    if not ModeVote then return false end
+    local now = os.clock()
+
+    if not force and now - State.LastVote < VoteCooldown then
+        return false
+    end
+
+    local ok, err = pcall(function()
+        ModeVote:FireServer(SelectedMode)
+    end)
+
+    if not ok then
+        warn("[Miko Hub] ModeVote error:", err)
+        return false
+    end
+
+    State.LastVote = now
+    print("[Miko Hub] Mode:", SelectedMode)
+
+    return true
+end
+
+local function SendReady(force)
+    if not ReadyEvent then return false end
+    if State.ReadyDoneThisCycle and not force then
+        return false
+    end
+
+    local now = os.clock()
+
+    if not force and now - State.LastReady < ReadyCooldown then
+        return false
+    end
+
+    local ok, err = pcall(function()
+        ReadyEvent:FireServer()
+    end)
+
+    if not ok then
+        warn("[Miko Hub] Ready error:", err)
+        return false
+    end
+
+    State.LastReady = now
+    State.ReadyDoneThisCycle = true
+    print("[Miko Hub] Ready sent successfully for cycle:", State.Cycle)
+
+    return true
+end
+
+--========================================================
+-- BUY & TRANSFORM
+--========================================================
+
+local PLAYABLE_PROTOCOL_NAME = "Playable Protocol"
+local PLAYABLE_PROTOCOL_WAIT = 8
+local PLAYABLE_PROTOCOL_CLICK_INTERVAL = 0.8
+local PLAYABLE_PROTOCOL_MAX_USE_TIME = 45
+
+local function HasPlayableProtocol()
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    if backpack and backpack:FindFirstChild(PLAYABLE_PROTOCOL_NAME) then
+        return true
+    end
+
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild(PLAYABLE_PROTOCOL_NAME) then
+        return true
+    end
+
+    return false
+end
+
+local function WaitForPlayableProtocol(timeout)
+    timeout = timeout or PLAYABLE_PROTOCOL_WAIT
+    local deadline = os.clock() + timeout
+
+    repeat
+        if HasPlayableProtocol() then
+            return true
+        end
+        task.wait(0.2)
+    until os.clock() >= deadline
+
+    return HasPlayableProtocol()
+end
+
+local function BuyProtocol(force)
+    if not PurchaseItem then return false, false end
+    local now = os.clock()
+
+    if HasPlayableProtocol() then
+        print("[Miko Hub] Playable Protocol already exists in Backpack/Character")
+        return true, true
+    end
+
+    if not force and now - State.LastBuy < 2 then
+        return false, false
+    end
+
+    State.LastBuy = now
+
+    local ok, result = pcall(function()
+        return PurchaseItem:InvokeServer(
+            "Player",
+            PLAYABLE_PROTOCOL_NAME
+        )
+    end)
+
+    if not ok then
+        warn("[Miko Hub] Auto Buy error:", result)
+        return false, false
+    end
+
+    if result == false then
+        warn("[Miko Hub] Playable Protocol purchase returned FALSE")
+        return true, false
+    end
+
+    print("[Miko Hub] Purchase request completed -> waiting for Backpack item")
+
+    if WaitForPlayableProtocol(PLAYABLE_PROTOCOL_WAIT) then
+        print("[Miko Hub] Playable Protocol CONFIRMED in Backpack/Character")
+        return true, true
+    end
+
+    warn("[Miko Hub] Playable Protocol was not found after purchase request")
+    return true, false
+end
+
+local function GetPlayableProtocolTool()
+    local character = LocalPlayer.Character
+    if character then
+        local equipped = character:FindFirstChild(PLAYABLE_PROTOCOL_NAME)
+        if equipped and equipped:IsA("Tool") then
+            return equipped
+        end
+    end
+
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    if backpack then
+        local tool = backpack:FindFirstChild(PLAYABLE_PROTOCOL_NAME)
+        if tool and tool:IsA("Tool") then
+            return tool
+        end
+    end
+
+    return nil
+end
+
+local function EquipPlayableProtocol(tool)
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+    if not tool or not humanoid then
+        return false
+    end
+
+    if tool.Parent ~= character then
+        local ok = pcall(function()
+            humanoid:EquipTool(tool)
+        end)
+        if not ok then
+            return false
+        end
+    end
+
+    local deadline = os.clock() + 3
+    repeat
+        if tool.Parent == character then
+            return true
+        end
+        task.wait(0.1)
+    until os.clock() >= deadline
+
+    return tool.Parent == character
+end
+
+local function ActivatePlayableProtocol(force)
+    local now = os.clock()
+
+    if State.BuyTransformDoneThisCycle or State.TransformCompletedThisCycle then
+        print("[Miko Hub] Transform already completed this cycle -> skip duplicate use")
+        return true
+    end
+
+    if not force and now - State.LastTransform < 3 then
+        return false
+    end
+
+    State.LastTransform = now
+    State.TransformInProgress = true
+    State.TransformCharacterSwap = false
+
+    local tool = GetPlayableProtocolTool()
+    local originalCharacter = LocalPlayer.Character
+
+    if not tool then
+        State.TransformInProgress = false
+        warn("[Miko Hub] Playable Protocol Tool was not found")
+        return false
+    end
+
+    if not EquipPlayableProtocol(tool) then
+        State.TransformInProgress = false
+        warn("[Miko Hub] Could not equip Playable Protocol")
+        return false
+    end
+
+    task.wait(0.15)
+
+    local startedAt = os.clock()
+    local attempt = 0
+    local transformDetected = false
+
+    while os.clock() - startedAt < PLAYABLE_PROTOCOL_MAX_USE_TIME do
+        attempt += 1
+
+        if LocalPlayer.Character ~= originalCharacter then
+            transformDetected = true
+            print("[Miko Hub] Character changed -> transform detected")
+            break
+        end
+
+        if not tool or not tool.Parent then
+            transformDetected = true
+            print("[Miko Hub] Playable Protocol disappeared -> transform/use completed")
+            break
+        end
+
+        if tool.Parent ~= LocalPlayer.Character then
+            if not EquipPlayableProtocol(tool) then
+                warn("[Miko Hub] Could not re-equip Playable Protocol")
+                task.wait(PLAYABLE_PROTOCOL_CLICK_INTERVAL)
+                continue
+            end
+            task.wait(0.1)
+        end
+
+        if not tool.Enabled then
+            print("[Miko Hub] Playable Protocol busy -> waiting", attempt)
+            task.wait(PLAYABLE_PROTOCOL_CLICK_INTERVAL)
+            continue
+        end
+
+        local ok, err = pcall(function()
+            tool:Activate()
+        end)
+
+        if not ok then
+            warn("[Miko Hub] Playable Protocol click error:", err)
+        else
+            print("[Miko Hub] Playable Protocol click", attempt, "->", SelectedTransformTarget)
+        end
+
+        task.wait(PLAYABLE_PROTOCOL_CLICK_INTERVAL)
+    end
+
+    if not transformDetected then
+        transformDetected = LocalPlayer.Character ~= originalCharacter
+            or not tool
+            or not tool.Parent
+    end
+
+    if not transformDetected then
+        State.TransformInProgress = false
+        State.TransformCharacterSwap = false
+        warn("[Miko Hub] Transform was not confirmed within", PLAYABLE_PROTOCOL_MAX_USE_TIME, "seconds; stopping safely")
+        return false
+    end
+
+    State.BuyTransformDoneThisCycle = true
+    State.TransformCompletedThisCycle = true
+    State.TransformInProgress = false
+    State.TransformCharacterSwap = true
+
+    print("[Miko Hub] Playable Protocol use completed ->", SelectedTransformTarget)
+
+    if AutoStartLoop then
+        AutoStartLoop = false
+        if UpdateStartLoopUI then
+            UpdateStartLoopUI(false)
+        end
+        print("[Miko Hub] Transform detected -> Start Loop OFF")
+    end
+
+    return true
+end
+
+local function Transform(force)
+    return ActivatePlayableProtocol(force)
+end
+
+--========================================================
+-- TP + FREEZE
+--========================================================
+
+local function TPFreeze()
+    local character, hrp, humanoid = GetCharacter()
+
+    if not character or not hrp or not humanoid or humanoid.Health <= 0 then
+        warn("[Miko Hub] Tween/Freeze: character not ready")
+        return false
+    end
+
+    local ok, err = pcall(function()
+        Unfreeze()
+
+        State.FreezeSnapshot = {
+            WalkSpeed = humanoid.WalkSpeed,
+            JumpPower = humanoid.JumpPower,
+            AutoRotate = humanoid.AutoRotate,
+            PlatformStand = humanoid.PlatformStand
+        }
+
+        EnableNoclip()
+
+        humanoid.AutoRotate = false
+        humanoid.PlatformStand = false
+
+        local selectedTeleportPosition = GetSelectedTeleportPosition()
+        local startPivot = character:GetPivot()
+        local targetPivot = GetSelectedTeleportCFrame()
+        local distance = (startPivot.Position - selectedTeleportPosition).Magnitude
+        local tweenTime = math.clamp(distance / 180, 0.5, 5)
+
+        local elapsed = 0
+        local finished = false
+
+        local connection
+        connection = RunService.Heartbeat:Connect(function(dt)
+            if finished then
+                return
+            end
+
+            local currentCharacter, currentHRP, currentHumanoid = GetCharacter()
+
+            if currentCharacter ~= character
+                or not currentHRP
+                or not currentHumanoid
+                or currentHumanoid.Health <= 0 then
+                finished = true
+                return
+            end
+
+            elapsed += dt
+            local alpha = math.clamp(elapsed / tweenTime, 0, 1)
+
+            local cf = startPivot:Lerp(targetPivot, alpha)
+
+            pcall(function()
+                currentCharacter:PivotTo(cf)
+                currentHRP.AssemblyLinearVelocity = Vector3.zero
+                currentHRP.AssemblyAngularVelocity = Vector3.zero
+            end)
+
+            if alpha >= 1 then
+                finished = true
+            end
+        end)
+
+        while not finished do
+            task.wait()
+        end
+
+        pcall(function()
+            connection:Disconnect()
+        end)
+
+        character:PivotTo(targetPivot)
+        hrp.CFrame = targetPivot
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+
+        humanoid.WalkSpeed = 0
+        humanoid.JumpPower = 0
+        humanoid.AutoRotate = false
+        humanoid.PlatformStand = true
+
+        State.FreezeActive = true
+
+        State.FreezeHeartbeat = RunService.Heartbeat:Connect(function()
+            if not State.FreezeActive then
+                return
+            end
+
+            local currentCharacter, currentHRP, currentHumanoid = GetCharacter()
+
+            if currentCharacter ~= character
+                or not currentHRP
+                or not currentHumanoid
+                or currentHumanoid.Health <= 0 then
+                return
+            end
+
+            pcall(function()
+                currentCharacter:PivotTo(targetPivot)
+                currentHRP.AssemblyLinearVelocity = Vector3.zero
+                currentHRP.AssemblyAngularVelocity = Vector3.zero
+                currentHumanoid.WalkSpeed = 0
+                currentHumanoid.JumpPower = 0
+                currentHumanoid.AutoRotate = false
+                currentHumanoid.PlatformStand = true
+            end)
+        end)
+
+        State.NoclipActive = true
+    end)
+
+    if not ok then
+        DisableNoclip()
+        State.FreezeActive = false
+        State.FreezeSnapshot = nil
+        warn("[Miko Hub] Tween/Freeze error:", err)
+        return false
+    end
+
+    print(string.format(
+        "[Miko Hub] MODEL TWEEN + NOCLIP -> FREEZE at %.3f, %.3f, %.3f",
+        selectedTeleportPosition.X,
+        selectedTeleportPosition.Y,
+        selectedTeleportPosition.Z
+    ))
+
+    print("[Miko Hub] TP target:", SelectedTransformTarget)
+    return true
+end
+
+--========================================================
+-- VOID & NOCLIP ENGINE LOOPS
+--========================================================
+
+RunService.Stepped:Connect(function()
+    if VoidActive or UndergroundFarm then
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if VoidActive then
+        local _, hrp, _ = GetCharacter()
+        if hrp and preVoidCFrame then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            
+            local targetY = preVoidCFrame.Position.Y - VoidDepth
+            hrp.CFrame = CFrame.new(hrp.Position.X, targetY, hrp.Position.Z)
+        end
+    end
+end)
+
+--========================================================
+-- ANTI-VOID SYSTEM & SURFACE MEMORY
+--========================================================
+
+task.spawn(function()
+    while task.wait(0.3) do
+        if not UndergroundFarm and not VoidActive then
+            local character = LocalPlayer.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                local hrp = character.HumanoidRootPart
+                local raycastParams = RaycastParams.new()
+                raycastParams.FilterDescendantsInstances = {character}
+                raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+                
+                local ray = workspace:Raycast(hrp.Position, Vector3.new(0, -20, 0), raycastParams)
+                if ray then
+                    lastSafeSurfaceCFrame = hrp.CFrame
+                end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.2) do
+        if AntiVoid and not UndergroundFarm and not VoidActive then
+            pcall(function()
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = character.HumanoidRootPart
+                    if hrp.Position.Y < VoidYThreshold then
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                        if lastSafeSurfaceCFrame then
+                            hrp.CFrame = lastSafeSurfaceCFrame
+                        else
+                            hrp.CFrame = CFrame.new(hrp.Position.X, 50, hrp.Position.Z)
+                        end
+                        print("[Miko Hub | Anti-Void] Rescued player from void fall!")
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+--========================================================
+-- AUTO FARM LOGIC
+--========================================================
+
+local function getClosestTarget()
+    local aiFolder = workspace:FindFirstChild("AI") or workspace
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    
+    local myPos = character.HumanoidRootPart.Position
+    local closestTarget = nil
+    local shortestDistance = math.huge
+
+    for _, obj in ipairs(aiFolder:GetChildren()) do
+        local isValidTarget = false
+        for _, name in ipairs(TargetNames) do
+            if string.find(string.lower(obj.Name), string.lower(name)) then
+                isValidTarget = true
+                break
+            end
+        end
+
+        if isValidTarget then
+            local humanoid = obj:FindFirstChildOfClass("Humanoid")
+            local hrp = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("PrimaryPart") or obj:FindFirstChildWhichIsA("BasePart")
+
+            if humanoid and humanoid.Health > 0 and hrp then
+                local dist = (hrp.Position - myPos).Magnitude
+                if dist < shortestDistance then
+                    shortestDistance = dist
+                    closestTarget = obj
+                end
+            end
+        end
+    end
+
+    return closestTarget
+end
+
+task.spawn(function()
+    local wasUnderground = false
+
+    while task.wait() do
+        if UndergroundFarm then
+            pcall(function()
+                local target = getClosestTarget()
+                local character = LocalPlayer.Character
+                
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = character.HumanoidRootPart
+
+                    if target then
+                        local targetHrp = target:FindFirstChild("HumanoidRootPart") or target:FindFirstChild("PrimaryPart") or target:FindFirstChildWhichIsA("BasePart")
+                        local targetHumanoid = target:FindFirstChildOfClass("Humanoid")
+
+                        if targetHrp and targetHumanoid and targetHumanoid.Health > 0 then
+                            wasUnderground = true
+                            
+                            local undergroundPos = targetHrp.Position - Vector3.new(0, UndergroundDistance, 0)
+                            hrp.CFrame = CFrame.new(undergroundPos, targetHrp.Position)
+
+                            if not hrp:FindFirstChild("UndergroundBV") then
+                                local bv = Instance.new("BodyVelocity")
+                                bv.Name = "UndergroundBV"
+                                bv.Velocity = Vector3.new(0, 0, 0)
+                                bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                                bv.Parent = hrp
+                            end
+                        end
+                    else
+                        if wasUnderground then
+                            wasUnderground = false
+                            local bv = hrp:FindFirstChild("UndergroundBV")
+                            if bv then bv:Destroy() end
+
+                            if lastSafeSurfaceCFrame then
+                                hrp.CFrame = lastSafeSurfaceCFrame
+                            else
+                                local ray = workspace:Raycast(hrp.Position + Vector3.new(0, 100, 0), Vector3.new(0, -300, 0))
+                                if ray then
+                                    hrp.CFrame = CFrame.new(ray.Position + Vector3.new(0, 4, 0))
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        else
+            pcall(function()
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = character.HumanoidRootPart
+                    local bv = hrp:FindFirstChild("UndergroundBV")
+                    
+                    if bv then
+                        bv:Destroy()
+                        if lastSafeSurfaceCFrame then
+                            hrp.CFrame = lastSafeSurfaceCFrame
+                        else
+                            local ray = workspace:Raycast(hrp.Position + Vector3.new(0, 100, 0), Vector3.new(0, -300, 0))
+                            if ray then
+                                hrp.CFrame = CFrame.new(ray.Position + Vector3.new(0, 4, 0))
+                            end
+                        end
+                    end
+                end
+            end)
+            wasUnderground = false
+            task.wait(0.3)
+        end
+    end
+end)
+
+--========================================================
+-- AUTO PUNCH LOGIC
+--========================================================
+
+task.spawn(function()
+    while task.wait(0.08) do
+        if AutoPunch then
+            pcall(function()
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChildOfClass("Humanoid") then
+                    if AutoEquip then
+                        local equippedTool = character:FindFirstChildOfClass("Tool")
+                        if not equippedTool then
+                            local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+                            if backpack then
+                                local backpackTool = backpack:FindFirstChildOfClass("Tool")
+                                if backpackTool then
+                                    character.Humanoid:EquipTool(backpackTool)
+                                end
+                            end
+                        end
+                    end
+
+                    local tool = character:FindFirstChildOfClass("Tool")
+                    if tool then
+                        tool:Activate()
+                    end
+
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton1(Vector2.new(0, 0))
+                end
+            end)
+        end
+    end
+end)
+
+--========================================================
+-- ITEM UPGRADES
+--========================================================
+
+local function BuyTSMBattleArmor(force)
+    if not PurchaseItem then return false end
+    local now = os.clock()
+
+    if not force and now - State.LastBattleArmorUpgrade < 3 then
+        return false
+    end
+
+    State.LastBattleArmorUpgrade = now
+
+    local ok, result = pcall(function()
+        return PurchaseItem:InvokeServer(
+            "GiantAmplifier",
+            "Buster | Combat Armor"
+        )
+    end)
+
+    if not ok then
+        warn("[Miko Hub] TSMBattleArmor error:", result)
+        return false
+    end
+
+    print("[Miko Hub] TSMBattleArmor -> Buster | Combat Armor")
+    return result ~= false
+end
+
+local function BuyTTVCinema(force)
+    if not PurchaseItem then return false end
+    local now = os.clock()
+
+    if not force and now - State.LastCinemaUpgrade < 3 then
+        return false
+    end
+
+    State.LastCinemaUpgrade = now
+
+    local ok, result = pcall(function()
+        return PurchaseItem:InvokeServer(
+            "GiantScreen",
+            "Reinforcement Upgrade"
+        )
+    end)
+
+    if not ok then
+        warn("[Miko Hub] TTVCinema error:", result)
+        return false
+    end
+
+    print("[Miko Hub] TTVCinema -> Reinforcement Upgrade")
+    return result ~= false
+end
+
+--========================================================
+-- POST-READY SETUP & PERSISTENT LOOPS
+--========================================================
+
+local function RunSetup()
+    if State.SetupRunning then
+        return
+    end
+
+    if not (
+        AutoBuyTransform
+        or AutoTPFreeze
+        or AutoTSMBattleArmor
+        or AutoTTVCinema
+    ) then
+        return
+    end
+
+    State.SetupRunning = true
+
+    task.spawn(function()
+        task.wait(2)
+
+        local cycle = State.Cycle
+
+        if AutoBuyTransform and not State.BuyTransformDoneThisCycle then
+            if cycle ~= State.Cycle then
+                State.SetupRunning = false
+                return
+            end
+
+            if not State.BuyTransformPurchasedThisCycle then
+                local callOK, purchaseSuccess = BuyProtocol(true)
+
+                if callOK and purchaseSuccess then
+                    State.BuyTransformPurchasedThisCycle = true
+                    print("[Miko Hub] Auto Buy + Transform -> Playable Protocol purchased")
+                else
+                    print("[Miko Hub] Auto Buy + Transform -> purchase not confirmed, will retry")
+                end
+            end
+
+            if State.BuyTransformPurchasedThisCycle and not State.BuyTransformDoneThisCycle then
+                task.wait(1)
+
+                if cycle ~= State.Cycle or not AutoBuyTransform then
+                    State.SetupRunning = false
+                    return
+                end
+
+                if not HasPlayableProtocol() then
+                    print("[Miko Hub] Waiting for Playable Protocol replication before transform")
+                    if not WaitForPlayableProtocol(PLAYABLE_PROTOCOL_WAIT) then
+                        print("[Miko Hub] Transform delayed: Playable Protocol not confirmed")
+                        State.SetupRunning = false
+                        return
+                    end
+                end
+
+                if Transform(true) then
+                    State.BuyTransformDoneThisCycle = true
+                    print("[Miko Hub] Auto Buy + Transform ->", SelectedTransformTarget, "DONE")
+                end
+            end
+        end
+
+        if AutoTPFreeze then
+            if AutoBuyTransform and not State.BuyTransformDoneThisCycle then
+                print("[Miko Hub] Transform not confirmed -> skipping Tween/Freeze this setup pass")
+            else
+                if AutoBuyTransform and State.BuyTransformDoneThisCycle then
+                    print(string.format("[Miko Hub] Transform complete -> waiting %ss before Tween/Freeze", tostring(PostTransformTweenDelay)))
+                    task.wait(PostTransformTweenDelay)
+                else
+                    task.wait(TPDelay)
+                end
+
+                if cycle ~= State.Cycle then
+                    State.SetupRunning = false
+                    return
+                end
+
+                local tweenSuccess = TPFreeze()
+
+                if tweenSuccess and AutoBuyTransform and State.BuyTransformDoneThisCycle then
+                    for retry = 1, PostTransformTweenRetries do
+                        if not AutoTPFreeze or cycle ~= State.Cycle then
+                            break
+                        end
+
+                        task.wait(PostTransformTweenRetryDelay)
+                        print("[Miko Hub] Post-transform Tween retry:", retry, "/", PostTransformTweenRetries)
+                        TPFreeze()
+                    end
+                end
+            end
+        end
+
+        State.SetupRunning = false
+        print("[Miko Hub] Setup finished | Transform:", SelectedTransformTarget, "| TSMBattleArmor:", AutoTSMBattleArmor, "| TTVCinema:", AutoTTVCinema)
+    end)
+end
+
+task.spawn(function()
+    while task.wait(TSMBattleArmorRetryDelay) do
+        if AutoTSMBattleArmor then
+            local success = BuyTSMBattleArmor(false)
+            if success then
+                print("[Miko Hub] TSMBattleArmor loop -> request sent")
+            else
+                print("[Miko Hub] TSMBattleArmor loop -> retrying")
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(TTVCinemaDelay) do
+        if AutoTTVCinema then
+            local success = BuyTTVCinema(false)
+            if success then
+                print("[Miko Hub] TTVCinema loop -> request sent")
+            else
+                print("[Miko Hub] TTVCinema loop -> retrying")
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if not AutoTPFreeze or not State.FreezeActive then
+            continue
+        end
+
+        local _, hrp, humanoid = GetCharacter()
+
+        if not hrp or not humanoid or humanoid.Health <= 0 then
+            State.FreezeActive = false
+            continue
+        end
+
+        pcall(function()
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end)
+    end
+end)
+
+--========================================================
+-- AUTO READY & MODE CONTROLLER
+--========================================================
+
+local function StartAutoReadyNow()
+    if not AutoReady or State.SequenceRunning or State.ReadyDoneThisCycle then
+        return
+    end
+
+    State.SequenceRunning = true
+
+    task.spawn(function()
+        print("[Miko Hub] Auto Ready activated")
+
+        if AutoMode then
+            print("[Miko Hub] Auto Ready -> voting:", SelectedMode)
+            VoteMode(true)
+            task.wait(VoteDelay)
+        end
+
+        if not AutoReady or State.ReadyDoneThisCycle then
+            State.SequenceRunning = false
+            return
+        end
+
+        local readyOK = SendReady(false)
+
+        if readyOK then
+            print("[Miko Hub] Auto Ready -> READY sent successfully")
+            RunSetup()
+        else
+            warn("[Miko Hub] Auto Ready -> READY skipped or failed")
+        end
+
+        State.SequenceRunning = false
+    end)
+end
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if not AutoReady or State.SequenceRunning or State.ReadyDoneThisCycle then
+            continue
+        end
+
+        local now = os.clock()
+
+        if now - State.LastReady >= ReadyCooldown then
+            StartAutoReadyNow()
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if not AutoMode or State.SequenceRunning or State.ReadyDoneThisCycle then
+            continue
+        end
+
+        local now = os.clock()
+
+        if now - State.LastVote >= VoteCooldown then
+            if AutoReady then
+                StartAutoReadyNow()
+            else
+                VoteMode(false)
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if not AutoStartLoop or State.ReadyDoneThisCycle then
+            continue
+        end
+
+        local now = os.clock()
+
+        if now - State.LastStart < StartLoopDelay then
+            continue
+        end
+
+        State.LastStart = now
+
+        pcall(function()
+            if ReadyEvent then
+                ReadyEvent:FireServer()
+                State.ReadyDoneThisCycle = true
+            end
+        end)
+
+        print("[Miko Hub] Start Loop -> Ready sent once for current cycle")
+    end)
+end)
+
+--========================================================
+-- CHARACTER LIFECYCLE & RESET
+--========================================================
+
+local function HookCharacter(character)
+    local humanoid = character:WaitForChild("Humanoid", 15)
+
+    if not humanoid then
+        return
+    end
+
+    if State.DeathConnection then
+        pcall(function()
+            State.DeathConnection:Disconnect()
+        end)
+    end
+
+    State.DeathConnection = humanoid.Died:Connect(function()
+        print("[Miko Hub] Death detected")
+
+        State.ResetDeadline = nil
+        State.SequenceRunning = false
+        State.SetupRunning = false
+        State.FreezeActive = false
+
+        task.wait(2)
+        NewCycle("death")
+    end)
+end
+
+if LocalPlayer.Character then
+    task.spawn(function()
+        HookCharacter(LocalPlayer.Character)
+    end)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+    local characterWasTransformReplacement =
+        State.TransformInProgress
+        or State.TransformCharacterSwap
+        or State.TransformCompletedThisCycle
+
+    Unfreeze()
+
+    State.ResetDeadline = nil
+    State.SequenceRunning = false
+    State.SetupRunning = false
+
+    task.spawn(function()
+        HookCharacter(character)
+
+        if characterWasTransformReplacement then
+            print("[Miko Hub] CharacterAdded -> transform replacement; keeping current cycle")
+        else
+            print("[Miko Hub] CharacterAdded -> reset cycle for new match/respawn")
+            NewCycle("respawn")
+        end
+    end)
+end)
+
+local function ScheduleReset()
+    local seconds = math.random(ResetMin, ResetMax)
+    State.ResetDeadline = os.clock() + seconds
+    print("[Miko Hub] Reset scheduled in", math.floor(seconds / 60), "minutes")
+end
+
+local function ResetCharacter()
+    if State.Resetting then
+        return
+    end
+
+    local _, _, humanoid = GetCharacter()
+
+    if not humanoid or humanoid.Health <= 0 then
+        State.ResetDeadline = nil
+        return
+    end
+
+    State.Resetting = true
+    print("[Miko Hub] Resetting while alive")
+
+    Unfreeze()
+    task.wait(0.4)
+
+    pcall(function()
+        humanoid.Health = 0
+    end)
+
+    State.ResetDeadline = nil
+    task.wait(2)
+
+    State.Resetting = false
+end
+
+task.spawn(function()
+    while task.wait(2) do
+        if not AutoReset then
+            State.ResetDeadline = nil
+            continue
+        end
+
+        if State.Resetting then
+            continue
+        end
+
+        if not State.ResetDeadline then
+            ScheduleReset()
+            continue
+        end
+
+        if os.clock() >= State.ResetDeadline then
+            ResetCharacter()
+        end
+    end
+end)
+
+--========================================================
+-- AUTO UP TECH FULL ALL
+--========================================================
+
+local StatTypes = {"STRENGTH", "TECH", "MORALE"}
+local ScrapTypes = {"Enhanced Scrap", "Improved Scrap", "Normal Scrap"}
+
+task.spawn(function()
+    while task.wait(0.15) do
+        if AutoUpTechFullAll and UpgradeEvent then
+            for _, stat in ipairs(StatTypes) do
+                for _, scrap in ipairs(ScrapTypes) do
+                    if not AutoUpTechFullAll then break end
+                    pcall(function()
+                        UpgradeEvent:FireServer(stat, scrap)
+                    end)
+                    task.wait(0.05)
+                end
+            end
+        end
+    end
+end)
+
+--========================================================
+-- ANTI AFK
+--========================================================
+
+local AFK_KEYWORDS = {
+    "afk", "check", "verify", "verification", "captcha", 
+    "idle", "are you there", "anti", "bot", "confirm"
+}
+
+local function isAfkGui(gui)
+    if not gui:IsA("ScreenGui") or not gui.Enabled then return false end
+    
+    local guiName = gui.Name:lower()
+    for _, kw in ipairs(AFK_KEYWORDS) do
+        if guiName:find(kw) then
+            return true
+        end
+    end
+    
+    for _, textLabel in ipairs(gui:GetDescendants()) do
+        if (textLabel:IsA("TextLabel") or textLabel:IsA("TextButton")) and textLabel.Visible then
+            local txt = textLabel.Text:lower()
+            for _, kw in ipairs(AFK_KEYWORDS) do
+                if txt:find(kw) then
+                    return true
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
+local function processAfkCheck()
+    for _, gui in ipairs(PlayerGui:GetChildren()) do
+        if isAfkGui(gui) then
+            print("[Miko Hub | Anti-AFK] Anti-AFK popup detected! Searching for Green Button...")
+            
+            for _, element in ipairs(gui:GetDescendants()) do
+                if (element:IsA("TextButton") or element:IsA("ImageButton")) and element.Visible then
+                    local bg = element.BackgroundColor3
+                    local text = element:IsA("TextButton") and element.Text:lower() or ""
+                    
+                    local isGreenColor = (bg.G > 0.5 and bg.R < 0.4 and bg.B < 0.4) or (bg.G > bg.R + 0.3)
+                    local isGreenText = text:find("green") or text:find("xanh") or text:find("pass") or text:find("safe")
+                    local isRedColor = (bg.R > 0.5 and bg.G < 0.4)
+                    
+                    if (isGreenColor or isGreenText) and not isRedColor then
+                        pcall(function()
+                            print("[Miko Hub | Anti-AFK] Clicked Green Button safely!")
+                            if typeof(firesignal) == "function" then
+                                firesignal(element.MouseButton1Click)
+                                firesignal(element.Activated)
+                            end
+                        end)
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+local function processAfkPart(isAfkActive)
+    if not isAfkActive then return end
+    
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
+    
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA("BasePart") and part:FindFirstChildOfClass("TouchTransmitter") then
+            local color = part.Color
+            local brickColor = part.BrickColor.Name:lower()
+            local isGreenPart = (color.G > 0.5 and color.R < 0.4) or brickColor:find("green") or brickColor:find("lime")
+            
+            if isGreenPart then
+                pcall(function()
+                    if typeof(firetouchinterest) == "function" then
+                        firetouchinterest(hrp, part, 0)
+                        task.wait(0.05)
+                        firetouchinterest(hrp, part, 1)
+                    end
+                end)
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(0.3)
+        if AutoAntiAFK then
+            pcall(function()
+                local afkFound = processAfkCheck()
+                if afkFound then
+                    processAfkPart(true)
+                end
+            end)
+        end
+    end
+end)
+
+--========================================================
+-- AUTO SPAWN
+--========================================================
+
+task.spawn(function()
+    while task.wait(0.25) do
+        if not AutoSpawn or not SpawnPartner then
+            continue
+        end
+
+        pcall(function()
+            SpawnPartner:FireServer(
+                "Ultimate Camcorder Strider"
+            )
+        end)
+
+        task.wait(SpawnDelay)
+    end
+end)
+
+--========================================================
+-- ESP (HIGHLIGHT + NAME + HP)
+--========================================================
+
+local function ClearAllESP()
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v.Name == "Miko_ESP" or v.Name == "Miko_ESP_Text" then
+            v:Destroy()
+        end
+    end
+end
+
+local function IsEnemy(model)
+    if not model or not model:IsA("Model") then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+    local hrp = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChild("Head")
+
+    if humanoid and hrp and humanoid.Health > 0 then
+        return true
+    end
+
+    return false
+end
+
+local function ApplyESP(model)
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+    local hrp = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChild("Head")
+    if not humanoid or not hrp then return end
+
+    if not model:FindFirstChild("Miko_ESP") then
+        local hl = Instance.new("Highlight")
+        hl.Name = "Miko_ESP"
+        hl.FillColor = Color3.fromRGB(255, 45, 45)
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.5
+        hl.OutlineTransparency = 0
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Adornee = model
+        hl.Parent = model
+    end
+
+    local textGui = hrp:FindFirstChild("Miko_ESP_Text")
+    if not textGui then
+        textGui = Instance.new("BillboardGui")
+        textGui.Name = "Miko_ESP_Text"
+        textGui.Adornee = hrp
+        textGui.Size = UDim2.new(0, 200, 0, 50)
+        textGui.StudsOffset = Vector3.new(0, 3.5, 0)
+        textGui.AlwaysOnTop = true
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Name = "InfoLabel"
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        textLabel.TextStrokeTransparency = 0
+        textLabel.TextSize = 12
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.RichText = true
+        textLabel.Parent = textGui
+
+        textGui.Parent = hrp
+    end
+
+    local label = textGui:FindFirstChild("InfoLabel")
+    if label then
+        local hp = math.floor(humanoid.Health)
+        local maxHp = math.floor(humanoid.MaxHealth)
+        label.Text = string.format("%s\n<font color=\"#00FF88\">HP: %d / %d</font>", model.Name, hp, maxHp)
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.2) do
+        if AutoESP then
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if IsEnemy(obj) then
+                    ApplyESP(obj)
+                else
+                    if obj:IsA("Model") then
+                        local esp = obj:FindFirstChild("Miko_ESP")
+                        if esp then esp:Destroy() end
+                        local hrp = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart or obj:FindFirstChild("Head")
+                        if hrp then
+                            local txt = hrp:FindFirstChild("Miko_ESP_Text")
+                            if txt then txt:Destroy() end
+                        end
+                    end
+                end
+            end
+        else
+            ClearAllESP()
+        end
+    end
+end)
+
+--========================================================
+-- SAFE GUI CONTAINER CREATION (EXPLICIT FALLBACK)
+--========================================================
+
+local TargetGui = PlayerGui
+
+pcall(function()
+    if typeof(gethui) == "function" then
+        TargetGui = gethui()
+    else
+        local core = game:GetService("CoreGui")
+        local testGui = Instance.new("ScreenGui")
+        testGui.Name = "Miko_Test"
+        testGui.Parent = core
+        testGui:Destroy()
+        TargetGui = core
+    end
+end)
+
+local old = TargetGui:FindFirstChild("MIKO_HUB") or PlayerGui:FindFirstChild("MIKO_HUB")
+if old then old:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MIKO_HUB"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+    ScreenGui.Parent = TargetGui
+end)
+
+if not ScreenGui.Parent then
+    ScreenGui.Parent = PlayerGui
+end
+
+local Window = Instance.new("Frame")
+Window.Name = "Window"
+Window.Size = UDim2.fromOffset(340, 440)
+Window.Position = UDim2.new(0.5, -170, 0.5, -220)
+Window.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+Window.BorderSizePixel = 0
+Window.ClipsDescendants = true
+Window.Parent = ScreenGui
+
+local WindowCorner = Instance.new("UICorner")
+WindowCorner.CornerRadius = UDim.new(0, 10)
+WindowCorner.Parent = Window
+
+local WindowStroke = Instance.new("UIStroke")
+WindowStroke.Color = Color3.fromRGB(0, 230, 150)
+WindowStroke.Thickness = 1.2
+WindowStroke.Transparency = 0.5
+WindowStroke.Parent = Window
+
+-- Header
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 44)
+Header.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+Header.BorderSizePixel = 0
+Header.Parent = Window
+
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 10)
+HeaderCorner.Parent = Header
+
+local HeaderLogo = Instance.new("ImageLabel")
+HeaderLogo.Size = UDim2.fromOffset(26, 26)
+HeaderLogo.Position = UDim2.fromOffset(10, 9)
+HeaderLogo.BackgroundTransparency = 1
+HeaderLogo.Image = ICON_ID
+HeaderLogo.Parent = Header
+
+local Title = Instance.new("TextLabel")
+Title.BackgroundTransparency = 1
+Title.Size = UDim2.new(0, 150, 0, 20)
+Title.Position = UDim2.fromOffset(42, 6)
+Title.Text = "Miko Hub <font color=\"#00FFAA\">| TAB AUTO</font>"
+Title.RichText = true
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextSize = 13
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 3
+Title.Parent = Header
+
+local SubTitle = Instance.new("TextLabel")
+SubTitle.BackgroundTransparency = 1
+SubTitle.Size = UDim2.new(0, 150, 0, 12)
+SubTitle.Position = UDim2.fromOffset(42, 24)
+SubTitle.Text = "by dev miko"
+SubTitle.TextColor3 = Color3.fromRGB(160, 160, 175)
+SubTitle.TextSize = 9
+SubTitle.Font = Enum.Font.GothamMedium
+SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.ZIndex = 3
+SubTitle.Parent = Header
+
+local ModeLabel = Instance.new("TextLabel")
+ModeLabel.BackgroundTransparency = 1
+ModeLabel.Size = UDim2.fromOffset(115, 25)
+ModeLabel.Position = UDim2.new(0, 178, 0, 9)
+ModeLabel.Text = "Mode: " .. SelectedMode
+ModeLabel.TextColor3 = Color3.fromRGB(185, 185, 185)
+ModeLabel.TextSize = 9
+ModeLabel.Font = Enum.Font.Gotham
+ModeLabel.TextXAlignment = Enum.TextXAlignment.Center
+ModeLabel.ZIndex = 3
+ModeLabel.Parent = Header
+
+-- Floating Show Button
+local ShowButton = Instance.new("ImageButton")
+ShowButton.Name = "ShowButton"
+ShowButton.Size = UDim2.fromOffset(46, 46)
+ShowButton.Position = UDim2.new(0, 12, 0.5, -23)
+ShowButton.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+ShowButton.BorderSizePixel = 0
+ShowButton.Visible = false
+ShowButton.ZIndex = 100
+ShowButton.Parent = ScreenGui
+
+local ShowCorner = Instance.new("UICorner")
+ShowCorner.CornerRadius = UDim.new(0, 12)
+ShowCorner.Parent = ShowButton
+
+local ShowStroke = Instance.new("UIStroke")
+ShowStroke.Color = Color3.fromRGB(0, 230, 150)
+ShowStroke.Thickness = 1.5
+ShowStroke.Transparency = 0.3
+ShowStroke.Parent = ShowButton
+
+local ShowIcon = Instance.new("ImageLabel")
+ShowIcon.Size = UDim2.fromOffset(28, 28)
+ShowIcon.Position = UDim2.new(0.5, -14, 0.5, -14)
+ShowIcon.BackgroundTransparency = 1
+ShowIcon.Image = ICON_ID
+ShowIcon.ZIndex = 101
+ShowIcon.Parent = ShowButton
+
+-- Drag Floating Button
+do
+    local draggingShow = false
+    local dragStartShow, startPosShow
+
+    ShowButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            draggingShow = true
+            dragStartShow = input.Position
+            startPosShow = ShowButton.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    draggingShow = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not draggingShow then return end
+
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - dragStartShow
+            ShowButton.Position = UDim2.new(
+                startPosShow.X.Scale,
+                startPosShow.X.Offset + delta.X,
+                startPosShow.Y.Scale,
+                startPosShow.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- Hide Button
+local HideButton = Instance.new("TextButton")
+HideButton.Name = "HideButton"
+HideButton.Size = UDim2.fromOffset(34, 30)
+HideButton.Position = UDim2.new(1, -40, 0, 7)
+HideButton.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
+HideButton.BorderSizePixel = 0
+HideButton.Text = "—"
+HideButton.TextColor3 = Color3.fromRGB(235, 235, 235)
+HideButton.TextSize = 12
+HideButton.Font = Enum.Font.GothamBold
+HideButton.ZIndex = 10
+HideButton.Parent = Header
+
+local HideCorner = Instance.new("UICorner")
+HideCorner.CornerRadius = UDim.new(0, 6)
+HideCorner.Parent = HideButton
+
+HideButton.MouseButton1Click:Connect(function()
+    if CloseModePicker then CloseModePicker() end
+    if CloseTransformPicker then CloseTransformPicker() end
+    Window.Visible = false
+    ShowButton.Visible = true
+end)
+
+ShowButton.MouseButton1Click:Connect(function()
+    Window.Visible = true
+    ShowButton.Visible = false
+end)
+
+-- Window Drag
+do
+    local dragging = false
+    local dragStart, startPos, dragInput
+
+    Header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Window.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    Header.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            local delta = input.Position - dragStart
+            Window.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+--========================================================
+-- TAB NAVIGATION SYSTEM
+--========================================================
+
+local TabBar = Instance.new("ScrollingFrame")
+TabBar.Name = "TabBar"
+TabBar.Size = UDim2.new(1, -12, 0, 32)
+TabBar.Position = UDim2.fromOffset(6, 48)
+TabBar.BackgroundTransparency = 1
+TabBar.BorderSizePixel = 0
+TabBar.ScrollBarThickness = 0
+TabBar.CanvasSize = UDim2.fromOffset(0, 0)
+TabBar.AutomaticCanvasSize = Enum.AutomaticSize.X
+TabBar.ScrollingDirection = Enum.ScrollingDirection.X
+TabBar.Parent = Window
+
+local TabBarLayout = Instance.new("UIListLayout")
+TabBarLayout.FillDirection = Enum.FillDirection.Horizontal
+TabBarLayout.Padding = UDim.new(0, 4)
+TabBarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabBarLayout.Parent = TabBar
+
+local TabPagesContainer = Instance.new("Frame")
+TabPagesContainer.Name = "TabPagesContainer"
+TabPagesContainer.Size = UDim2.new(1, -12, 1, -88)
+TabPagesContainer.Position = UDim2.fromOffset(6, 84)
+TabPagesContainer.BackgroundTransparency = 1
+TabPagesContainer.Parent = Window
+
+local Tabs = {}
+local TabButtons = {}
+
+local function CreateTab(name, iconText)
+    local page = Instance.new("ScrollingFrame")
+    page.Name = "Tab_" .. name
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.ScrollBarThickness = 3
+    page.ScrollBarImageColor3 = Color3.fromRGB(0, 230, 150)
+    page.ScrollingDirection = Enum.ScrollingDirection.Y
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    page.CanvasSize = UDim2.fromOffset(0, 0)
+    page.Visible = false
+    page.Parent = TabPagesContainer
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 4)
+    padding.PaddingRight = UDim.new(0, 4)
+    padding.PaddingTop = UDim.new(0, 4)
+    padding.PaddingBottom = UDim.new(0, 8)
+    padding.Parent = page
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 5)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = page
+
+    local btn = Instance.new("TextButton")
+    btn.Name = "TabBtn_" .. name
+    btn.Size = UDim2.new(0, 80, 1, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(38, 40, 50)
+    btn.BorderSizePixel = 0
+    btn.Text = iconText .. " " .. name
+    btn.TextColor3 = Color3.fromRGB(180, 180, 190)
+    btn.TextSize = 10
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = TabBar
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = btn
+
+    Tabs[name] = page
+    TabButtons[name] = btn
+
+    btn.MouseButton1Click:Connect(function()
+        for tName, tPage in pairs(Tabs) do
+            tPage.Visible = (tName == name)
+            local tBtn = TabButtons[tName]
+            if tName == name then
+                tBtn.BackgroundColor3 = Color3.fromRGB(0, 160, 100)
+                tBtn.TextColor3 = Color3.new(1, 1, 1)
+            else
+                tBtn.BackgroundColor3 = Color3.fromRGB(38, 40, 50)
+                tBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
+            end
+        end
+    end)
+
+    return page
+end
+
+-- Tab instances
+local PageMain = CreateTab("Main", "🏠")
+local PageFarm = CreateTab("Farm", "⚔️")
+local PageTransform = CreateTab("Transform", "⚡")
+local PageTeleport = CreateTab("Teleport", "🌀")
+
+-- Set Main as default active tab
+Tabs["Main"].Visible = true
+TabButtons["Main"].BackgroundColor3 = Color3.fromRGB(0, 160, 100)
+TabButtons["Main"].TextColor3 = Color3.new(1, 1, 1)
+
+local function AddButton(text, parentPage)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, 0, 0, 34)
+    button.BackgroundColor3 = Color3.fromRGB(42, 44, 54)
+    button.BorderSizePixel = 0
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.TextSize = 11
+    button.Font = Enum.Font.GothamMedium
+    button.Text = text
+    button.AutoButtonColor = true
+    button.Active = true
+    button.Selectable = true
+    button.ZIndex = 5
+    button.Parent = parentPage
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 7)
+    corner.Parent = button
+
+    return button
+end
+
+local function SetToggle(button, name, enabled)
+    button.Text = name .. ": " .. (enabled and "ON" or "OFF")
+
+    if enabled then
+        button.BackgroundColor3 = Color3.fromRGB(0, 160, 100)
+    else
+        button.BackgroundColor3 = Color3.fromRGB(42, 44, 54)
+    end
+end
+
+local ModeButton
+
+local function SetModeText()
+    ModeLabel.Text = "Mode: " .. SelectedMode
+    if ModeButton then
+        ModeButton.Text = "MODE (" .. SelectedMode .. ")"
+    end
+end
+
+--========================================================
+-- TAB 1: MAIN
+--========================================================
+
+ModeButton = AddButton("MODE", PageMain)
+local AutoModeButton = AddButton("Auto Mode: OFF", PageMain)
+local AutoReadyButton = AddButton("Auto Ready: OFF", PageMain)
+local StartLoopButton = AddButton("Start Loop: OFF", PageMain)
+local AutoAntiAFKButton = AddButton("Anti AFK: OFF", PageMain)
+local AutoResetButton = AddButton("Auto Reset 1-2h: OFF", PageMain)
+
+UpdateStartLoopUI = function(enabled)
+    if StartLoopButton then
+        SetToggle(StartLoopButton, "Start Loop", enabled)
+    end
+end
+
+--========================================================
+-- TAB 2: FARM & COMBAT
+--========================================================
+
+local UndergroundFarmButton = AddButton("Auto Farm: OFF", PageFarm)
+
+local UndergroundDepthFrame = Instance.new("Frame")
+UndergroundDepthFrame.Size = UDim2.new(1, 0, 0, 34)
+UndergroundDepthFrame.BackgroundColor3 = Color3.fromRGB(42, 44, 54)
+UndergroundDepthFrame.BorderSizePixel = 0
+UndergroundDepthFrame.ZIndex = 5
+UndergroundDepthFrame.Parent = PageFarm
+
+local DepthFrameCorner = Instance.new("UICorner")
+DepthFrameCorner.CornerRadius = UDim.new(0, 7)
+DepthFrameCorner.Parent = UndergroundDepthFrame
+
+local DepthTextLabel = Instance.new("TextLabel")
+DepthTextLabel.Size = UDim2.new(0.6, 0, 1, 0)
+DepthTextLabel.Position = UDim2.fromOffset(10, 0)
+DepthTextLabel.BackgroundTransparency = 1
+DepthTextLabel.Text = "Farm Depth: " .. tostring(UndergroundDistance) .. " studs"
+DepthTextLabel.TextColor3 = Color3.new(1, 1, 1)
+DepthTextLabel.TextSize = 11
+DepthTextLabel.Font = Enum.Font.GothamMedium
+DepthTextLabel.TextXAlignment = Enum.TextXAlignment.Left
+DepthTextLabel.ZIndex = 6
+DepthTextLabel.Parent = UndergroundDepthFrame
+
+local DepthDownBtn = Instance.new("TextButton")
+DepthDownBtn.Size = UDim2.fromOffset(28, 24)
+DepthDownBtn.Position = UDim2.new(1, -64, 0.5, -12)
+DepthDownBtn.BackgroundColor3 = Color3.fromRGB(55, 58, 70)
+DepthDownBtn.BorderSizePixel = 0
+DepthDownBtn.Text = "➖"
+DepthDownBtn.TextColor3 = Color3.new(1, 1, 1)
+DepthDownBtn.TextSize = 10
+DepthDownBtn.Font = Enum.Font.GothamBold
+DepthDownBtn.ZIndex = 6
+DepthDownBtn.Parent = UndergroundDepthFrame
+Instance.new("UICorner", DepthDownBtn).CornerRadius = UDim.new(0, 5)
+
+local DepthUpBtn = Instance.new("TextButton")
+DepthUpBtn.Size = UDim2.fromOffset(28, 24)
+DepthUpBtn.Position = UDim2.new(1, -32, 0.5, -12)
+DepthUpBtn.BackgroundColor3 = Color3.fromRGB(55, 58, 70)
+DepthUpBtn.BorderSizePixel = 0
+DepthUpBtn.Text = "➕"
+DepthUpBtn.TextColor3 = Color3.new(1, 1, 1)
+DepthUpBtn.TextSize = 10
+DepthUpBtn.Font = Enum.Font.GothamBold
+DepthUpBtn.ZIndex = 6
+DepthUpBtn.Parent = UndergroundDepthFrame
+Instance.new("UICorner", DepthUpBtn).CornerRadius = UDim.new(0, 5)
+
+local AutoPunchButton = AddButton("Auto Punch: OFF", PageFarm)
+local AntiVoidButton = AddButton("🛡️ Anti-Void Protection: ON", PageFarm)
+SetToggle(AntiVoidButton, "🛡️ Anti-Void Protection", AntiVoid)
+
+local AutoESPButton = AddButton("ESP: OFF", PageFarm)
+local AutoSpawnButton = AddButton("Auto Spawn: OFF", PageFarm)
+
+--========================================================
+-- TAB 3: TRANSFORM & TECH
+--========================================================
+
+local BuyTransformButton = AddButton("Auto Buy + Transform: OFF", PageTransform)
+local TransformPickerButton = AddButton("Target: TSM", PageTransform)
+local TSMBattleArmorButton = AddButton("TSMBattleArmor: OFF", PageTransform)
+local TTVCinemaButton = AddButton("TTVCinema: OFF", PageTransform)
+local AutoUpTechButton = AddButton("Auto Up Tech Full All: OFF", PageTransform)
+
+--========================================================
+-- TAB 4: TELEPORT & VOID
+--========================================================
+
+local AutoTPButton = AddButton("Auto Tween / Freeze: OFF", PageTeleport)
+local VoidHoverButton = AddButton("Void Hover: OFF", PageTeleport)
+
+local VoidDepthFrame = Instance.new("Frame")
+VoidDepthFrame.Size = UDim2.new(1, 0, 0, 34)
+VoidDepthFrame.BackgroundColor3 = Color3.fromRGB(42, 44, 54)
+VoidDepthFrame.BorderSizePixel = 0
+VoidDepthFrame.ZIndex = 5
+VoidDepthFrame.Parent = PageTeleport
+
+local VoidDepthCorner = Instance.new("UICorner")
+VoidDepthCorner.CornerRadius = UDim.new(0, 7)
+VoidDepthCorner.Parent = VoidDepthFrame
+
+local DepthLabel = Instance.new("TextLabel")
+DepthLabel.Size = UDim2.new(0.6, 0, 1, 0)
+DepthLabel.Position = UDim2.fromOffset(10, 0)
+DepthLabel.BackgroundTransparency = 1
+DepthLabel.Text = "Void Hover Depth: " .. tostring(VoidDepth)
+DepthLabel.TextColor3 = Color3.new(1, 1, 1)
+DepthLabel.TextSize = 11
+DepthLabel.Font = Enum.Font.GothamMedium
+DepthLabel.TextXAlignment = Enum.TextXAlignment.Left
+DepthLabel.ZIndex = 6
+DepthLabel.Parent = VoidDepthFrame
+
+local DownBtn = Instance.new("TextButton")
+DownBtn.Size = UDim2.fromOffset(28, 24)
+DownBtn.Position = UDim2.new(1, -64, 0.5, -12)
+DownBtn.BackgroundColor3 = Color3.fromRGB(55, 58, 70)
+DownBtn.BorderSizePixel = 0
+DownBtn.Text = "➖"
+DownBtn.TextColor3 = Color3.new(1, 1, 1)
+DownBtn.TextSize = 10
+DownBtn.Font = Enum.Font.GothamBold
+DownBtn.ZIndex = 6
+DownBtn.Parent = VoidDepthFrame
+Instance.new("UICorner", DownBtn).CornerRadius = UDim.new(0, 5)
+
+local UpBtn = Instance.new("TextButton")
+UpBtn.Size = UDim2.fromOffset(28, 24)
+UpBtn.Position = UDim2.new(1, -32, 0.5, -12)
+UpBtn.BackgroundColor3 = Color3.fromRGB(55, 58, 70)
+UpBtn.BorderSizePixel = 0
+UpBtn.Text = "➕"
+UpBtn.TextColor3 = Color3.new(1, 1, 1)
+UpBtn.TextSize = 10
+UpBtn.Font = Enum.Font.GothamBold
+UpBtn.ZIndex = 6
+UpBtn.Parent = VoidDepthFrame
+Instance.new("UICorner", UpBtn).CornerRadius = UDim.new(0, 5)
+
+local SavePosButton = AddButton("📍 Save Current Position", PageTeleport)
+local ClearPosButton = AddButton("🗑️ Clear All Saved Positions", PageTeleport)
+
+local PosListContainer = Instance.new("Frame")
+PosListContainer.Size = UDim2.new(1, 0, 0, 0)
+PosListContainer.AutomaticSize = Enum.AutomaticSize.Y
+PosListContainer.BackgroundTransparency = 1
+PosListContainer.Parent = PageTeleport
+
+local PosListLayout = Instance.new("UIListLayout")
+PosListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+PosListLayout.Padding = UDim.new(0, 5)
+PosListLayout.Parent = PosListContainer
+
+--========================================================
+-- PICKERS POPUPS
+--========================================================
+
+-- Transform Picker Frame
+local TransformPicker = Instance.new("Frame")
+TransformPicker.Name = "TransformPicker"
+TransformPicker.Size = UDim2.new(1, -24, 0, 0)
+TransformPicker.Position = UDim2.fromOffset(12, 0)
+TransformPicker.BackgroundColor3 = Color3.fromRGB(32, 34, 44)
+TransformPicker.BorderSizePixel = 0
+TransformPicker.Visible = false
+TransformPicker.ZIndex = 30
+TransformPicker.Parent = PageTransform
+
+local TransformPickerCorner = Instance.new("UICorner")
+TransformPickerCorner.CornerRadius = UDim.new(0, 8)
+TransformPickerCorner.Parent = TransformPicker
+
+local TransformPickerPadding = Instance.new("UIPadding")
+TransformPickerPadding.PaddingTop = UDim.new(0, 6)
+TransformPickerPadding.PaddingBottom = UDim.new(0, 6)
+TransformPickerPadding.PaddingLeft = UDim.new(0, 6)
+TransformPickerPadding.PaddingRight = UDim.new(0, 6)
+TransformPickerPadding.Parent = TransformPicker
+
+local TransformList = Instance.new("UIListLayout")
+TransformList.Padding = UDim.new(0, 5)
+TransformList.SortOrder = Enum.SortOrder.LayoutOrder
+TransformList.Parent = TransformPicker
+
+local TransformButtons = {}
+
+local function RefreshTransformButtons()
+    for target, button in pairs(TransformButtons) do
+        if target == SelectedTransformTarget then
+            button.Text = "► " .. target
+            button.BackgroundColor3 = Color3.fromRGB(0, 160, 100)
+        else
+            button.Text = target
+            button.BackgroundColor3 = Color3.fromRGB(50, 52, 64)
+        end
+    end
+
+    TransformPickerButton.Text = "Target: " .. SelectedTransformTarget
+end
+
+CloseTransformPicker = function()
+    TransformPicker.Visible = false
+    TransformPicker.Size = UDim2.new(1, -24, 0, 0)
+end
+
+local function OpenTransformPicker()
+    TransformPicker.Visible = true
+    TransformPicker.Size = UDim2.new(1, -24, 0, 48 * #TransformTargets + 12)
+    RefreshTransformButtons()
+end
+
+for index, target in ipairs(TransformTargets) do
+    local button = Instance.new("TextButton")
+    button.Name = "Transform_" .. target
+    button.Size = UDim2.new(1, 0, 0, 36)
+    button.BackgroundColor3 = Color3.fromRGB(50, 52, 64)
+    button.BorderSizePixel = 0
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.TextSize = 11
+    button.Font = Enum.Font.Gotham
+    button.Text = target
+    button.ZIndex = 31
+    button.LayoutOrder = index
+    button.Parent = TransformPicker
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = button
+
+    TransformButtons[target] = button
+
+    button.MouseButton1Click:Connect(function()
+        TransformTargetIndex = index
+        SelectedTransformTarget = target
+
+        if not State.BuyTransformPurchasedThisCycle then
+            State.BuyTransformDoneThisCycle = false
+        end
+
+        RefreshTransformButtons()
+        CloseTransformPicker()
+
+        print("[Miko Hub] Transform target selected:", SelectedTransformTarget)
+
+        if AutoBuyTransform and AutoReady then
+            RunSetup()
+        end
+    end)
+end
+
+TransformPickerButton.MouseButton1Click:Connect(function()
+    if TransformPicker.Visible then
+        CloseTransformPicker()
+    else
+        OpenTransformPicker()
+    end
+end)
+
+RefreshTransformButtons()
+
+-- Mode Picker Frame
+local ModePicker = Instance.new("Frame")
+ModePicker.Name = "ModePicker"
+ModePicker.Size = UDim2.new(1, -24, 0, 0)
+ModePicker.Position = UDim2.fromOffset(12, 0)
+ModePicker.BackgroundColor3 = Color3.fromRGB(32, 34, 44)
+ModePicker.BorderSizePixel = 0
+ModePicker.Visible = false
+ModePicker.ZIndex = 30
+ModePicker.Parent = PageMain
+
+local ModePickerCorner = Instance.new("UICorner")
+ModePickerCorner.CornerRadius = UDim.new(0, 8)
+ModePickerCorner.Parent = ModePicker
+
+local ModePickerPadding = Instance.new("UIPadding")
+ModePickerPadding.PaddingTop = UDim.new(0, 6)
+ModePickerPadding.PaddingBottom = UDim.new(0, 6)
+ModePickerPadding.PaddingLeft = UDim.new(0, 6)
+ModePickerPadding.PaddingRight = UDim.new(0, 6)
+ModePickerPadding.Parent = ModePicker
+
+local ModeList = Instance.new("UIListLayout")
+ModeList.Padding = UDim.new(0, 5)
+ModeList.SortOrder = Enum.SortOrder.LayoutOrder
+ModeList.Parent = ModePicker
+
+local ModeButtons = {}
+
+local function RefreshModeButtons()
+    for mode, button in pairs(ModeButtons) do
+        if mode == SelectedMode then
+            button.Text = "► " .. mode
+            button.BackgroundColor3 = Color3.fromRGB(0, 160, 100)
+        else
+            button.Text = mode
+            button.BackgroundColor3 = Color3.fromRGB(50, 52, 64)
+        end
+    end
+end
+
+CloseModePicker = function()
+    ModePicker.Visible = false
+    ModePicker.Size = UDim2.new(1, -24, 0, 0)
+end
+
+local function OpenModePicker()
+    ModePicker.Visible = true
+    ModePicker.Size = UDim2.new(1, -24, 0, 250)
+    RefreshModeButtons()
+end
+
+for index, mode in ipairs(Modes) do
+    local button = Instance.new("TextButton")
+    button.Name = "Mode_" .. mode:gsub("%s+", "_")
+    button.Size = UDim2.new(1, 0, 0, 32)
+    button.BackgroundColor3 = Color3.fromRGB(50, 52, 64)
+    button.BorderSizePixel = 0
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.TextSize = 11
+    button.Font = Enum.Font.Gotham
+    button.Text = mode
+    button.ZIndex = 31
+    button.LayoutOrder = index
+    button.Parent = ModePicker
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = button
+
+    ModeButtons[mode] = button
+
+    button.MouseButton1Click:Connect(function()
+        ModeIndex = index
+        SelectedMode = mode
+
+        SetModeText()
+        RefreshModeButtons()
+        CloseModePicker()
+
+        State.LastVote = 0
+        print("[Miko Hub] Selected mode:", SelectedMode)
+    end)
+end
+
+ModeButton.MouseButton1Click:Connect(function()
+    if ModePicker.Visible then
+        CloseModePicker()
+    else
+        OpenModePicker()
+    end
+end)
+
+SetModeText()
+
+--========================================================
+-- EVENT LISTENERS & UI CONNECTIONS
+--========================================================
+
+AutoModeButton.MouseButton1Click:Connect(function()
+    AutoMode = not AutoMode
+    SetToggle(AutoModeButton, "Auto Mode", AutoMode)
+
+    State.LastVote = 0
+    State.SequenceRunning = false
+
+    if AutoMode then
+        print("[Miko Hub] Auto Mode: ON")
+        if AutoReady then
+            StartAutoReadyNow()
+        else
+            VoteMode(true)
+        end
+    else
+        print("[Miko Hub] Auto Mode: OFF")
+    end
+end)
+
+AutoReadyButton.MouseButton1Click:Connect(function()
+    AutoReady = not AutoReady
+    SetToggle(AutoReadyButton, "Auto Ready", AutoReady)
+
+    State.LastReady = 0
+    State.SequenceRunning = false
+
+    if AutoReady then
+        print("[Miko Hub] Auto Ready: ON")
+        StartAutoReadyNow()
+    else
+        print("[Miko Hub] Auto Ready: OFF")
+    end
+end)
+
+StartLoopButton.MouseButton1Click:Connect(function()
+    AutoStartLoop = not AutoStartLoop
+    UpdateStartLoopUI(AutoStartLoop)
+end)
+
+BuyTransformButton.MouseButton1Click:Connect(function()
+    AutoBuyTransform = not AutoBuyTransform
+    SetToggle(BuyTransformButton, "Auto Buy + Transform", AutoBuyTransform)
+
+    if AutoBuyTransform then
+        State.BuyTransformPurchasedThisCycle = false
+        State.BuyTransformDoneThisCycle = false
+
+        if AutoReady then
+            RunSetup()
+        end
+    end
+end)
+
+TSMBattleArmorButton.MouseButton1Click:Connect(function()
+    AutoTSMBattleArmor = not AutoTSMBattleArmor
+    SetToggle(TSMBattleArmorButton, "TSMBattleArmor", AutoTSMBattleArmor)
+
+    if AutoTSMBattleArmor and AutoReady then
+        RunSetup()
+    end
+end)
+
+TTVCinemaButton.MouseButton1Click:Connect(function()
+    AutoTTVCinema = not AutoTTVCinema
+    SetToggle(TTVCinemaButton, "TTVCinema", AutoTTVCinema)
+
+    if AutoTTVCinema and AutoReady then
+        RunSetup()
+    end
+end)
+
+AutoTPButton.MouseButton1Click:Connect(function()
+    AutoTPFreeze = not AutoTPFreeze
+    SetToggle(AutoTPButton, "Auto Tween / Freeze", AutoTPFreeze)
+
+    if AutoTPFreeze then
+        TPFreeze()
+        if AutoReady then
+            RunSetup()
+        end
+    else
+        Unfreeze()
+    end
+end)
+
+UndergroundFarmButton.MouseButton1Click:Connect(function()
+    UndergroundFarm = not UndergroundFarm
+    SetToggle(UndergroundFarmButton, "Auto Farm", UndergroundFarm)
+end)
+
+DepthUpBtn.MouseButton1Click:Connect(function()
+    UndergroundDistance = math.clamp(UndergroundDistance + 1, 3, 100)
+    DepthTextLabel.Text = "Farm Depth: " .. tostring(UndergroundDistance) .. " studs"
+end)
+
+DepthDownBtn.MouseButton1Click:Connect(function()
+    UndergroundDistance = math.clamp(UndergroundDistance - 1, 3, 100)
+    DepthTextLabel.Text = "Farm Depth: " .. tostring(UndergroundDistance) .. " studs"
+end)
+
+AutoPunchButton.MouseButton1Click:Connect(function()
+    AutoPunch = not AutoPunch
+    AutoEquip = AutoPunch
+    SetToggle(AutoPunchButton, "Auto Punch", AutoPunch)
+end)
+
+AntiVoidButton.MouseButton1Click:Connect(function()
+    AntiVoid = not AntiVoid
+    SetToggle(AntiVoidButton, "🛡️ Anti-Void Protection", AntiVoid)
+end)
+
+VoidHoverButton.MouseButton1Click:Connect(function()
+    VoidActive = not VoidActive
+    SetToggle(VoidHoverButton, "Void Hover", VoidActive)
+
+    local _, hrp, _ = GetCharacter()
+
+    if VoidActive then
+        if hrp then
+            preVoidCFrame = hrp.CFrame
+        end
+        print("[Miko Hub] Void Hover ON: -" .. tostring(VoidDepth))
+    else
+        if hrp and preVoidCFrame then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.CFrame = preVoidCFrame
+            preVoidCFrame = nil
+        end
+        print("[Miko Hub] Void Hover OFF -> Returned to original position")
+    end
+end)
+
+UpBtn.MouseButton1Click:Connect(function()
+    VoidDepth = math.clamp(VoidDepth + 10, 0, 1000)
+    DepthLabel.Text = "Void Hover Depth: " .. tostring(VoidDepth)
+end)
+
+DownBtn.MouseButton1Click:Connect(function()
+    VoidDepth = math.clamp(VoidDepth - 10, 0, 1000)
+    DepthLabel.Text = "Void Hover Depth: " .. tostring(VoidDepth)
+end)
+
+local function AddPositionUI(posData)
+    local item = Instance.new("Frame")
+    item.Name = "PosItem_" .. tostring(posData.id)
+    item.Size = UDim2.new(1, 0, 0, 34)
+    item.BackgroundColor3 = Color3.fromRGB(35, 37, 47)
+    item.BorderSizePixel = 0
+    item.Parent = PosListContainer
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = item
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    nameLabel.Position = UDim2.fromOffset(10, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = posData.name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 220, 180)
+    nameLabel.TextSize = 10
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.Parent = item
+
+    local tpBtn = Instance.new("TextButton")
+    tpBtn.Size = UDim2.fromOffset(42, 22)
+    tpBtn.Position = UDim2.new(1, -100, 0.5, -11)
+    tpBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 200)
+    tpBtn.BorderSizePixel = 0
+    tpBtn.Text = "TP"
+    tpBtn.TextColor3 = Color3.new(1, 1, 1)
+    tpBtn.TextSize = 10
+    tpBtn.Font = Enum.Font.GothamBold
+    tpBtn.Parent = item
+    Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 5)
+
+    local delBtn = Instance.new("TextButton")
+    delBtn.Size = UDim2.fromOffset(50, 22)
+    delBtn.Position = UDim2.new(1, -54, 0.5, -11)
+    delBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 60)
+    delBtn.BorderSizePixel = 0
+    delBtn.Text = "Delete"
+    delBtn.TextColor3 = Color3.new(1, 1, 1)
+    delBtn.TextSize = 10
+    delBtn.Font = Enum.Font.GothamBold
+    delBtn.Parent = item
+    Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 5)
+
+    tpBtn.MouseButton1Click:Connect(function()
+        local _, hrp, _ = GetCharacter()
+        if hrp then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.CFrame = posData.cframe
+        end
+    end)
+
+    delBtn.MouseButton1Click:Connect(function()
+        for index, p in ipairs(savedPositions) do
+            if p.id == posData.id then
+                table.remove(savedPositions, index)
+                break
+            end
+        end
+        if #savedPositions == 0 then
+            positionCounter = 0
+        end
+        item:Destroy()
+    end)
+end
+
+SavePosButton.MouseButton1Click:Connect(function()
+    local _, hrp, _ = GetCharacter()
+    if hrp then
+        if #savedPositions == 0 then
+            positionCounter = 0
+        end
+        positionCounter = positionCounter + 1
+        local newPos = {
+            id = positionCounter,
+            cframe = hrp.CFrame,
+            name = "Position " .. tostring(positionCounter)
+        }
+        table.insert(savedPositions, newPos)
+        AddPositionUI(newPos)
+        print("[Miko Hub] Saved Position:", newPos.name)
+    end
+end)
+
+ClearPosButton.MouseButton1Click:Connect(function()
+    savedPositions = {}
+    positionCounter = 0
+    for _, child in ipairs(PosListContainer:GetChildren()) do
+        if child:IsA("Frame") then
+            child:Destroy()
+        end
+    end
+    print("[Miko Hub] Cleared all saved positions")
+end)
+
+AutoESPButton.MouseButton1Click:Connect(function()
+    AutoESP = not AutoESP
+    SetToggle(AutoESPButton, "ESP", AutoESP)
+
+    if not AutoESP then
+        ClearAllESP()
+    end
+end)
+
+AutoUpTechButton.MouseButton1Click:Connect(function()
+    AutoUpTechFullAll = not AutoUpTechFullAll
+    SetToggle(AutoUpTechButton, "Auto Up Tech Full All", AutoUpTechFullAll)
+end)
+
+AutoAntiAFKButton.MouseButton1Click:Connect(function()
+    AutoAntiAFK = not AutoAntiAFK
+    SetToggle(AutoAntiAFKButton, "Anti AFK", AutoAntiAFK)
+end)
+
+AutoSpawnButton.MouseButton1Click:Connect(function()
+    AutoSpawn = not AutoSpawn
+    SetToggle(AutoSpawnButton, "Auto Spawn", AutoSpawn)
+end)
+
+AutoResetButton.MouseButton1Click:Connect(function()
+    AutoReset = not AutoReset
+    SetToggle(AutoResetButton, "Auto Reset 1-2h", AutoReset)
+    State.ResetDeadline = nil
+end)
+
+--========================================================
+-- STARTUP LOG
+--========================================================
+
+print("========================================")
+print("[Miko Hub] TAB SYSTEM UI LOADED SUCCESSFULLY")
+print("[Miko Hub] Author: dev miko")
+print("========================================")
