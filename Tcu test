@@ -1,5 +1,5 @@
 --========================================================
--- MIKO HUB | SMART AUTO - TAB SYSTEM (DELTA SAFE EXECUTION)
+-- MIKO HUB | SMART AUTO - COMPACT, VOID & AUTO FARM HUB
 -- Author: dev miko
 --========================================================
 
@@ -13,32 +13,18 @@ local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Events = ReplicatedStorage:WaitForChild("Events")
 
 --========================================================
--- SAFE REMOTE GETTERS
+-- REMOTES
 --========================================================
 
-local Events = ReplicatedStorage:WaitForChild("Events", 5)
+local ModeVote = Events:WaitForChild("ModeVote")
+local ReadyEvent = Events:WaitForChild("Ready")
+local PurchaseItem = ReplicatedStorage:WaitForChild("PurchaseItem")
 
-local ModeVote = Events and Events:WaitForChild("ModeVote", 3)
-local ReadyEvent = Events and Events:WaitForChild("Ready", 3)
-local PurchaseItem = ReplicatedStorage:WaitForChild("PurchaseItem", 3)
-
-local SpawnPartner = Events and Events:FindFirstChild("SpawnPartner")
-local UpgradeEvent = Events and Events:FindFirstChild("UpgradeEvent")
-
-task.spawn(function()
-    if not Events then
-        Events = ReplicatedStorage:WaitForChild("Events")
-    end
-    if Events then
-        ModeVote = ModeVote or Events:WaitForChild("ModeVote", 5)
-        ReadyEvent = ReadyEvent or Events:WaitForChild("Ready", 5)
-        SpawnPartner = SpawnPartner or Events:FindFirstChild("SpawnPartner")
-        UpgradeEvent = UpgradeEvent or Events:FindFirstChild("UpgradeEvent")
-    end
-    PurchaseItem = PurchaseItem or ReplicatedStorage:WaitForChild("PurchaseItem", 5)
-end)
+local SpawnPartner = Events:FindFirstChild("SpawnPartner")
+local UpgradeEvent = Events:FindFirstChild("UpgradeEvent")
 
 --========================================================
 -- ASSETS & CONFIG
@@ -194,11 +180,11 @@ local State = {
 }
 
 local UpdateStartLoopUI = nil
-local CloseModePicker = function() end
-local CloseTransformPicker = function() end
+local CloseModePicker
+local CloseTransformPicker
 
 --========================================================
--- CHARACTER & MOVEMENT HELPERS
+-- CHARACTER
 --========================================================
 
 local function GetCharacter()
@@ -321,7 +307,6 @@ end
 --========================================================
 
 local function VoteMode(force)
-    if not ModeVote then return false end
     local now = os.clock()
 
     if not force and now - State.LastVote < VoteCooldown then
@@ -344,7 +329,6 @@ local function VoteMode(force)
 end
 
 local function SendReady(force)
-    if not ReadyEvent then return false end
     if State.ReadyDoneThisCycle and not force then
         return false
     end
@@ -409,7 +393,6 @@ local function WaitForPlayableProtocol(timeout)
 end
 
 local function BuyProtocol(force)
-    if not PurchaseItem then return false, false end
     local now = os.clock()
 
     if HasPlayableProtocol() then
@@ -938,7 +921,7 @@ task.spawn(function()
 end)
 
 --========================================================
--- AUTO PUNCH LOGIC
+-- AUTO PUNCH LOGIC (FIXED)
 --========================================================
 
 task.spawn(function()
@@ -965,6 +948,7 @@ task.spawn(function()
                         tool:Activate()
                     end
 
+                    -- Tích hợp thêm VirtualUser để giả lập click chuột liên tục
                     VirtualUser:CaptureController()
                     VirtualUser:ClickButton1(Vector2.new(0, 0))
                 end
@@ -978,7 +962,6 @@ end)
 --========================================================
 
 local function BuyTSMBattleArmor(force)
-    if not PurchaseItem then return false end
     local now = os.clock()
 
     if not force and now - State.LastBattleArmorUpgrade < 3 then
@@ -1004,7 +987,6 @@ local function BuyTSMBattleArmor(force)
 end
 
 local function BuyTTVCinema(force)
-    if not PurchaseItem then return false end
     local now = os.clock()
 
     if not force and now - State.LastCinemaUpgrade < 3 then
@@ -1179,7 +1161,7 @@ task.spawn(function()
 end)
 
 --========================================================
--- AUTO READY & MODE CONTROLLER
+-- AUTO READY & MODE CONTROLLER (FIXED NO-SPAM IN MATCH)
 --========================================================
 
 local function StartAutoReadyNow()
@@ -1263,14 +1245,12 @@ task.spawn(function()
         State.LastStart = now
 
         pcall(function()
-            if ReadyEvent then
-                ReadyEvent:FireServer()
-                State.ReadyDoneThisCycle = true
-            end
+            ReadyEvent:FireServer()
+            State.ReadyDoneThisCycle = true
         end)
 
         print("[Miko Hub] Start Loop -> Ready sent once for current cycle")
-    end)
+    end
 end)
 
 --========================================================
@@ -1462,10 +1442,8 @@ local function processAfkCheck()
                     if (isGreenColor or isGreenText) and not isRedColor then
                         pcall(function()
                             print("[Miko Hub | Anti-AFK] Clicked Green Button safely!")
-                            if typeof(firesignal) == "function" then
-                                firesignal(element.MouseButton1Click)
-                                firesignal(element.Activated)
-                            end
+                            firesignal(element.MouseButton1Click)
+                            firesignal(element.Activated)
                         end)
                         return true
                     end
@@ -1491,7 +1469,7 @@ local function processAfkPart(isAfkActive)
             
             if isGreenPart then
                 pcall(function()
-                    if typeof(firetouchinterest) == "function" then
+                    if firetouchinterest then
                         firetouchinterest(hrp, part, 0)
                         task.wait(0.05)
                         firetouchinterest(hrp, part, 1)
@@ -1636,25 +1614,17 @@ task.spawn(function()
 end)
 
 --========================================================
--- SAFE GUI CONTAINER CREATION (EXPLICIT FALLBACK)
+-- USER INTERFACE (MIKO HUB)
 --========================================================
 
-local TargetGui = PlayerGui
-
+local TargetGui = CoreGui
 pcall(function()
-    if typeof(gethui) == "function" then
+    if gethui then
         TargetGui = gethui()
-    else
-        local core = game:GetService("CoreGui")
-        local testGui = Instance.new("ScreenGui")
-        testGui.Name = "Miko_Test"
-        testGui.Parent = core
-        testGui:Destroy()
-        TargetGui = core
     end
 end)
 
-local old = TargetGui:FindFirstChild("MIKO_HUB") or PlayerGui:FindFirstChild("MIKO_HUB")
+local old = TargetGui:FindFirstChild("MIKO_HUB")
 if old then old:Destroy() end
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -1662,19 +1632,12 @@ ScreenGui.Name = "MIKO_HUB"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-pcall(function()
-    ScreenGui.Parent = TargetGui
-end)
-
-if not ScreenGui.Parent then
-    ScreenGui.Parent = PlayerGui
-end
+ScreenGui.Parent = TargetGui
 
 local Window = Instance.new("Frame")
 Window.Name = "Window"
-Window.Size = UDim2.fromOffset(340, 440)
-Window.Position = UDim2.new(0.5, -170, 0.5, -220)
+Window.Size = UDim2.fromOffset(330, 420)
+Window.Position = UDim2.new(0.5, -165, 0.5, -210)
 Window.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 Window.BorderSizePixel = 0
 Window.ClipsDescendants = true
@@ -1712,7 +1675,7 @@ local Title = Instance.new("TextLabel")
 Title.BackgroundTransparency = 1
 Title.Size = UDim2.new(0, 150, 0, 20)
 Title.Position = UDim2.fromOffset(42, 6)
-Title.Text = "Miko Hub <font color=\"#00FFAA\">| TAB AUTO</font>"
+Title.Text = "Miko Hub <font color=\"#00FFAA\">| SMART AUTO</font>"
 Title.RichText = true
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextSize = 13
@@ -1733,11 +1696,13 @@ SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 SubTitle.ZIndex = 3
 SubTitle.Parent = Header
 
+local ModeButton
+
 local ModeLabel = Instance.new("TextLabel")
 ModeLabel.BackgroundTransparency = 1
 ModeLabel.Size = UDim2.fromOffset(115, 25)
-ModeLabel.Position = UDim2.new(0, 178, 0, 9)
-ModeLabel.Text = "Mode: " .. SelectedMode
+ModeLabel.Position = UDim2.new(0, 168, 0, 9)
+ModeLabel.Text = "Current Mode: " .. SelectedMode
 ModeLabel.TextColor3 = Color3.fromRGB(185, 185, 185)
 ModeLabel.TextSize = 9
 ModeLabel.Font = Enum.Font.Gotham
@@ -1827,8 +1792,10 @@ HideCorner.CornerRadius = UDim.new(0, 6)
 HideCorner.Parent = HideButton
 
 HideButton.MouseButton1Click:Connect(function()
-    if CloseModePicker then CloseModePicker() end
-    if CloseTransformPicker then CloseTransformPicker() end
+    CloseModePicker()
+    if CloseTransformPicker then
+        CloseTransformPicker()
+    end
     Window.Visible = false
     ShowButton.Visible = true
 end)
@@ -1876,111 +1843,32 @@ do
     end)
 end
 
---========================================================
--- TAB NAVIGATION SYSTEM
---========================================================
+-- Scrolling Content Container
+local Content = Instance.new("ScrollingFrame")
+Content.Size = UDim2.new(1, -12, 1, -52)
+Content.Position = UDim2.fromOffset(6, 48)
+Content.BackgroundTransparency = 1
+Content.BorderSizePixel = 0
+Content.ScrollBarThickness = 3
+Content.ScrollBarImageColor3 = Color3.fromRGB(0, 230, 150)
+Content.ScrollingDirection = Enum.ScrollingDirection.Y
+Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Content.CanvasSize = UDim2.fromOffset(0, 0)
+Content.Parent = Window
 
-local TabBar = Instance.new("ScrollingFrame")
-TabBar.Name = "TabBar"
-TabBar.Size = UDim2.new(1, -12, 0, 32)
-TabBar.Position = UDim2.fromOffset(6, 48)
-TabBar.BackgroundTransparency = 1
-TabBar.BorderSizePixel = 0
-TabBar.ScrollBarThickness = 0
-TabBar.CanvasSize = UDim2.fromOffset(0, 0)
-TabBar.AutomaticCanvasSize = Enum.AutomaticSize.X
-TabBar.ScrollingDirection = Enum.ScrollingDirection.X
-TabBar.Parent = Window
+local Padding = Instance.new("UIPadding")
+Padding.PaddingLeft = UDim.new(0, 5)
+Padding.PaddingRight = UDim.new(0, 5)
+Padding.PaddingTop = UDim.new(0, 4)
+Padding.PaddingBottom = UDim.new(0, 8)
+Padding.Parent = Content
 
-local TabBarLayout = Instance.new("UIListLayout")
-TabBarLayout.FillDirection = Enum.FillDirection.Horizontal
-TabBarLayout.Padding = UDim.new(0, 4)
-TabBarLayout.SortOrder = Enum.SortOrder.LayoutOrder
-TabBarLayout.Parent = TabBar
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 5)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Parent = Content
 
-local TabPagesContainer = Instance.new("Frame")
-TabPagesContainer.Name = "TabPagesContainer"
-TabPagesContainer.Size = UDim2.new(1, -12, 1, -88)
-TabPagesContainer.Position = UDim2.fromOffset(6, 84)
-TabPagesContainer.BackgroundTransparency = 1
-TabPagesContainer.Parent = Window
-
-local Tabs = {}
-local TabButtons = {}
-
-local function CreateTab(name, iconText)
-    local page = Instance.new("ScrollingFrame")
-    page.Name = "Tab_" .. name
-    page.Size = UDim2.new(1, 0, 1, 0)
-    page.BackgroundTransparency = 1
-    page.BorderSizePixel = 0
-    page.ScrollBarThickness = 3
-    page.ScrollBarImageColor3 = Color3.fromRGB(0, 230, 150)
-    page.ScrollingDirection = Enum.ScrollingDirection.Y
-    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    page.CanvasSize = UDim2.fromOffset(0, 0)
-    page.Visible = false
-    page.Parent = TabPagesContainer
-
-    local padding = Instance.new("UIPadding")
-    padding.PaddingLeft = UDim.new(0, 4)
-    padding.PaddingRight = UDim.new(0, 4)
-    padding.PaddingTop = UDim.new(0, 4)
-    padding.PaddingBottom = UDim.new(0, 8)
-    padding.Parent = page
-
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 5)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Parent = page
-
-    local btn = Instance.new("TextButton")
-    btn.Name = "TabBtn_" .. name
-    btn.Size = UDim2.new(0, 80, 1, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(38, 40, 50)
-    btn.BorderSizePixel = 0
-    btn.Text = iconText .. " " .. name
-    btn.TextColor3 = Color3.fromRGB(180, 180, 190)
-    btn.TextSize = 10
-    btn.Font = Enum.Font.GothamBold
-    btn.Parent = TabBar
-
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 6)
-    btnCorner.Parent = btn
-
-    Tabs[name] = page
-    TabButtons[name] = btn
-
-    btn.MouseButton1Click:Connect(function()
-        for tName, tPage in pairs(Tabs) do
-            tPage.Visible = (tName == name)
-            local tBtn = TabButtons[tName]
-            if tName == name then
-                tBtn.BackgroundColor3 = Color3.fromRGB(0, 160, 100)
-                tBtn.TextColor3 = Color3.new(1, 1, 1)
-            else
-                tBtn.BackgroundColor3 = Color3.fromRGB(38, 40, 50)
-                tBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
-            end
-        end
-    end)
-
-    return page
-end
-
--- Tab instances
-local PageMain = CreateTab("Main", "🏠")
-local PageFarm = CreateTab("Farm", "⚔️")
-local PageTransform = CreateTab("Transform", "⚡")
-local PageTeleport = CreateTab("Teleport", "🌀")
-
--- Set Main as default active tab
-Tabs["Main"].Visible = true
-TabButtons["Main"].BackgroundColor3 = Color3.fromRGB(0, 160, 100)
-TabButtons["Main"].TextColor3 = Color3.new(1, 1, 1)
-
-local function AddButton(text, parentPage)
+local function AddButton(text)
     local button = Instance.new("TextButton")
     button.Size = UDim2.new(1, 0, 0, 34)
     button.BackgroundColor3 = Color3.fromRGB(42, 44, 54)
@@ -1993,7 +1881,7 @@ local function AddButton(text, parentPage)
     button.Active = true
     button.Selectable = true
     button.ZIndex = 5
-    button.Parent = parentPage
+    button.Parent = Content
 
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 7)
@@ -2012,25 +1900,20 @@ local function SetToggle(button, name, enabled)
     end
 end
 
-local ModeButton
-
 local function SetModeText()
-    ModeLabel.Text = "Mode: " .. SelectedMode
-    if ModeButton then
-        ModeButton.Text = "MODE (" .. SelectedMode .. ")"
-    end
+    ModeLabel.Text = "Current Mode: " .. SelectedMode
+    ModeButton.Text = "MODE"
 end
 
 --========================================================
--- TAB 1: MAIN
+-- BUTTON CONTROLS SETUP
 --========================================================
 
-ModeButton = AddButton("MODE", PageMain)
-local AutoModeButton = AddButton("Auto Mode: OFF", PageMain)
-local AutoReadyButton = AddButton("Auto Ready: OFF", PageMain)
-local StartLoopButton = AddButton("Start Loop: OFF", PageMain)
-local AutoAntiAFKButton = AddButton("Anti AFK: OFF", PageMain)
-local AutoResetButton = AddButton("Auto Reset 1-2h: OFF", PageMain)
+ModeButton = AddButton("MODE")
+
+local AutoModeButton = AddButton("Auto Mode: OFF")
+local AutoReadyButton = AddButton("Auto Ready: OFF")
+local StartLoopButton = AddButton("Start Loop: OFF")
 
 UpdateStartLoopUI = function(enabled)
     if StartLoopButton then
@@ -2038,18 +1921,22 @@ UpdateStartLoopUI = function(enabled)
     end
 end
 
---========================================================
--- TAB 2: FARM & COMBAT
---========================================================
+local BuyTransformButton = AddButton("Auto Buy + Transform: OFF")
+local TransformPickerButton = AddButton("Target: TSM")
 
-local UndergroundFarmButton = AddButton("Auto Farm: OFF", PageFarm)
+local TSMBattleArmorButton = AddButton("TSMBattleArmor: OFF")
+local TTVCinemaButton = AddButton("TTVCinema: OFF")
+
+local AutoTPButton = AddButton("Auto Tween / Freeze: OFF")
+
+local UndergroundFarmButton = AddButton("Auto Farm: OFF")
 
 local UndergroundDepthFrame = Instance.new("Frame")
 UndergroundDepthFrame.Size = UDim2.new(1, 0, 0, 34)
 UndergroundDepthFrame.BackgroundColor3 = Color3.fromRGB(42, 44, 54)
 UndergroundDepthFrame.BorderSizePixel = 0
 UndergroundDepthFrame.ZIndex = 5
-UndergroundDepthFrame.Parent = PageFarm
+UndergroundDepthFrame.Parent = Content
 
 local DepthFrameCorner = Instance.new("UICorner")
 DepthFrameCorner.CornerRadius = UDim.new(0, 7)
@@ -2093,36 +1980,19 @@ DepthUpBtn.ZIndex = 6
 DepthUpBtn.Parent = UndergroundDepthFrame
 Instance.new("UICorner", DepthUpBtn).CornerRadius = UDim.new(0, 5)
 
-local AutoPunchButton = AddButton("Auto Punch: OFF", PageFarm)
-local AntiVoidButton = AddButton("🛡️ Anti-Void Protection: ON", PageFarm)
+local AutoPunchButton = AddButton("Auto Punch: OFF")
+local AntiVoidButton = AddButton("🛡️ Anti-Void Protection: ON")
 SetToggle(AntiVoidButton, "🛡️ Anti-Void Protection", AntiVoid)
 
-local AutoESPButton = AddButton("ESP: OFF", PageFarm)
-local AutoSpawnButton = AddButton("Auto Spawn: OFF", PageFarm)
-
---========================================================
--- TAB 3: TRANSFORM & TECH
---========================================================
-
-local BuyTransformButton = AddButton("Auto Buy + Transform: OFF", PageTransform)
-local TransformPickerButton = AddButton("Target: TSM", PageTransform)
-local TSMBattleArmorButton = AddButton("TSMBattleArmor: OFF", PageTransform)
-local TTVCinemaButton = AddButton("TTVCinema: OFF", PageTransform)
-local AutoUpTechButton = AddButton("Auto Up Tech Full All: OFF", PageTransform)
-
---========================================================
--- TAB 4: TELEPORT & VOID
---========================================================
-
-local AutoTPButton = AddButton("Auto Tween / Freeze: OFF", PageTeleport)
-local VoidHoverButton = AddButton("Void Hover: OFF", PageTeleport)
+-- VOID & MULTI-POSITION UI CONTROLS
+local VoidHoverButton = AddButton("Void Hover: OFF")
 
 local VoidDepthFrame = Instance.new("Frame")
 VoidDepthFrame.Size = UDim2.new(1, 0, 0, 34)
 VoidDepthFrame.BackgroundColor3 = Color3.fromRGB(42, 44, 54)
 VoidDepthFrame.BorderSizePixel = 0
 VoidDepthFrame.ZIndex = 5
-VoidDepthFrame.Parent = PageTeleport
+VoidDepthFrame.Parent = Content
 
 local VoidDepthCorner = Instance.new("UICorner")
 VoidDepthCorner.CornerRadius = UDim.new(0, 7)
@@ -2166,25 +2036,28 @@ UpBtn.ZIndex = 6
 UpBtn.Parent = VoidDepthFrame
 Instance.new("UICorner", UpBtn).CornerRadius = UDim.new(0, 5)
 
-local SavePosButton = AddButton("📍 Save Current Position", PageTeleport)
-local ClearPosButton = AddButton("🗑️ Clear All Saved Positions", PageTeleport)
+local SavePosButton = AddButton("📍 Save Current Position")
+local ClearPosButton = AddButton("🗑️ Clear All Saved Positions")
 
 local PosListContainer = Instance.new("Frame")
 PosListContainer.Size = UDim2.new(1, 0, 0, 0)
 PosListContainer.AutomaticSize = Enum.AutomaticSize.Y
 PosListContainer.BackgroundTransparency = 1
-PosListContainer.Parent = PageTeleport
+PosListContainer.Parent = Content
 
 local PosListLayout = Instance.new("UIListLayout")
 PosListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 PosListLayout.Padding = UDim.new(0, 5)
 PosListLayout.Parent = PosListContainer
 
---========================================================
--- PICKERS POPUPS
---========================================================
+-- OTHER BUTTONS
+local AutoESPButton = AddButton("ESP: OFF")
+local AutoUpTechButton = AddButton("Auto Up Tech Full All: OFF")
+local AutoAntiAFKButton = AddButton("Anti AFK: OFF")
+local AutoSpawnButton = AddButton("Auto Spawn: OFF")
+local AutoResetButton = AddButton("Auto Reset 1-2h: OFF")
 
--- Transform Picker Frame
+-- Pickers Setup
 local TransformPicker = Instance.new("Frame")
 TransformPicker.Name = "TransformPicker"
 TransformPicker.Size = UDim2.new(1, -24, 0, 0)
@@ -2193,7 +2066,7 @@ TransformPicker.BackgroundColor3 = Color3.fromRGB(32, 34, 44)
 TransformPicker.BorderSizePixel = 0
 TransformPicker.Visible = false
 TransformPicker.ZIndex = 30
-TransformPicker.Parent = PageTransform
+TransformPicker.Parent = Content
 
 local TransformPickerCorner = Instance.new("UICorner")
 TransformPickerCorner.CornerRadius = UDim.new(0, 8)
@@ -2287,7 +2160,6 @@ end)
 
 RefreshTransformButtons()
 
--- Mode Picker Frame
 local ModePicker = Instance.new("Frame")
 ModePicker.Name = "ModePicker"
 ModePicker.Size = UDim2.new(1, -24, 0, 0)
@@ -2296,7 +2168,7 @@ ModePicker.BackgroundColor3 = Color3.fromRGB(32, 34, 44)
 ModePicker.BorderSizePixel = 0
 ModePicker.Visible = false
 ModePicker.ZIndex = 30
-ModePicker.Parent = PageMain
+ModePicker.Parent = Content
 
 local ModePickerCorner = Instance.new("UICorner")
 ModePickerCorner.CornerRadius = UDim.new(0, 8)
@@ -2382,10 +2254,7 @@ end)
 
 SetModeText()
 
---========================================================
--- EVENT LISTENERS & UI CONNECTIONS
---========================================================
-
+-- BUTTON CLICK EVENT HANDLERS
 AutoModeButton.MouseButton1Click:Connect(function()
     AutoMode = not AutoMode
     SetToggle(AutoModeButton, "Auto Mode", AutoMode)
@@ -2496,6 +2365,10 @@ AntiVoidButton.MouseButton1Click:Connect(function()
     AntiVoid = not AntiVoid
     SetToggle(AntiVoidButton, "🛡️ Anti-Void Protection", AntiVoid)
 end)
+
+--========================================================
+-- VOID HOVER & POS BUTTON LOGIC
+--========================================================
 
 VoidHoverButton.MouseButton1Click:Connect(function()
     VoidActive = not VoidActive
@@ -2626,6 +2499,7 @@ ClearPosButton.MouseButton1Click:Connect(function()
     print("[Miko Hub] Cleared all saved positions")
 end)
 
+-- REMAINING BUTTON LOGIC
 AutoESPButton.MouseButton1Click:Connect(function()
     AutoESP = not AutoESP
     SetToggle(AutoESPButton, "ESP", AutoESP)
@@ -2661,6 +2535,7 @@ end)
 --========================================================
 
 print("========================================")
-print("[Miko Hub] TAB SYSTEM UI LOADED SUCCESSFULLY")
+print("[Miko Hub] SMART AUTO COMPACT & FULL MODULES LOADED")
 print("[Miko Hub] Author: dev miko")
+print("[Miko Hub] Integrated: Auto Farm, Auto Punch, Anti-Void")
 print("========================================")
