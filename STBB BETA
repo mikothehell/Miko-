@@ -1,4 +1,4 @@
--- Miko Hub - ST : Blockade Battlefront (Refreshed UI)
+-- Miko Hub - ST : Blockade Battlefront (Refreshed & Optimized UI)
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local replicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,46 +17,48 @@ local httpService = game:GetService("HttpService")
 if setfpscap then setfpscap(1000) end
 local localPlayer = players.LocalPlayer
 
--- Load Fluent UI Library
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/Fluent.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+-- Load WindUI Modern Library
+local v1, v2 = pcall(function() return require("./src/Init") end)
+local dist
+if v1 then dist = v2 else dist = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))() end
 
-local Window = Fluent:CreateWindow({
-    Title = "Miko Hub | ST : Blockade Battlefront",
-    SubTitle = "by dev miko",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(580, 460),
-    Acrylic = true,
-    Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.RightShift
+-- Khởi tạo Window với Icon ID: 103525855196551
+local mikoHUBWindow = dist:CreateWindow({
+    Title = "MIKO HUB | Battlefront",
+    Icon = "rbxassetid://103525855196551",
+    Folder = "MikoHub",
+    NewElements = true,
+    OpenButton = { 
+        Title = "Miko Hub", 
+        Enabled = true, 
+        Draggable = true,
+        Icon = "rbxassetid://103525855196551"
+    },
+    Topbar = { Height = 46, ButtonsType = "Default" },
 })
 
-Fluent:Notify({
+dist:Notify({
     Title = "Miko Hub",
-    Content = "Script loaded successfully! Icon ID: 103525855196551",
-    Duration = 5
+    Content = "Successfully Loaded! Custom Avatar Applied.",
+    Icon = "rbxassetid://103525855196551",
+    Duration = 5,
 })
 
-local Tabs = {
-    AutoFarm = Window:AddTab({ Title = "Auto Farm", Icon = "crosshair" }),
-    AutoSkills = Window:AddTab({ Title = "Auto Skills", Icon = "cpu" }),
-    Player = Window:AddTab({ Title = "Player", Icon = "user" }),
-    World = Window:AddTab({ Title = "World", Icon = "globe" }),
-    Visuals = Window:AddTab({ Title = "Visuals", Icon = "eye" }),
-    Shop = Window:AddTab({ Title = "Shop", Icon = "shopping-cart" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
-}
+mikoHUBWindow:Tag({
+    Title = "PREMIUM v2.0",
+    Icon = "shield-check",
+    Color = Color3.fromHex("#30ff6a"),
+    Radius = 14,
+})
 
-local Options = Fluent.Options
-
+-- Biến toàn cục hệ thống
 local v8 = 0
 local v9 = 0
 local v10 = 0
 local v11 = 5
 local v12 = {}
 local v13 = {}
-local v14 = { "E", "R", "T", "Y", "U", "I", "O", "P", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M", }
+local v14 = { "E", "R", "T", "Y", "U", "I", "O", "P", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M" }
 local walkSpeed = 16
 local jumpPower = 50
 local v15 = false
@@ -119,10 +121,22 @@ local hourlyItems = {}
 local buyAmount = {}
 local espEnabled = false
 local espLines = false
-local v36 = { Vector3.new(-667.83673095703, -15, -541.73278808594), Vector3.new(490.86804199219, -15, -541.64660644531), Vector3.new(490.66323852539, -15, 487.97653198242), Vector3.new(-667.85180664062, -15, 488.07791137695), }
-local v37 = { Vector3.new(-667.08538818359, 295.79769897461, -541.58538818359), Vector3.new(490.3616027832, 268.98135375977, -541.40081787109), Vector3.new(490.12017822266, 279.44061279297, 487.89535522461), Vector3.new(-667.34027099609, 295.70333862305, 487.83666992188), }
-local v38 = { Ambient = lighting.Ambient, OutdoorAmbient = lighting.OutdoorAmbient, Brightness = lighting.Brightness, ClockTime = lighting.ClockTime, FogEnd = lighting.FogEnd, GlobalShadows = lighting.GlobalShadows, }
 
+local v36 = { 
+    Vector3.new(-667.83673095703, -15, -541.73278808594), 
+    Vector3.new(490.86804199219, -15, -541.64660644531), 
+    Vector3.new(490.66323852539, -15, 487.97653198242), 
+    Vector3.new(-667.85180664062, -15, 488.07791137695) 
+}
+local v37 = { 
+    Vector3.new(-667.08538818359, 295.79769897461, -541.58538818359), 
+    Vector3.new(490.3616027832, 268.98135375977, -541.40081787109), 
+    Vector3.new(490.12017822266, 279.44061279297, 487.89535522461), 
+    Vector3.new(-667.34027099609, 295.70333862305, 487.83666992188) 
+}
+local v38 = { Ambient = lighting.Ambient, OutdoorAmbient = lighting.OutdoorAmbient, Brightness = lighting.Brightness, ClockTime = lighting.ClockTime, FogEnd = lighting.FogEnd, GlobalShadows = lighting.GlobalShadows }
+
+-- Màn hình đen giả lập render
 local blackScreenForRendering = Instance.new("ScreenGui")
 blackScreenForRendering.Name = "BlackScreenForRendering"
 blackScreenForRendering.DisplayOrder = 2147483647
@@ -132,37 +146,43 @@ local instance = Instance.new("Frame", blackScreenForRendering)
 instance.Size = UDim2.new(1, 0, 1, 0)
 instance.BackgroundColor3 = Color3.new(0, 0, 0)
 instance.BorderSizePixel = 0
-if not pcall(function() blackScreenForRendering.Parent = coreGui end) then blackScreenForRendering.Parent = localPlayer:WaitForChild("PlayerGui") end
+if not pcall(function() blackScreenForRendering.Parent = coreGui end) then 
+    blackScreenForRendering.Parent = localPlayer:WaitForChild("PlayerGui") 
+end
 
-local v39 = { ["Double plungers"] = { Fist = { true, "nil", 0, "..." }, Knuckle = { false, "Fist", 500, "Increase m1 dmg by 20%" }, Grenade = { false, "Knuckle", 500, "get this grenade and do a crime" }, ["Body Improvement"] = { false, "Knuckle", 500, "Increase toughness by 10%" }, ["Double Plungers"] = { false, "Body Improvement", 1500, "New moves" }, }, ["Speaker man"] = { Fist = { true, "nil", 0, "..." }, ["Sound Improvement"] = { false, "Fist", 500, "Add soundwave move" }, Knuckle = { false, "Fist", 500, "Increase m1 dmg by 20%" }, Grenade = { false, "Knuckle", 500, "get this grenade" }, Knife = { false, "Knuckle", 250, "Path of Blood" }, Bat = { false, "Knuckle", 250, "Path of Destruction" }, }, ["Elite Speakerman"] = { Fist = { true, "nil", 0, "..." }, ["Body Improvement"] = { false, "Fist", 500, "Immune to bullet attack" }, ["Body Improvement II"] = { false, "Body Improvement", 400, "+500 Max HP" }, Shield = { false, "Body Improvement II", 500, "Tank Path" }, Laser = { false, "Body Improvement II", 800, "Attacker Path" }, }, ["Dark Speakerman"] = { Knife = { true, "nil", 0, "..." }, ["Multi Task"] = { false, "Knife", 200, "Switch Knife and Hand" }, ["Sound Improvement"] = { false, "Knife", 300, "Add soundwave move" }, ["Body Improvement"] = { false, "Multi Task", 500, "Incoming Dmg -10%" }, }, ["Titan Speaker"] = { Knife = { false, "nil", 1000, "" }, ["Sound Improvement"] = { false, "nil", 1000, "" }, Armored = { false, "nil", 1000, "" }, ["Extra Armor"] = { false, "Armored", 1000, "" }, Jetpack = { false, "nil", 1000, "" }, ["Upgrade Blaster"] = { false, "nil", 1000, "" }, }, }
+local v39 = { 
+    ["Double plungers"] = { Fist = { true, "nil", 0, "..." }, Knuckle = { false, "Fist", 500, "Increase m1 dmg by 20%" }, Grenade = { false, "Knuckle", 500, "get this grenade and do a crime" }, ["Body Improvement"] = { false, "Knuckle", 500, "Increase toughness by 10%" }, ["Double Plungers"] = { false, "Body Improvement", 1500, "New moves" } }, 
+    ["Speaker man"] = { Fist = { true, "nil", 0, "..." }, ["Sound Improvement"] = { false, "Fist", 500, "Add soundwave move" }, Knuckle = { false, "Fist", 500, "Increase m1 dmg by 20%" }, Grenade = { false, "Knuckle", 500, "get this grenade" }, Knife = { false, "Knuckle", 250, "Path of Blood" }, Bat = { false, "Knuckle", 250, "Path of Destruction" } }, 
+    ["Elite Speakerman"] = { Fist = { true, "nil", 0, "..." }, ["Body Improvement"] = { false, "Fist", 500, "Immune to bullet attack" }, ["Body Improvement II"] = { false, "Body Improvement", 400, "+500 Max HP" }, Shield = { false, "Body Improvement II", 500, "Tank Path" }, Laser = { false, "Body Improvement II", 800, "Attacker Path" } }, 
+    ["Dark Speakerman"] = { Knife = { true, "nil", 0, "..." }, ["Multi Task"] = { false, "Knife", 200, "Switch Knife and Hand" }, ["Sound Improvement"] = { false, "Knife", 300, "Add soundwave move" }, ["Body Improvement"] = { false, "Multi Task", 500, "Incoming Dmg -10%" } }, 
+    ["Titan Speaker"] = { Knife = { false, "nil", 1000, "" }, ["Sound Improvement"] = { false, "nil", 1000, "" }, Armored = { false, "nil", 1000, "" }, ["Extra Armor"] = { false, "Armored", 1000, "" }, Jetpack = { false, "nil", 1000, "" }, ["Upgrade Blaster"] = { false, "nil", 1000, "" } } 
+}
 
+-- Các hàm hỗ trợ xử lý logic gốc
 local instance2, alignOrientation
 local function makeAttachment()
     local character = localPlayer.Character
-    if not character then return else
-        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-        local v40 = not humanoidRootPart
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if v40 or not humanoid then return end
-        if instance2 and instance2.Parent then instance2:Destroy() end
-        if alignOrientation and alignOrientation.Parent then alignOrientation:Destroy() end
-        humanoid.AutoRotate = false
-        instance2 = Instance.new("Attachment", humanoidRootPart)
-        alignOrientation = Instance.new("AlignOrientation")
-        alignOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
-        alignOrientation.Attachment0 = instance2
-        alignOrientation.MaxTorque = math.huge
-        alignOrientation.Responsiveness = 200
-        alignOrientation.RigidityEnabled = false
-        alignOrientation.Enabled = false
-        alignOrientation.Parent = humanoidRootPart
-        return
-    end
+    if not character then return end
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoidRootPart or not humanoid then return end
+    if instance2 and instance2.Parent then instance2:Destroy() end
+    if alignOrientation and alignOrientation.Parent then alignOrientation:Destroy() end
+    humanoid.AutoRotate = false
+    instance2 = Instance.new("Attachment", humanoidRootPart)
+    alignOrientation = Instance.new("AlignOrientation")
+    alignOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
+    alignOrientation.Attachment0 = instance2
+    alignOrientation.MaxTorque = math.huge
+    alignOrientation.Responsiveness = 200
+    alignOrientation.RigidityEnabled = false
+    alignOrientation.Enabled = false
+    alignOrientation.Parent = humanoidRootPart
 end
 
 local function f3(value2)
     if value2 then
-        for index, value3 in ipairs(workspaceService:GetDescendants()) do
+        for _, value3 in ipairs(workspaceService:GetDescendants()) do
             if value3:IsA("BasePart") then
                 if not v13[value3] then v13[value3] = { Material = value3.Material } end
                 value3.Material = Enum.Material.SmoothPlastic
@@ -189,7 +209,7 @@ local function f4()
 end
 
 local function f5()
-    for index2, value5 in ipairs(v14) do
+    for _, value5 in ipairs(v14) do
         virtualInputManager:SendKeyEvent(false, Enum.KeyCode[value5], false, game)
     end
 end
@@ -199,38 +219,32 @@ local function f6(value6)
 end
 
 local function f7()
-    for key2, value7 in pairs(v19) do
-        if value7 and value7.Parent then value7:Destroy() end
-    end
+    for _, value7 in pairs(v19) do if value7 and value7.Parent then value7:Destroy() end end
     v19 = {}
-    for key3, value8 in pairs(v20) do
-        if value8 and value8.Parent then value8:Destroy() end
-    end
+    for _, value8 in pairs(v20) do if value8 and value8.Parent then value8:Destroy() end end
     v20 = {}
 end
 
 local function makeBodyVelocity()
     local character2 = localPlayer.Character
-    if not character2 or not character2:FindFirstChild("HumanoidRootPart") then return else
-        local humanoidRootPart2 = character2.HumanoidRootPart
-        if bodyVelocity then bodyVelocity:Destroy() end
-        if bodyGyro then bodyGyro:Destroy() end
-        bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        bodyVelocity.Parent = humanoidRootPart2
-        bodyGyro = Instance.new("BodyGyro")
-        bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-        bodyGyro.D = 100
-        bodyGyro.P = 10000
-        bodyGyro.CFrame = workspaceService.CurrentCamera.CFrame
-        bodyGyro.Parent = humanoidRootPart2
-        return
-    end
+    if not character2 or not character2:FindFirstChild("HumanoidRootPart") then return end
+    local humanoidRootPart2 = character2.HumanoidRootPart
+    if bodyVelocity then bodyVelocity:Destroy() end
+    if bodyGyro then bodyGyro:Destroy() end
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = humanoidRootPart2
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bodyGyro.D = 100
+    bodyGyro.P = 10000
+    bodyGyro.CFrame = workspaceService.CurrentCamera.CFrame
+    bodyGyro.Parent = humanoidRootPart2
 end
 
 local function f8()
-    for key4, value9 in pairs(v21) do
+    for _, value9 in pairs(v21) do
         if type(value9) == "table" then
             if value9.beam and value9.beam.Parent then value9.beam:Destroy() end
             if value9.attA and value9.attA.Parent then value9.attA:Destroy() end
@@ -252,41 +266,32 @@ local function f9()
         alignOrientation:Destroy()
         alignOrientation = nil
     end
-    if instance2 and instance2.Parent then
-        instance2:Destroy()
-        instance2 = nil
-    end
+    if instance2 and instance2.Parent then instance2:Destroy() instance2 = nil end
     v41 = nil
 end
 
 local function f10()
     local character4 = localPlayer.Character
-    if not character4 then return nil else
-        local humanoidRootPart3 = character4:FindFirstChild("HumanoidRootPart")
-        if not humanoidRootPart3 then return nil else
-            local living = workspaceService:FindFirstChild("Living")
-            if not living then return nil else
-                local v42 = nil
-                local huge = math.huge
-                for index3, value10 in ipairs(living:GetChildren()) do
-                    if value10:IsA("Model") and value10 ~= character4 then
-                        if not players:GetPlayerFromCharacter(value10) then
-                            local humanoid3 = value10:FindFirstChildOfClass("Humanoid")
-                            local humanoidRootPart4 = value10:FindFirstChild("HumanoidRootPart")
-                            if humanoid3 and humanoidRootPart4 and humanoid3.Health > 0 then
-                                local magnitude = (humanoidRootPart3.Position - humanoidRootPart4.Position).Magnitude
-                                if magnitude < huge then
-                                    huge = magnitude
-                                    v42 = humanoidRootPart4
-                                end
-                            end
-                        end
-                    end
+    if not character4 or not character4:FindFirstChild("HumanoidRootPart") then return nil end
+    local humanoidRootPart3 = character4.HumanoidRootPart
+    local living = workspaceService:FindFirstChild("Living")
+    if not living then return nil end
+    local v42 = nil
+    local huge = math.huge
+    for _, value10 in ipairs(living:GetChildren()) do
+        if value10:IsA("Model") and value10 ~= character4 and not players:GetPlayerFromCharacter(value10) then
+            local humanoid3 = value10:FindFirstChildOfClass("Humanoid")
+            local humanoidRootPart4 = value10:FindFirstChild("HumanoidRootPart")
+            if humanoid3 and humanoidRootPart4 and humanoid3.Health > 0 then
+                local magnitude = (humanoidRootPart3.Position - humanoidRootPart4.Position).Magnitude
+                if magnitude < huge then
+                    huge = magnitude
+                    v42 = humanoidRootPart4
                 end
-                return v42
             end
         end
     end
+    return v42
 end
 
 local function f11(p2)
@@ -296,173 +301,128 @@ end
 
 local function f12()
     local character6 = localPlayer.Character
-    if not character6 or not character6:FindFirstChild("HumanoidRootPart") then return nil, nil else
-        local position = character6.HumanoidRootPart.Position
-        local v43 = nil
-        local v44 = nil
-        local huge2 = math.huge
-        local v45 = { ["Clock Spider"] = true, Transmitter = true, ["Flash Drive"] = true, ["Astro Samples"] = true, ["X-18"] = true, ["The Present"] = true, }
-        for index4, value11 in ipairs(workspaceService:GetChildren()) do
-            if (value11:IsA("Model") or value11:IsA("Part")) and v45[value11.Name] then
-                local proximityPrompt = value11:FindFirstChildOfClass("ProximityPrompt")
-                local findFirstChild = proximityPrompt
-                findFirstChild = proximityPrompt or value11:FindFirstChild("ProximityPrompt", true)
-                if findFirstChild then
-                    local magnitude2 = (position - (value11:IsA("Model") and (value11.PrimaryPart and value11.PrimaryPart.Position or value11:GetPivot().Position) or value11.Position)).Magnitude
-                    if magnitude2 < huge2 then
-                        v43 = value11
-                        v44 = findFirstChild
-                        huge2 = magnitude2
-                    end
+    if not character6 or not character6:FindFirstChild("HumanoidRootPart") then return nil, nil end
+    local position = character6.HumanoidRootPart.Position
+    local v43, v44 = nil, nil
+    local huge2 = math.huge
+    local v45 = { ["Clock Spider"] = true, Transmitter = true, ["Flash Drive"] = true, ["Astro Samples"] = true, ["X-18"] = true, ["The Present"] = true }
+    for _, value11 in ipairs(workspaceService:GetChildren()) do
+        if (value11:IsA("Model") or value11:IsA("Part")) and v45[value11.Name] then
+            local findFirstChild = value11:FindFirstChildOfClass("ProximityPrompt") or value11:FindFirstChild("ProximityPrompt", true)
+            if findFirstChild then
+                local magnitude2 = (position - (value11:IsA("Model") and (value11.PrimaryPart and value11.PrimaryPart.Position or value11:GetPivot().Position) or value11.Position)).Magnitude
+                if magnitude2 < huge2 then
+                    v43 = value11
+                    v44 = findFirstChild
+                    huge2 = magnitude2
                 end
             end
         end
-        return v43, v44
     end
+    return v43, v44
 end
 
 local function makeTextLabel()
     local living2 = workspaceService:FindFirstChild("Living")
-    if not living2 then f7() return else
-        local v46 = {}
-        for index5, value12 in ipairs(living2:GetChildren()) do
-            if value12:IsA("Model") and not f6(value12) then
-                local humanoid4 = value12:FindFirstChildOfClass("Humanoid")
-                local humanoidRootPart5 = value12:FindFirstChild("HumanoidRootPart")
-                if humanoid4 and humanoidRootPart5 and humanoid4.Health > 0 then
-                    v46[value12] = true
-                    if not v19[value12] or not v19[value12].Parent then
-                        local selectionBox = Instance.new("SelectionBox")
-                        selectionBox.Adornee = value12
-                        selectionBox.Color3 = color
-                        selectionBox.LineThickness = 0.04
-                        selectionBox.SurfaceTransparency = 0.82
-                        selectionBox.SurfaceColor3 = color
-                        selectionBox.Parent = workspaceService.CurrentCamera
-                        v19[value12] = selectionBox
-                    else
-                        v19[value12].Color3 = color
-                        v19[value12].SurfaceColor3 = color
-                    end
-                    local head = value12:FindFirstChild("Head")
-                    local fakeHead = head
-                    fakeHead = head or value12:FindFirstChild("Fake Head") or humanoidRootPart5
-                    if not v20[value12] or not v20[value12].Parent then
-                        local billboardGui = Instance.new("BillboardGui")
-                        billboardGui.AlwaysOnTop = true
-                        billboardGui.Adornee = fakeHead
-                        billboardGui.Size = UDim2.new(0, 130, 0, 44)
-                        billboardGui.StudsOffset = Vector3.new(0, 3.5, 0)
-                        billboardGui.Parent = workspaceService.CurrentCamera
-                        local nameLabel = Instance.new("TextLabel")
-                        nameLabel.Name = "NameLabel"
-                        nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-                        nameLabel.BackgroundTransparency = 1
-                        nameLabel.Text = value12.Name
-                        nameLabel.TextColor3 = color
-                        nameLabel.TextSize = 12
-                        nameLabel.Font = Enum.Font.Code
-                        nameLabel.TextStrokeTransparency = 0
-                        nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-                        nameLabel.Parent = billboardGui
-                        local hpLabel = Instance.new("TextLabel")
-                        hpLabel.Name = "HPLabel"
-                        hpLabel.Size = UDim2.new(1, 0, 0.5, 0)
-                        hpLabel.Position = UDim2.new(0, 0, 0.5, 0)
-                        hpLabel.BackgroundTransparency = 1
-                        hpLabel.TextSize = 11
-                        hpLabel.Font = Enum.Font.Code
-                        hpLabel.TextStrokeTransparency = 0
-                        hpLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-                        hpLabel.Parent = billboardGui
-                        v20[value12] = billboardGui
-                    end
-                    local v47 = v20[value12]
-                    if v47 then
-                        local hpLabel2 = v47:FindFirstChild("HPLabel")
-                        if hpLabel2 then
-                            local v48 = math.clamp(humanoid4.Health / humanoid4.MaxHealth, 0, 1)
-                            hpLabel2.Text = "HP: " .. math.floor(humanoid4.Health) .. " (" .. math.floor(v48 * 100) .. "%)"
-                            if v48 > 0.6 then
-                                hpLabel2.TextColor3 = Color3.fromRGB(0, 255, 100)
-                            elseif v48 > 0.3 then
-                                hpLabel2.TextColor3 = Color3.fromRGB(255, 200, 0)
-                            else
-                                hpLabel2.TextColor3 = Color3.fromRGB(255, 50, 50)
-                            end
-                        end
+    if not living2 then f7() return end
+    local v46 = {}
+    for _, value12 in ipairs(living2:GetChildren()) do
+        if value12:IsA("Model") and not f6(value12) then
+            local humanoid4 = value12:FindFirstChildOfClass("Humanoid")
+            local humanoidRootPart5 = value12:FindFirstChild("HumanoidRootPart")
+            if humanoid4 and humanoidRootPart5 and humanoid4.Health > 0 then
+                v46[value12] = true
+                if not v19[value12] or not v19[value12].Parent then
+                    local selectionBox = Instance.new("SelectionBox")
+                    selectionBox.Adornee = value12
+                    selectionBox.Color3 = color
+                    selectionBox.LineThickness = 0.04
+                    selectionBox.SurfaceTransparency = 0.82
+                    selectionBox.SurfaceColor3 = color
+                    selectionBox.Parent = workspaceService.CurrentCamera
+                    v19[value12] = selectionBox
+                else
+                    v19[value12].Color3 = color
+                    v19[value12].SurfaceColor3 = color
+                end
+                local head = value12:FindFirstChild("Head") or value12:FindFirstChild("Fake Head") or humanoidRootPart5
+                if not v20[value12] or not v20[value12].Parent then
+                    local billboardGui = Instance.new("BillboardGui")
+                    billboardGui.AlwaysOnTop = true
+                    billboardGui.Adornee = head
+                    billboardGui.Size = UDim2.new(0, 130, 0, 44)
+                    billboardGui.StudsOffset = Vector3.new(0, 3.5, 0)
+                    billboardGui.Parent = workspaceService.CurrentCamera
+                    local nameLabel = Instance.new("TextLabel", billboardGui)
+                    nameLabel.Name = "NameLabel"
+                    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+                    nameLabel.BackgroundTransparency = 1
+                    nameLabel.Text = value12.Name
+                    nameLabel.TextColor3 = color
+                    nameLabel.TextSize = 12
+                    nameLabel.Font = Enum.Font.Code
+                    nameLabel.TextStrokeTransparency = 0
+                    local hpLabel = Instance.new("TextLabel", billboardGui)
+                    hpLabel.Name = "HPLabel"
+                    hpLabel.Size = UDim2.new(1, 0, 0.5, 0)
+                    hpLabel.Position = UDim2.new(0, 0, 0.5, 0)
+                    hpLabel.BackgroundTransparency = 1
+                    hpLabel.TextSize = 11
+                    hpLabel.Font = Enum.Font.Code
+                    hpLabel.TextStrokeTransparency = 0
+                    v20[value12] = billboardGui
+                end
+                local v47 = v20[value12]
+                if v47 then
+                    local hpLabel2 = v47:FindFirstChild("HPLabel")
+                    if hpLabel2 then
+                        local v48 = math.clamp(humanoid4.Health / humanoid4.MaxHealth, 0, 1)
+                        hpLabel2.Text = "HP: " .. math.floor(humanoid4.Health) .. " (" .. math.floor(v48 * 100) .. "%)"
+                        hpLabel2.TextColor3 = v48 > 0.6 and Color3.fromRGB(0, 255, 100) or (v48 > 0.3 and Color3.fromRGB(255, 200, 0) or Color3.fromRGB(255, 50, 50))
                     end
                 end
             end
         end
-        for key5, value13 in pairs(v19) do
-            if not v46[key5] then
-                if value13 and value13.Parent then value13:Destroy() end
-                v19[key5] = nil
-            end
-        end
-        for key6, value14 in pairs(v20) do
-            if not v46[key6] then
-                if value14 and value14.Parent then value14:Destroy() end
-                v20[key6] = nil
-            end
-        end
-        return
     end
+    for key5, value13 in pairs(v19) do if not v46[key5] then value13:Destroy() v19[key5] = nil end end
+    for key6, value14 in pairs(v20) do if not v46[key6] then value14:Destroy() v20[key6] = nil end end
 end
 
 local function makeAttachment2()
     local character7 = localPlayer.Character
-    if not character7 then f8() return else
-        local humanoidRootPart6 = character7:FindFirstChild("HumanoidRootPart")
-        if not humanoidRootPart6 then f8() return else
-            local living3 = workspaceService:FindFirstChild("Living")
-            if not living3 then f8() return else
-                local v49 = {}
-                for index6, value15 in ipairs(living3:GetChildren()) do
-                    if value15:IsA("Model") and not f6(value15) then
-                        local humanoid5 = value15:FindFirstChildOfClass("Humanoid")
-                        local humanoidRootPart7 = value15:FindFirstChild("HumanoidRootPart")
-                        if humanoid5 and humanoidRootPart7 and humanoid5.Health > 0 then
-                            v49[value15] = true
-                            if not v21[value15] or not v21[value15].beam or not v21[value15].beam.Parent then
-                                local espLineA = Instance.new("Attachment")
-                                espLineA.Name = "ESPLine_A"
-                                espLineA.Parent = humanoidRootPart6
-                                local espLineB = Instance.new("Attachment")
-                                espLineB.Name = "ESPLine_B"
-                                espLineB.Parent = humanoidRootPart7
-                                local beam = Instance.new("Beam")
-                                beam.Attachment0 = espLineA
-                                beam.Attachment1 = espLineB
-                                beam.Color = ColorSequence.new(color2)
-                                beam.Width0 = 0.08
-                                beam.Width1 = 0.08
-                                beam.FaceCamera = true
-                                beam.Segments = 1
-                                beam.LightEmission = 1
-                                beam.Transparency = NumberSequence.new(0)
-                                beam.Parent = humanoidRootPart6
-                                v21[value15] = { beam = beam, attA = espLineA, attB = espLineB }
-                            else
-                                local v50 = v21[value15]
-                                if v50.beam and v50.beam.Parent then
-                                    v50.beam.Color = ColorSequence.new(color2)
-                                end
-                            end
-                        end
-                    end
+    if not character7 then f8() return end
+    local humanoidRootPart6 = character7:FindFirstChild("HumanoidRootPart")
+    local living3 = workspaceService:FindFirstChild("Living")
+    if not humanoidRootPart6 or not living3 then f8() return end
+    local v49 = {}
+    for _, value15 in ipairs(living3:GetChildren()) do
+        if value15:IsA("Model") and not f6(value15) then
+            local humanoid5 = value15:FindFirstChildOfClass("Humanoid")
+            local humanoidRootPart7 = value15:FindFirstChild("HumanoidRootPart")
+            if humanoid5 and humanoidRootPart7 and humanoid5.Health > 0 then
+                v49[value15] = true
+                if not v21[value15] or not v21[value15].beam or not v21[value15].beam.Parent then
+                    local espLineA = Instance.new("Attachment", humanoidRootPart6)
+                    local espLineB = Instance.new("Attachment", humanoidRootPart7)
+                    local beam = Instance.new("Beam", humanoidRootPart6)
+                    beam.Attachment0 = espLineA
+                    beam.Attachment1 = espLineB
+                    beam.Color = ColorSequence.new(color2)
+                    beam.Width0, beam.Width1 = 0.08, 0.08
+                    beam.FaceCamera = true
+                    beam.Segments = 1
+                    beam.LightEmission = 1
+                    v21[value15] = { beam = beam, attA = espLineA, attB = espLineB }
                 end
-                for key7, value16 in pairs(v21) do
-                    if not v49[key7] then
-                        if value16.beam and value16.beam.Parent then value16.beam:Destroy() end
-                        if value16.attA and value16.attA.Parent then value16.attA:Destroy() end
-                        if value16.attB and value16.attB.Parent then value16.attB:Destroy() end
-                        v21[key7] = nil
-                    end
-                end
-                return
             end
+        end
+    end
+    for key7, value16 in pairs(v21) do
+        if not v49[key7] then
+            if value16.beam then value16.beam:Destroy() end
+            if value16.attA then value16.attA:Destroy() end
+            if value16.attB then value16.attB:Destroy() end
+            v21[key7] = nil
         end
     end
 end
@@ -483,224 +443,174 @@ local function f13(index7)
             task.wait(0.2)
         end
         f11(position2)
-        return
     end
 end
 
 local function f14()
     local living4 = workspaceService:FindFirstChild("Living")
-    if not living4 then return nil else
-        local character8 = localPlayer.Character
-        if not character8 or not character8:FindFirstChild("HumanoidRootPart") then return nil else
-            local position3 = character8.HumanoidRootPart.Position
-            local mode = workspaceService:FindFirstChild("Mode")
-            local v51 = mode and (mode.Value == "Astro" or mode.Value == "AstroV2")
-            local v52 = {}
-            for index8, value17 in ipairs(living4:GetChildren()) do
-                if value17:IsA("Model") and value17 ~= character8 and value17.Name ~= "TV Strider [ AI ]" then
-                    local v53 = true
-                    if v51 and not string.find(value17.Name, "Astro") then v53 = false end
-                    if v53 then
-                        local humanoid6 = value17:FindFirstChildOfClass("Humanoid")
-                        local humanoidRootPart9 = value17:FindFirstChild("HumanoidRootPart")
-                        if humanoid6 and humanoidRootPart9 and humanoid6.Health > 0 and not players:GetPlayerFromCharacter(value17) then
-                            table.insert(v52, { model = value17, hum = humanoid6, hrp = humanoidRootPart9, dist = (position3 - humanoidRootPart9.Position).Magnitude, })
-                        end
-                    end
+    local character8 = localPlayer.Character
+    if not living4 or not character8 or not character8:FindFirstChild("HumanoidRootPart") then return nil end
+    local position3 = character8.HumanoidRootPart.Position
+    local mode = workspaceService:FindFirstChild("Mode")
+    local v51 = mode and (mode.Value == "Astro" or mode.Value == "AstroV2")
+    local v52 = {}
+    for _, value17 in ipairs(living4:GetChildren()) do
+        if value17:IsA("Model") and value17 ~= character8 and value17.Name ~= "TV Strider [ AI ]" then
+            local v53 = true
+            if v51 and not string.find(value17.Name, "Astro") then v53 = false end
+            if v53 then
+                local humanoid6 = value17:FindFirstChildOfClass("Humanoid")
+                local humanoidRootPart9 = value17:FindFirstChild("HumanoidRootPart")
+                if humanoid6 and humanoidRootPart9 and humanoid6.Health > 0 and not players:GetPlayerFromCharacter(value17) then
+                    table.insert(v52, { model = value17, hum = humanoid6, hrp = humanoidRootPart9, dist = (position3 - humanoidRootPart9.Position).Magnitude })
                 end
             end
-            if #v52 == 0 then return nil end
-            table.sort(v52, function(p3, p4) return p3.dist < p4.dist end)
-            return v52[1].model
         end
     end
+    if #v52 == 0 then return nil end
+    table.sort(v52, function(p3, p4) return p3.dist < p4.dist end)
+    return v52[1].model
 end
 
--- UI Construction using Fluent UI with ID: 103525855196551
+-- Xây dựng Tabs & Giao diện WindUI cải tiến đẹp mắt
+local autoFarmTab = mikoHUBWindow:Section({ Title = "Auto Farms", Icon = "wrench", Opened = true }):Tab({ Title = "Auto Farm", Icon = "crosshair" })
+autoFarmTab:Section({ Title = "Core Farm Settings" })
 local v54, v55, create
-
--- Auto Farm Tab
-Tabs.AutoFarm:AddParagraph({ Title = "Core Farm Settings", Content = "Configure combat and auto-farm options below." })
-
-Tabs.AutoFarm:AddToggle("AutoFarmToggle", { Title = "Enable Auto Farm", Default = false }):OnChanged(function(value18)
+autoFarmTab:Toggle({ Flag = "AutoFarmToggle", Title = "Enable Auto Farm", Desc = "Automatically targets and attacks nearby enemies.", Value = false, Callback = function(value18)
     local v56 = not value18
     v23 = value18
     v54 = nil
     v55 = nil
     v10 = 0
-    if v56 and create then
-        create:Cancel()
-        create = nil
-    end
+    if v56 and create then create:Cancel() create = nil end
     if value18 then makeAttachment() else f9() end
-end)
-
-Tabs.AutoFarm:AddDropdown("AutoFarmMode", {
-    Title = "Farm Movement Mode",
-    Values = { "Tween", "Teleport" },
-    Default = "Tween",
-    Callback = function(value19) v24 = value19 end
-})
-
-Tabs.AutoFarm:AddSlider("FarmSpeedSlider", {
-    Title = "Farm Movement Speed",
-    Min = 0, Max = 100, Default = 100,
-    Rounding = 0,
-    Callback = function(value20) v25 = value20 end
-})
-
-Tabs.AutoFarm:AddToggle("AstroTokenFarm", { Title = "Farm Astro Tokens", Default = false }):OnChanged(function(value21)
+end })
+autoFarmTab:Dropdown({ Flag = "AutoFarmMode", Title = "Farm Movement Mode", Desc = "Tween is smooth, Teleport is instant.", Values = { "Tween", "Teleport" }, Value = "Tween", Callback = function(value19) v24 = value19 end })
+autoFarmTab:Slider({ Flag = "FarmSpeedSlider", Title = "Farm Movement Speed", Desc = "How quickly your character moves between targets.", Value = { Min = 0, Max = 100, Default = 100 }, Step = 1, Callback = function(value20) v25 = value20 end })
+autoFarmTab:Space()
+autoFarmTab:Toggle({ Flag = "AstroTokenFarm", Title = "Farm Astro Tokens", Desc = "Prioritizes Astro Tokens and ignores normal enemies.", Value = false, Callback = function(value21)
     v26 = value21
-    if value21 then
-        v16 = 1
-        v17 = false
-        v18 = tick()
-    end
-end)
+    if value21 then v16 = 1 v17 = false v18 = tick() end
+end })
+autoFarmTab:Toggle({ Flag = "CollectDropables", Title = "Auto-Collect Map Items", Desc = "Gathers loose loot scattered around the map.", Value = false, Callback = function(value22) collectDropables = value22 end })
 
-Tabs.AutoFarm:AddToggle("CollectDropables", { Title = "Auto-Collect Map Items", Default = false }):OnChanged(function(value22)
-    collectDropables = value22
-end)
-
-Tabs.AutoFarm:AddParagraph({ Title = "Combat Enhancements", Content = "" })
-
-Tabs.AutoFarm:AddToggle("FaceNearest", { Title = "Face Nearest Enemy", Default = false }):OnChanged(function(value23)
+autoFarmTab:Section({ Title = "Combat Enhancements" })
+autoFarmTab:Toggle({ Flag = "FaceNearest", Title = "Face Nearest Enemy", Desc = "Rotates your character toward the closest target.", Value = false, Callback = function(value23)
     faceNearest = value23
     if value23 then makeAttachment() else f9() end
-end)
+end })
+autoFarmTab:Space()
+autoFarmTab:Toggle({ Flag = "FlushAura", Title = "Flush Damage Aura", Desc = "Activates a continuous damage area around your character.", Value = false, Callback = function(value24) flushAura = value24 end })
+autoFarmTab:Space()
+autoFarmTab:Toggle({ Flag = "HitboxExpander", Title = "Expand Enemy Hitboxes", Desc = "Increases enemy hitbox size to make them easier to hit.", Value = false, Callback = function(value25) hitboxExpander = value25 end })
+autoFarmTab:Slider({ Flag = "HitboxSize", Title = "Hitbox Size", Desc = "Controls how large enemy hitboxes become.", Value = { Min = 1, Max = 15, Default = 5 }, Step = 1, Callback = function(value26) hitboxSize = value26 end })
 
-Tabs.AutoFarm:AddToggle("FlushAura", { Title = "Flush Damage Aura", Default = false }):OnChanged(function(value24)
-    flushAura = value24
-end)
-
-Tabs.AutoFarm:AddToggle("HitboxExpander", { Title = "Expand Enemy Hitboxes", Default = false }):OnChanged(function(value25)
-    hitboxExpander = value25
-end)
-
-Tabs.AutoFarm:AddSlider("HitboxSize", {
-    Title = "Hitbox Size",
-    Min = 1, Max = 15, Default = 5,
-    Rounding = 0,
-    Callback = function(value26) hitboxSize = value26 end
-})
-
--- Auto Skills Tab
-Tabs.AutoSkills:AddParagraph({ Title = "Skill Keybinds", Content = "" })
-
-Tabs.AutoSkills:AddDropdown("KeybindDropdown", {
-    Title = "Auto Skill Keys",
-    Values = { "All", "E", "R", "T", "Y", "U", "I", "O", "P", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M" },
-    Multi = true,
-    Default = { "All" },
-    Callback = function(value27) keybindDropdown = value27 end
-})
-
-Tabs.AutoSkills:AddToggle("AutoKeybinds", { Title = "Enable Auto Skills", Default = false }):OnChanged(function(value28)
+local autoSkillsTab = mikoHUBWindow:Section({ Title = "Auto Skills", Icon = "brain-circuit", Opened = true }):Tab({ Title = "Auto Skills", Icon = "keyboard" })
+autoSkillsTab:Section({ Title = "Skill Keybinds" })
+autoSkillsTab:Dropdown({ Flag = "KeybindDropdown", Title = "Auto Skill Keys", Desc = "Keys the script will press automatically during combat.", Values = { "All", "E", "R", "T", "Y", "U", "I", "O", "P", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M" }, Multi = true, Value = { "All" }, Callback = function(value27) keybindDropdown = value27 end })
+autoSkillsTab:Toggle({ Flag = "AutoKeybinds", Title = "Enable Auto Skills", Desc = "Starts pressing the selected keys continuously.", Value = false, Callback = function(value28)
     autoKeybinds = value28
     if not value28 then f5() end
-end)
-
-Tabs.AutoSkills:AddToggle("AutoFarmKeybind", { Title = "Sync Skills With Auto Farm", Default = false }):OnChanged(function(value29)
-    v27 = value29
-end)
-
-Tabs.AutoSkills:AddButton({
-    Title = "Restore Character Movement",
-    Description = "Fixes your character if stuck/frozen",
-    Callback = function()
-        f5()
-        local character9 = localPlayer.Character
-        if character9 then
-            local humanoid7 = character9:FindFirstChildOfClass("Humanoid")
-            local humanoidRootPart10 = character9:FindFirstChild("HumanoidRootPart")
-            if humanoid7 and humanoidRootPart10 then
-                humanoid7.WalkSpeed = 16
-                humanoid7.PlatformStand = false
-                humanoid7:ChangeState(Enum.HumanoidStateType.GettingUp)
-                humanoid7:MoveTo(humanoidRootPart10.Position)
-            end
+end })
+autoSkillsTab:Toggle({ Flag = "AutoFarmKeybind", Title = "Sync Skills With Auto Farm", Desc = "Only uses skills when Auto Farm is targeting an enemy.", Value = false, Callback = function(value29) v27 = value29 end })
+autoSkillsTab:Button({ Title = "Restore Character Movement", Desc = "Fixes your character if it gets stuck or frozen.", Icon = "refresh-cw", Callback = function()
+    f5()
+    local character9 = localPlayer.Character
+    if character9 then
+        local humanoid7 = character9:FindFirstChildOfClass("Humanoid")
+        local humanoidRootPart10 = character9:FindFirstChild("HumanoidRootPart")
+        if humanoid7 and humanoidRootPart10 then
+            humanoid7.WalkSpeed = 16
+            humanoid7.PlatformStand = false
+            humanoid7:ChangeState(Enum.HumanoidStateType.GettingUp)
+            humanoid7:MoveTo(humanoidRootPart10.Position)
         end
     end
-})
+end })
 
-Tabs.AutoSkills:AddParagraph({ Title = "General Automation", Content = "" })
+autoSkillsTab:Section({ Title = "General Automation" })
+autoSkillsTab:Toggle({ Flag = "SkipHelicopter", Title = "Auto Skip Helicopter", Desc = "Bypasses the helicopter transport animation.", Value = false, Callback = function(value30) skipHelicopter = value30 end })
+autoSkillsTab:Space()
+autoSkillsTab:Toggle({ Flag = "AutoFillHP", Title = "Auto Heal (Fill HP)", Desc = "Keeps your health full using available items.", Value = false, Callback = function(value31) v28 = value31 end })
+autoSkillsTab:Space()
+autoSkillsTab:Toggle({ Flag = "AutoBuyTitan", Title = "Auto Buy Titan Upgrades", Desc = "Purchases Titan upgrades when available.", Value = false, Callback = function(value32) v29 = value32 end })
+autoSkillsTab:Space()
+autoSkillsTab:Toggle({ Flag = "AutoSkillTree", Title = "Auto Upgrade Skill Tree", Desc = "Spends available points on skill tree automatically.", Value = false, Callback = function(value33) v30 = value33 end })
+autoSkillsTab:Space()
+autoSkillsTab:Toggle({ Flag = "AutoUseRequest", Title = "Auto Use Titan Request", Desc = "Calls the Titan as soon as cooldown finishes.", Value = false, Callback = function(value34) v31 = value34 end })
 
-Tabs.AutoSkills:AddToggle("SkipHelicopter", { Title = "Auto Skip Helicopter", Default = false }):OnChanged(function(value30) skipHelicopter = value30 end)
-Tabs.AutoSkills:AddToggle("AutoFillHP", { Title = "Auto Heal (Fill HP)", Default = false }):OnChanged(function(value31) v28 = value31 end)
-Tabs.AutoSkills:AddToggle("AutoBuyTitan", { Title = "Auto Buy Titan Upgrades", Default = false }):OnChanged(function(value32) v29 = value32 end)
-Tabs.AutoSkills:AddToggle("AutoSkillTree", { Title = "Auto Upgrade Skill Tree", Default = false }):OnChanged(function(value33) v30 = value33 end)
-Tabs.AutoSkills:AddToggle("AutoUseRequest", { Title = "Auto Use Titan Request", Default = false }):OnChanged(function(value34) v31 = value34 end)
+autoSkillsTab:Section({ Title = "God Mode" })
+autoSkillsTab:Toggle({ Flag = "GodMode", Title = "Enable God Mode", Desc = "Prevents your character from dying below a HP threshold.", Value = false, Callback = function(value35) godMode = value35 end })
+autoSkillsTab:Slider({ Flag = "GodModeSlider", Title = "HP Threshold", Desc = "HP percentage at which God Mode activates.", Value = { Min = 1, Max = 99, Default = 30 }, Step = 1, Callback = function(value36) hpThreshold = value36 end })
 
-Tabs.AutoSkills:AddParagraph({ Title = "God Mode", Content = "" })
-Tabs.AutoSkills:AddToggle("GodMode", { Title = "Enable God Mode", Default = false }):OnChanged(function(value35) godMode = value35 end)
-Tabs.AutoSkills:AddSlider("GodModeSlider", { Title = "HP Threshold", Min = 1, Max = 99, Default = 30, Rounding = 0, Callback = function(value36) hpThreshold = value36 end })
-
--- Player Tab
-Tabs.Player:AddParagraph({ Title = "Movement", Content = "" })
-Tabs.Player:AddToggle("WalkSpeedToggle", { Title = "Custom Walk Speed", Default = false }):OnChanged(function(value37)
+local playerTab = mikoHUBWindow:Section({ Title = "Player", Icon = "user-round", Opened = true }):Tab({ Title = "Player", Icon = "user" })
+playerTab:Section({ Title = "Movement" })
+playerTab:Toggle({ Flag = "WalkSpeedToggle", Title = "Custom Walk Speed", Desc = "Overrides the default walk speed.", Value = false, Callback = function(value37)
     v32 = value37
     local character10 = localPlayer.Character
     if character10 then
         local humanoid8 = character10:FindFirstChildOfClass("Humanoid")
-        if humanoid8 then
-            if value37 then walkSpeed = humanoid8.WalkSpeed else humanoid8.WalkSpeed = walkSpeed end
-        end
+        if humanoid8 then if value37 then walkSpeed = humanoid8.WalkSpeed else humanoid8.WalkSpeed = walkSpeed end end
     end
-end)
-Tabs.Player:AddSlider("WalkSpeedSlider", { Title = "Walk Speed Amount", Min = 16, Max = 300, Default = 16, Rounding = 0, Callback = function(value38) walkSpeed2 = value38 end })
-
-Tabs.Player:AddToggle("JumpPowerToggle", { Title = "Custom Jump Power", Default = false }):OnChanged(function(value39)
+end })
+playerTab:Slider({ Flag = "WalkSpeedSlider", Title = "Walk Speed Amount", Desc = "Set how fast your character moves.", Value = { Min = 16, Max = 300, Default = 16 }, Step = 1, Callback = function(value38) walkSpeed2 = value38 end })
+playerTab:Space()
+playerTab:Toggle({ Flag = "JumpPowerToggle", Title = "Custom Jump Power", Desc = "Overrides the default jump height.", Value = false, Callback = function(value39)
     v33 = value39
     local character11 = localPlayer.Character
     if character11 then
         local humanoid9 = character11:FindFirstChildOfClass("Humanoid")
         if humanoid9 then
-            if value39 then jumpPower = humanoid9.JumpPower else
-                humanoid9.UseJumpPower = true
-                humanoid9.JumpPower = jumpPower
-            end
+            if value39 then jumpPower = humanoid9.JumpPower else humanoid9.UseJumpPower = true humanoid9.JumpPower = jumpPower end
         end
     end
-end)
-Tabs.Player:AddSlider("JumpPowerSlider", { Title = "Jump Power Amount", Min = 50, Max = 500, Default = 50, Rounding = 0, Callback = function(value40) jumpPower2 = value40 end })
-Tabs.Player:AddToggle("InfJump", { Title = "Infinite Jump", Default = false }):OnChanged(function(value41) infiniteJump = value41 end)
+end })
+playerTab:Slider({ Flag = "JumpPowerSlider", Title = "Jump Power Amount", Desc = "Set how high your character jumps.", Value = { Min = 50, Max = 500, Default = 50 }, Step = 1, Callback = function(value40) jumpPower2 = value40 end })
+playerTab:Space()
+playerTab:Toggle({ Flag = "InfJump", Title = "Infinite Jump", Desc = "Jump endlessly in mid-air.", Value = false, Callback = function(value41) infiniteJump = value41 end })
 
-Tabs.Player:AddParagraph({ Title = "Flight", Content = "" })
-Tabs.Player:AddToggle("FlyToggle", { Title = "Enable Flight", Default = false }):OnChanged(function(value42)
+playerTab:Section({ Title = "Flight" })
+playerTab:Toggle({ Flag = "FlyToggle", Title = "Enable Flight", Desc = "Fly freely around the map ignoring gravity.", Value = false, Callback = function(value42)
     enableFlight = value42
     if value42 then makeBodyVelocity() else f4() end
-end)
-Tabs.Player:AddSlider("FlySpeed", { Title = "Flight Speed", Min = 16, Max = 300, Default = 50, Rounding = 0, Callback = function(value43) flightSpeed = value43 end })
+end })
+playerTab:Slider({ Flag = "FlySpeed", Title = "Flight Speed", Desc = "Controls speed while flying.", Value = { Min = 16, Max = 300, Default = 50 }, Step = 1, Callback = function(value43) flightSpeed = value43 end })
 
-Tabs.Player:AddParagraph({ Title = "Camera", Content = "" })
-Tabs.Player:AddToggle("FOVToggle", { Title = "Custom Field of View", Default = false }):OnChanged(function(value44)
+playerTab:Section({ Title = "Camera" })
+playerTab:Toggle({ Flag = "FOVToggle", Title = "Custom Field of View", Desc = "Expands your camera viewing angle.", Value = false, Callback = function(value44)
     fovToggle = value44
     if not value44 then workspaceService.CurrentCamera.FieldOfView = 70 end
-end)
-Tabs.Player:AddSlider("FOVSlider", { Title = "FOV Amount", Min = 70, Max = 120, Default = 70, Rounding = 0, Callback = function(value45) fovAmount = value45 end })
-
-Tabs.Player:AddToggle("MaxZoom", { Title = "Unlock Max Camera Zoom", Default = false }):OnChanged(function(value46)
+end })
+playerTab:Slider({ Flag = "FOVSlider", Title = "FOV Amount", Desc = "Higher values increase peripheral vision.", Value = { Min = 70, Max = 120, Default = 70 }, Step = 1, Callback = function(value45) fovAmount = value45 end })
+playerTab:Space()
+playerTab:Toggle({ Flag = "MaxZoom", Title = "Unlock Max Camera Zoom", Desc = "Zoom out further than the game normally allows.", Value = false, Callback = function(value46)
     maxZoom = value46
     if not value46 then localPlayer.CameraMaxZoomDistance = 128 end
-end)
-Tabs.Player:AddSlider("MaxZoomSlider", { Title = "Max Zoom Distance", Min = 128, Max = 10000, Default = 128, Rounding = 0, Callback = function(value47) cameraMaxZoomDistance = value47 end })
+end })
+playerTab:Slider({ Flag = "MaxZoomSlider", Title = "Max Zoom Distance", Desc = "Sets the limit for zooming out.", Value = { Min = 128, Max = 10000, Default = 128 }, Step = 1, Callback = function(value47) cameraMaxZoomDistance = value47 end })
 
--- World Tab
-Tabs.World:AddParagraph({ Title = "Matchmaking", Content = "" })
-Tabs.World:AddDropdown("VoteDropdown", { Title = "Vote Difficulty", Values = { "Average", "Hard", "Extreme", "Insane", "Nightmare", "Boss Rush", "In the Mist", "Zombie", "Christmas", "Hell Wave", "Dark Dimension", "The Invasion", "Astro Holdout", "Vague Memory" }, Default = "Average", Callback = function(value48) end })
-Tabs.World:AddToggle("AutoVoteToggle", { Title = "Auto Vote", Default = false }):OnChanged(function(value49) autoVote = value49 end)
-Tabs.World:AddToggle("AutoReady", { Title = "Auto Ready", Default = false }):OnChanged(function(value50) autoReady = value50 end)
+local worldTab = mikoHUBWindow:Section({ Title = "World", Icon = "earth", Opened = true }):Tab({ Title = "World", Icon = "globe" })
+worldTab:Section({ Title = "Matchmaking" })
+worldTab:Dropdown({ Flag = "VoteDropdown", Title = "Vote Difficulty", Desc = "Choose which difficulty to automatically vote for.", Values = { "Average", "Hard", "Extreme", "Insane", "Nightmare", "Boss Rush", "In the Mist", "Zombie", "Christmas", "Hell Wave", "Dark Dimension", "The Invasion", "Astro Holdout", "Vague Memory" }, Value = "Average", Callback = function(value48) end })
+worldTab:Toggle({ Flag = "AutoVoteToggle", Title = "Auto Vote", Desc = "Votes automatically when match selection starts.", Value = false, Callback = function(value49) autoVote = value49 end })
+worldTab:Space()
+worldTab:Toggle({ Flag = "AutoReady", Title = "Auto Ready", Desc = "Instantly presses Ready in lobbies.", Value = false, Callback = function(value50) autoReady = value50 end })
 
-Tabs.World:AddParagraph({ Title = "Utility & Performance", Content = "" })
-Tabs.World:AddToggle("AntiLag", { Title = "Anti-Lag Optimizations", Default = false }):OnChanged(function(value51) f3(value51) end)
-Tabs.World:AddToggle("RemoveVFX", { Title = "Disable Visual Effects", Default = false }):OnChanged(function(value52)
+worldTab:Section({ Title = "Utility & Performance" })
+worldTab:Toggle({ Flag = "AntiLag", Title = "Anti-Lag Optimizations", Desc = "Lowers quality and removes textures to improve FPS.", Value = false, Callback = function(value51) f3(value51) end })
+worldTab:Space()
+worldTab:Toggle({ Flag = "RemoveVFX", Title = "Disable Visual Effects", Desc = "Removes particles and clutter to boost performance.", Value = false, Callback = function(value52)
     local effects = workspaceService:FindFirstChild("Effects") or replicatedStorage:FindFirstChild("Effects")
     if effects then effects.Parent = value52 and replicatedStorage or workspaceService end
-end)
-Tabs.World:AddToggle("NoRendering", { Title = "Disable 3D Rendering", Default = false }):OnChanged(function(value53) blackScreenForRendering.Enabled = value53 end)
-Tabs.World:AddToggle("AntiAFK", { Title = "Anti-AFK", Default = false }):OnChanged(function(value54) antiAFK = value54 end)
-Tabs.World:AddToggle("AutoRejoin", { Title = "Auto Rejoin", Default = false }):OnChanged(function(value55) autoRejoin = value55 end)
-Tabs.World:AddToggle("KillJeffrey", { Title = "Anti-Jeffrey", Default = false }):OnChanged(function(value56)
+end })
+worldTab:Space()
+worldTab:Toggle({ Flag = "NoRendering", Title = "Disable 3D Rendering", Desc = "Stops rendering the 3D world. Ideal for overnight farming.", Value = false, Callback = function(value53) blackScreenForRendering.Enabled = value53 end })
+worldTab:Space()
+worldTab:Toggle({ Flag = "AntiAFK", Title = "Anti-AFK", Desc = "Prevents Roblox from disconnecting you for idling.", Value = false, Callback = function(value54) antiAFK = value54 end })
+worldTab:Space()
+worldTab:Toggle({ Flag = "AutoRejoin", Title = "Auto Rejoin", Desc = "Rejoins automatically if you get disconnected.", Value = false, Callback = function(value55) autoRejoin = value55 end })
+worldTab:Space()
+worldTab:Toggle({ Flag = "KillJeffrey", Title = "Anti-Jeffrey", Desc = "Prevents Jeffrey from moving or attacking by forcing him to sit.", Value = false, Callback = function(value56)
     antiJeffrey = value56
     if value56 then
         task.spawn(function()
@@ -712,48 +622,44 @@ Tabs.World:AddToggle("KillJeffrey", { Title = "Anti-Jeffrey", Default = false })
     else
         pcall(function() workspaceService.Jeffrey.NotHumanoid.Sit = false end)
     end
-end)
+end })
 
-Tabs.World:AddParagraph({ Title = "Helicopter Shop", Content = "" })
-Tabs.World:AddDropdown("WeaponDropdown", { Title = "Weapons to Buy", Values = { "Shot Gun", "Pulse Rifle", "Shot Harpoon Gun", "EPD", "Small Laser Gun", "Titan-Request", "SpecialTitan-Request", "Speaker Request" }, Multi = true, Callback = function(value57) weaponDropdown = value57 end })
-Tabs.World:AddToggle("AutoBuyWeapons", { Title = "Auto Buy Weapons", Default = false }):OnChanged(function(value58) v34 = value58 end)
-Tabs.World:AddButton({ Title = "Remove Helicopter Shop", Callback = function()
+worldTab:Section({ Title = "Helicopter Shop" })
+worldTab:Dropdown({ Flag = "WeaponDropdown", Title = "Weapons to Buy", Desc = "Choose weapons to purchase automatically.", Values = { "Shot Gun", "Pulse Rifle", "Shot Harpoon Gun", "EPD", "Small Laser Gun", "Titan-Request", "SpecialTitan-Request", "Speaker Request" }, Multi = true, Callback = function(value57) weaponDropdown = value57 end })
+worldTab:Toggle({ Flag = "AutoBuyWeapons", Title = "Auto Buy Weapons", Desc = "Purchases chosen weapons when you have enough currency.", Value = false, Callback = function(value58) v34 = value58 end })
+worldTab:Space()
+worldTab:Button({ Title = "Remove Helicopter Shop", Desc = "Destroys the Helicopter Shop structure from the map.", Icon = "trash", Callback = function()
     if workspaceService:FindFirstChild("HelicopterShop") then
         workspaceService.HelicopterShop:Destroy()
-        Fluent:Notify({ Title = "Miko Hub", Content = "Helicopter removed.", Duration = 3 })
+        dist:Notify({ Title = "Miko Hub", Content = "Helicopter removed.", Duration = 3 })
     end
 end })
 
--- Visuals Tab
-Tabs.Visuals:AddParagraph({ Title = "Enemy ESP", Content = "" })
-Tabs.Visuals:AddToggle("ESPEnabled", { Title = "Enable ESP Highlights", Default = false }):OnChanged(function(value59)
+local visualsTab = mikoHUBWindow:Section({ Title = "Visuals", Icon = "eye", Opened = true }):Tab({ Title = "Visuals", Icon = "eye" })
+visualsTab:Section({ Title = "Enemy ESP" })
+visualsTab:Toggle({ Flag = "ESPEnabled", Title = "Enable ESP Highlights", Desc = "Glowing outline around enemies visible through walls.", Value = false, Callback = function(value59)
     espEnabled = value59
     if not value59 then f7() end
-end)
-Tabs.Visuals:AddToggle("ESPLines", { Title = "Show ESP Tracers", Default = false }):OnChanged(function(value60)
+end })
+visualsTab:Space()
+visualsTab:Toggle({ Flag = "ESPLines", Title = "Show ESP Tracers", Desc = "Lines from your position to targets.", Value = false, Callback = function(value60)
     espLines = value60
     if not value60 then f8() end
-end)
-Tabs.Visuals:AddColorpicker("ESPColor", { Title = "Highlight Color", Default = Color3.fromRGB(255, 0, 0), Callback = function(value61)
-    color = value61
-    for key8, value62 in pairs(v19) do
-        if value62 and value62.Parent then
-            value62.Color3 = value61
-            value62.SurfaceColor3 = value61
-        end
-    end
 end })
-Tabs.Visuals:AddColorpicker("ESPLineColor", { Title = "Tracer Color", Default = Color3.fromRGB(255, 0, 0), Callback = function(value64)
+visualsTab:Space()
+visualsTab:Colorpicker({ Flag = "ESPColor", Title = "Highlight Color", Desc = "Color used to highlight enemies.", Default = Color3.fromRGB(255, 0, 0), Callback = function(value61)
+    color = value61
+    for _, value62 in pairs(v19) do if value62 and value62.Parent then value62.Color3 = value61 value62.SurfaceColor3 = value61 end end
+    for _, value63 in pairs(v20) do if value63 and value63.Parent then local nl = value63:FindFirstChild("NameLabel") if nl then nl.TextColor3 = value61 end end end
+end })
+visualsTab:Space()
+visualsTab:Colorpicker({ Flag = "ESPLineColor", Title = "Tracer Color", Desc = "Color of the directional lines to enemies.", Default = Color3.fromRGB(255, 0, 0), Callback = function(value64)
     color2 = value64
-    for key10, value65 in pairs(v21) do
-        if type(value65) == "table" and value65.beam and value65.beam.Parent then
-            value65.beam.Color = ColorSequence.new(value64)
-        end
-    end
+    for _, value65 in pairs(v21) do if type(value65) == "table" and value65.beam and value65.beam.Parent then value65.beam.Color = ColorSequence.new(value64) end end
 end })
 
-Tabs.Visuals:AddParagraph({ Title = "Lighting", Content = "" })
-Tabs.Visuals:AddToggle("Fullbright", { Title = "Fullbright", Default = false }):OnChanged(function(value66)
+visualsTab:Section({ Title = "Lighting" })
+visualsTab:Toggle({ Flag = "Fullbright", Title = "Fullbright", Desc = "Removes all shadows and makes the map completely bright.", Value = false, Callback = function(value66)
     fullbright = value66
     if not value66 then
         lighting.Ambient = v38.Ambient
@@ -763,27 +669,23 @@ Tabs.Visuals:AddToggle("Fullbright", { Title = "Fullbright", Default = false }):
         lighting.FogEnd = v38.FogEnd
         lighting.GlobalShadows = v38.GlobalShadows
     end
-end)
+end })
 
--- Shop Tab
-Tabs.Shop:AddParagraph({ Title = "Gacha & Rolling", Content = "" })
-Tabs.Shop:AddDropdown("SpinAmount", { Title = "Spin Amount", Values = { "1", "10", "Lucky Spin" }, Default = "1", Callback = function(value67) spinAmount = value67 end })
-Tabs.Shop:AddToggle("AutoSkins", { Title = "Auto Roll Skins", Default = false }):OnChanged(function(value68) autoSkins = value68 end)
-Tabs.Shop:AddToggle("AutoCharacters", { Title = "Auto Roll Characters", Default = false }):OnChanged(function(value69) autoCharacters = value69 end)
+local shopTab = mikoHUBWindow:Section({ Title = "Shop", Icon = "store", Opened = true }):Tab({ Title = "Shop", Icon = "shopping-cart" })
+shopTab:Section({ Title = "Gacha & Rolling" })
+shopTab:Dropdown({ Flag = "SpinAmount", Title = "Spin Amount", Desc = "How many times to roll at once.", Values = { "1", "10", "Lucky Spin" }, Value = "1", Callback = function(value67) spinAmount = value67 end })
+shopTab:Space()
+shopTab:Toggle({ Flag = "AutoSkins", Title = "Auto Roll Skins", Desc = "Continuously spends currency to unlock cosmetic skins.", Value = false, Callback = function(value68) autoSkins = value68 end })
+shopTab:Space()
+shopTab:Toggle({ Flag = "AutoCharacters", Title = "Auto Roll Characters", Desc = "Continuously spends currency to unlock new characters.", Value = false, Callback = function(value69) autoCharacters = value69 end })
 
-Tabs.Shop:AddParagraph({ Title = "Hourly Shop", Content = "" })
+shopTab:Section({ Title = "Hourly Shop" })
 local gears = replicatedFirst:FindFirstChild("Gears")
 local v57 = {}
-if gears then
-    pcall(function()
-        for key11, value70 in pairs(gears:GetChildren()) do
-            table.insert(v57, value70.Name)
-        end
-    end)
-end
-Tabs.Shop:AddDropdown("HourlyItems", { Title = "Hourly Items to Buy", Values = v57, Multi = true, Callback = function(value71) hourlyItems = value71 end })
-Tabs.Shop:AddDropdown("HourlyAmount", { Title = "Buy Amount", Values = { "1", "2", "3", "4", "5" }, Multi = true, Callback = function(value72) buyAmount = value72 end })
-Tabs.Shop:AddToggle("AutoBuyHourly", { Title = "Auto Buy Hourly Items", Default = false }):OnChanged(function(value73)
+if gears then pcall(function() for _, v70 in pairs(gears:GetChildren()) do table.insert(v57, v70.Name) end end) end
+shopTab:Dropdown({ Flag = "HourlyItems", Title = "Hourly Items to Buy", Desc = "Select items from the Hourly Shop to purchase automatically.", Values = v57, Multi = true, Callback = function(value71) hourlyItems = value71 end })
+shopTab:Dropdown({ Flag = "HourlyAmount", Title = "Buy Amount", Desc = "How many of each item to purchase.", Values = { "1", "2", "3", "4", "5" }, Multi = true, Callback = function(value72) buyAmount = value72 end })
+shopTab:Toggle({ Flag = "AutoBuyHourly", Title = "Auto Buy Hourly Items", Desc = "Automatically purchases selected Hourly Shop items.", Value = false, Callback = function(value73)
     v35 = value73
     if value73 then
         task.spawn(function()
@@ -791,12 +693,9 @@ Tabs.Shop:AddToggle("AutoBuyHourly", { Title = "Auto Buy Hourly Items", Default 
                 pcall(function()
                     local buyItemFromShopHourly = replicatedStorage:FindFirstChild("BuyItemFromShopHourly")
                     if buyItemFromShopHourly then
-                        for key12, value74 in pairs(hourlyItems) do
-                            for key13, value75 in pairs(buyAmount) do
-                                if value74 and value75 and v35 then
-                                    buyItemFromShopHourly:FireServer(key12, key13)
-                                    task.wait(1)
-                                end
+                        for key12, _ in pairs(hourlyItems) do
+                            for key13, _ in pairs(buyAmount) do
+                                if v35 then buyItemFromShopHourly:FireServer(key12, key13) task.wait(1) end
                             end
                         end
                     end
@@ -805,74 +704,78 @@ Tabs.Shop:AddToggle("AutoBuyHourly", { Title = "Auto Buy Hourly Items", Default 
             end
         end)
     end
-end)
+end })
 
-Tabs.Shop:AddParagraph({ Title = "Item Collector", Content = "" })
-Tabs.Shop:AddDropdown("CollectItems", { Title = "Items to Collect", Values = { "Clock Spider", "Transmitter", "Flash Drive", "Astro Samples", "X-18", "The Present" }, Multi = true, Callback = function(value76) collectItems = value76 end })
-Tabs.Shop:AddToggle("AutoCollect", { Title = "Auto Collect Items", Default = false }):OnChanged(function(value77)
+shopTab:Section({ Title = "Item Collector" })
+shopTab:Dropdown({ Flag = "CollectItems", Title = "Items to Collect", Desc = "Select specific items to gather automatically.", Values = { "Clock Spider", "Transmitter", "Flash Drive", "Astro Samples", "X-18", "The Present" }, Multi = true, Callback = function(value76) collectItems = value76 end })
+shopTab:Toggle({ Flag = "AutoCollect", Title = "Auto Collect Items", Desc = "Grabs selected items as soon as they spawn.", Value = false, Callback = function(value77)
     autoCollect = value77
     if value77 then
         task.spawn(function()
             while autoCollect do
-                for key14, value78 in pairs(workspaceService:GetChildren()) do
-                    local v58 = value78
-                    if (v58:IsA("Model") or v58:IsA("Part")) and collectItems[v58.Name] then
-                        task.spawn(function()
-                            pcall(function() f13(v58) end)
-                        end)
+                for _, value78 in pairs(workspaceService:GetChildren()) do
+                    if (value78:IsA("Model") or value78:IsA("Part")) and collectItems[value78.Name] then
+                        task.spawn(function() pcall(function() f13(value78) end) end)
                     end
                 end
                 task.wait(0.5)
             end
         end)
     end
-end)
-
-Tabs.Shop:AddParagraph({ Title = "Rewards & Codes", Content = "" })
-Tabs.Shop:AddDropdown("SelectedCodes", { Title = "Promotional Codes", Values = { "100MVisit2", "100MVisit1" }, Multi = true, Callback = function(value79) promotionalCodes = value79 end })
-Tabs.Shop:AddButton({ Title = "Redeem Selected Codes", Callback = function()
-    for key15, value80 in pairs(promotionalCodes) do
-        local v59 = key15
-        if value80 then
-            pcall(function()
-                replicatedStorage:WaitForChild("RedeemCode"):FireServer(v59)
-                task.wait(0.2)
-            end)
-        end
-    end
-    Fluent:Notify({ Title = "Miko Hub", Content = "Codes redeemed!", Duration = 3 })
 end })
 
--- Settings Tab & Info
-Tabs.Settings:AddParagraph({ Title = "Discord & Credits", Content = "Creator: dev miko\nDiscord: https://discord.gg/Zd9eEty4Xw" })
-Tabs.Settings:AddButton({ Title = "Copy Discord Link", Callback = function()
+shopTab:Section({ Title = "Rewards & Codes" })
+shopTab:Space()
+shopTab:Dropdown({ Flag = "SelectedCodes", Title = "Promotional Codes", Desc = "Pick which codes to redeem.", Values = { "100MVisit2", "100MVisit1" }, Multi = true, Callback = function(value79) promotionalCodes = value79 end })
+shopTab:Button({ Title = "Redeem Selected Codes", Desc = "Redeems all checked codes for free rewards.", Icon = "tag", Callback = function()
+    for key15, value80 in pairs(promotionalCodes) do
+        if value80 then pcall(function() replicatedStorage:WaitForChild("RedeemCode"):FireServer(key15) task.wait(0.2) end) end
+    end
+    dist:Notify({ Title = "Miko Hub", Content = "Codes redeemed!", Duration = 3 })
+end })
+
+local settingsTab = mikoHUBWindow:Section({ Title = "Settings", Icon = "settings", Opened = true }):Tab({ Title = "Settings", Icon = "sliders-horizontal" })
+local config = mikoHUBWindow.ConfigManager:CreateConfig("MikoHubConfig")
+settingsTab:Section({ Title = "Configuration" })
+settingsTab:Paragraph({ Title = "Config System", Desc = "Save your current settings to a file and load them back anytime." })
+settingsTab:Space()
+settingsTab:Button({ Title = "Save Config", Desc = "Saves all current toggle/slider/dropdown values.", Icon = "save", Callback = function()
+    local ok, err = pcall(function() config:Save() end)
+    if ok then dist:Notify({ Title = "Config Saved", Content = "MikoHubConfig.json saved successfully!", Duration = 4 })
+    else dist:Notify({ Title = "Save Failed", Content = tostring(err), Duration = 5 }) end
+end })
+settingsTab:Space()
+settingsTab:Button({ Title = "Load Config", Desc = "Restores all settings from the saved config file.", Icon = "folder-open", Callback = function()
+    if pcall(function() config:Load() end) then dist:Notify({ Title = "Config Loaded", Content = "Settings restored!", Duration = 4 })
+    else dist:Notify({ Title = "Load Failed", Content = "No config found.", Duration = 4 }) end
+end })
+settingsTab:Space()
+settingsTab:Button({ Title = "Delete Config", Desc = "Permanently deletes the saved config file.", Icon = "trash-2", Callback = function()
+    dist:Notify({ Title = "Config Deleted", Content = pcall(function() config:Delete() end) and "Deleted." or "Nothing to delete.", Duration = 3 })
+end })
+
+settingsTab:Section({ Title = "Keybind" })
+settingsTab:Keybind({ Flag = "ToggleHubKey", Title = "Toggle Hub Keybind", Desc = "Press this key to show/hide the Miko Hub window.", Value = Enum.KeyCode.RightShift, Callback = function(v) end })
+
+local infoTab = mikoHUBWindow:Section({ Title = "Info", Icon = "info", Opened = true }):Tab({ Title = "Info", Icon = "info" })
+infoTab:Section({ Title = "Discord & Credits" })
+infoTab:Paragraph({ Title = "Miko Hub", Desc = "Creator: dev miko\nDiscord: https://discord.gg/Zd9eEty4Xw\nAvatar Icon ID: 103525855196551" })
+infoTab:Button({ Title = "Copy Discord Link", Desc = "Copies the Discord invite to your clipboard.", Icon = "link", Callback = function()
     if setclipboard then
         setclipboard("https://discord.gg/Zd9eEty4Xw")
-        Fluent:Notify({ Title = "Miko Hub", Content = "Discord link copied!", Duration = 3 })
+        dist:Notify({ Title = "Miko Hub", Content = "Discord link copied!", Duration = 3 })
     end
 end })
 
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-Window:SelectTab(1)
-
--- Background Runtime Threads
+-- Vòng lặp chạy ngầm hệ thống
 localPlayer.Idled:Connect(function()
     if antiAFK then
-        local currentCamera = workspaceService.CurrentCamera
+        local cam = workspaceService.CurrentCamera
         virtualUser:CaptureController()
         virtualUser:ClickButton2(Vector2.new())
-        virtualUser:Button2Down(Vector2.new(0, 0), currentCamera.CFrame)
+        virtualUser:Button2Down(Vector2.new(0, 0), cam.CFrame)
         task.wait(0.1)
-        virtualUser:Button2Up(Vector2.new(0, 0), currentCamera.CFrame)
-        virtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightShift, false, game)
-        task.wait(0.1)
-        virtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, game)
+        virtualUser:Button2Up(Vector2.new(0, 0), cam.CFrame)
     end
 end)
 
@@ -885,10 +788,10 @@ end)
 
 userInputService.JumpRequest:Connect(function()
     if infiniteJump then
-        local character12 = localPlayer.Character
-        if character12 then
-            local humanoid10 = character12:FindFirstChildOfClass("Humanoid")
-            if humanoid10 then humanoid10:ChangeState(Enum.HumanoidStateType.Jumping) end
+        local char = localPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
         end
     end
 end)
@@ -898,15 +801,13 @@ task.spawn(function()
         task.wait(0.1)
         if godMode then
             pcall(function()
-                local character13 = localPlayer.Character
-                if not character13 then return else
-                    local humanoid11 = character13:FindFirstChild("Humanoid")
-                    if not humanoid11 or humanoid11.MaxHealth <= 0 then return end
-                    if humanoid11.Health / humanoid11.MaxHealth * 100 < hpThreshold then
-                        local head2 = character13:FindFirstChild("Head")
-                        if head2 then head2:Destroy() else humanoid11.Health = 0 end
-                    end
-                    return
+                local char = localPlayer.Character
+                if not char then return end
+                local hum = char:FindFirstChild("Humanoid")
+                if not hum or hum.MaxHealth <= 0 then return end
+                if (hum.Health / hum.MaxHealth) * 100 < hpThreshold then
+                    local head = char:FindFirstChild("Head")
+                    if head then head:Destroy() else hum.Health = 0 end
                 end
             end)
         end
@@ -927,9 +828,7 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while task.wait(0.5) do
-        if v23 then v54 = f14() end
-    end
+    while task.wait(0.5) do if v23 then v54 = f14() end end
 end)
 
 task.spawn(function()
@@ -939,21 +838,18 @@ task.spawn(function()
     end
 end)
 
-runService.Heartbeat:Connect(function(delta)
+runService.Heartbeat:Connect(function()
     if faceNearest then
-        local character14 = localPlayer.Character
-        if character14 and alignOrientation and alignOrientation.Parent then
-            local humanoidRootPart11 = character14:FindFirstChild("HumanoidRootPart")
-            if humanoidRootPart11 then
-                local v67 = tick()
-                if v67 - v22 >= 0.3 then
-                    v41 = f10()
-                    v22 = v67
-                end
+        local char = localPlayer.Character
+        if char and alignOrientation and alignOrientation.Parent then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local t = tick()
+                if t - v22 >= 0.3 then v41 = f10() v22 = t end
                 if v41 and v41.Parent then
-                    local v68 = v41.Position - humanoidRootPart11.Position
-                    if v68.Magnitude > 0.5 then
-                        alignOrientation.CFrame = CFrame.lookAt(Vector3.zero, v68)
+                    local dir = v41.Position - hrp.Position
+                    if dir.Magnitude > 0.5 then
+                        alignOrientation.CFrame = CFrame.lookAt(Vector3.zero, dir)
                         alignOrientation.Enabled = true
                     else
                         alignOrientation.Enabled = false
@@ -971,37 +867,32 @@ local part
 runService.Heartbeat:Connect(function(delta2)
     if v26 then
         if not part or not part.Parent then
-            part = Instance.new("Part")
+            part = Instance.new("Part", workspaceService)
             part.Size = Vector3.new(15, 2, 15)
             part.Anchored = true
             part.CanCollide = true
-            local v69 = v36[1]
-            part.Position = Vector3.new(v69.X, -15, v69.Z)
+            part.Position = Vector3.new(v36[1].X, -15, v36[1].Z)
             part.Transparency = 0.5
             part.Color = Color3.fromRGB(95, 0, 255)
             part.Material = Enum.Material.Neon
-            part.Parent = workspaceService
         end
         if tick() - v18 >= 1 then
             v17 = not v17
             v18 = tick()
-            local v70 = (v17 and v37 or v36)[v16]
-            local v71 = part
-            v71.Position = not v17 and Vector3.new(v70.X, -15, v70.Z) or v70
+            local targetPos = (v17 and v37 or v36)[v16]
+            part.Position = not v17 and Vector3.new(targetPos.X, -15, targetPos.Z) or targetPos
             v16 = v16 % 4 + 1
         end
-        local v72 = (v17 and v37 or v36)[v16]
-        local vector2 = (v17 and v72 or Vector3.new(v72.X, -15, v72.Z)) - part.Position
+        local targetPos2 = (v17 and v37 or v36)[v16]
+        local vector2 = (v17 and targetPos2 or Vector3.new(targetPos2.X, -15, targetPos2.Z)) - part.Position
         if not v17 then vector2 = Vector3.new(vector2.X, 0, vector2.Z) end
-        if vector2.Magnitude < 600 * delta2 then
-            v16 = v16 % 4 + 1
-        else
+        if vector2.Magnitude >= 600 * delta2 then
             part.Position = part.Position + vector2.Unit * 600 * delta2
         end
-        local character15 = localPlayer.Character
-        if character15 and character15:FindFirstChild("HumanoidRootPart") then
-            character15.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-            character15.HumanoidRootPart.CFrame = CFrame.new(part.Position + Vector3.new(0, 3, 0))
+        local char = localPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+            char.HumanoidRootPart.CFrame = CFrame.new(part.Position + Vector3.new(0, 3, 0))
         end
     elseif part then
         part:Destroy()
@@ -1010,117 +901,80 @@ runService.Heartbeat:Connect(function(delta2)
 end)
 
 runService.Heartbeat:Connect(function()
-    local character16 = localPlayer.Character
-    if character16 then
-        local humanoid12 = character16:FindFirstChildOfClass("Humanoid")
-        if humanoid12 then
-            if v32 then humanoid12.WalkSpeed = walkSpeed2 end
-            if v33 then
-                humanoid12.UseJumpPower = true
-                humanoid12.JumpPower = jumpPower2
-            end
+    local char = localPlayer.Character
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            if v32 then hum.WalkSpeed = walkSpeed2 end
+            if v33 then hum.UseJumpPower = true hum.JumpPower = jumpPower2 end
         end
         if enableFlight then
             if not bodyVelocity or not bodyVelocity.Parent then makeBodyVelocity() end
-            local currentCamera2 = workspaceService.CurrentCamera
-            local vector3 = Vector3.new()
-            if userInputService:IsKeyDown(Enum.KeyCode.W) then vector3 = vector3 + currentCamera2.CFrame.LookVector end
-            if userInputService:IsKeyDown(Enum.KeyCode.S) then vector3 = vector3 - currentCamera2.CFrame.LookVector end
-            if userInputService:IsKeyDown(Enum.KeyCode.A) then vector3 = vector3 - currentCamera2.CFrame.RightVector end
-            if userInputService:IsKeyDown(Enum.KeyCode.D) then vector3 = vector3 + currentCamera2.CFrame.RightVector end
-            local v73 = 0
-            if userInputService:IsKeyDown(Enum.KeyCode.Space) or userInputService:IsKeyDown(Enum.KeyCode.E) then v73 = 1 end
-            if userInputService:IsKeyDown(Enum.KeyCode.LeftControl) or userInputService:IsKeyDown(Enum.KeyCode.Q) then v73 = -1 end
-            local unit = vector3 + Vector3.new(0, v73, 0)
-            if unit.Magnitude > 0 then unit = unit.Unit end
-            if bodyVelocity then bodyVelocity.Velocity = unit * flightSpeed end
-            if bodyGyro then bodyGyro.CFrame = currentCamera2.CFrame end
+            local cam = workspaceService.CurrentCamera
+            local moveDir = Vector3.new()
+            if userInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+            if userInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+            if userInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+            if userInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+            local upDown = 0
+            if userInputService:IsKeyDown(Enum.KeyCode.Space) or userInputService:IsKeyDown(Enum.KeyCode.E) then upDown = 1 end
+            if userInputService:IsKeyDown(Enum.KeyCode.LeftControl) or userInputService:IsKeyDown(Enum.KeyCode.Q) then upDown = -1 end
+            local finalVec = moveDir + Vector3.new(0, upDown, 0)
+            if finalVec.Magnitude > 0 then finalVec = finalVec.Unit end
+            if bodyVelocity then bodyVelocity.Velocity = finalVec * flightSpeed end
+            if bodyGyro then bodyGyro.CFrame = cam.CFrame end
         else
             f4()
         end
     end
     if fovToggle then workspaceService.CurrentCamera.FieldOfView = fovAmount end
     if maxZoom then localPlayer.CameraMaxZoomDistance = cameraMaxZoomDistance end
+
     if v23 then
-        if v15 then return elseif v26 then return elseif not character16 or not character16:FindFirstChild("HumanoidRootPart") then return else
-            local humanoid13 = character16:FindFirstChildOfClass("Humanoid")
-            local humanoidRootPart12 = character16.HumanoidRootPart
-            if humanoid13.Health <= 0 then return end
-            if v54 then
-                local humanoidRootPart13 = v54:FindFirstChild("HumanoidRootPart")
-                local fakeHead2 = v54:FindFirstChild("Fake Head")
-                local head3 = fakeHead2
-                head3 = fakeHead2 or v54:FindFirstChild("Head") or humanoidRootPart13
-                local v74 = head3
-                local v75 = v54.Name == "Ginger Toilet"
-                if v75 then
-                    local toilet = v54:FindFirstChild("Toilet")
-                    if toilet then v74 = toilet end
-                end
+        if not v15 and not v26 and char and char:FindFirstChild("HumanoidRootPart") then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            local hrp = char.HumanoidRootPart
+            if hum and hum.Health > 0 and v54 then
+                local enemyHrp = v54:FindFirstChild("HumanoidRootPart")
+                local head = v54:FindFirstChild("Fake Head") or v54:FindFirstChild("Head") or enemyHrp
+                local v74 = head
+                local isGinger = v54.Name == "Ginger Toilet"
+                if isGinger then local t = v54:FindFirstChild("Toilet") if t then v74 = t end end
                 if v54 ~= v55 then
                     v55 = v54
-                    if create then
-                        create:Cancel()
-                        create = nil
-                    end
-                    v9 = tick()
-                    v10 = 0
-                    if v74 and humanoidRootPart13 then
-                        v11 = v75 and v74.Size.Magnitude / 2 + 1 or head3.Size.Magnitude / 2 + 2.5
-                    else
-                        v11 = 5
-                    end
+                    if create then create:Cancel() create = nil end
+                    v9 = tick() v10 = 0
+                    v11 = isGinger and v74.Size.Magnitude / 2 + 1 or head.Size.Magnitude / 2 + 2.5
                 end
-                if tick() - v9 >= 10 then
-                    v10 = v10 + math.rad(90)
-                    v9 = tick()
-                end
-                if v74 and humanoidRootPart13 then
-                    local v76 = v25
-                    local v77 = 1 - v76 / 100 * 0.95
-                    local position4 = v74.Position
-                    local unit2 = (humanoidRootPart12.Position - position4).Unit
-                    if unit2.Magnitude == 0 or unit2 ~= unit2 then unit2 = Vector3.new(0, 0, 1) end
-                    local v78 = position4 + CFrame.Angles(0, v10, 0) * unit2 * v11
-                    local raycastParams = RaycastParams.new()
-                    raycastParams.FilterDescendantsInstances = { character16, v54 }
-                    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-                    local raycast = workspaceService:Raycast(
-                        humanoidRootPart12.Position,
-                        v78 - humanoidRootPart12.Position,
-                        raycastParams
-                    )
-                    if raycast and raycast.Instance.CanCollide then
-                        v78 = v78 + Vector3.new(0, humanoid13.JumpPower * 0.5, 0)
-                        humanoid13.Jump = true
+                if tick() - v9 >= 10 then v10 = v10 + math.rad(90) v9 = tick() end
+                if v74 and enemyHrp then
+                    local spd = v25
+                    local freq = 1 - spd / 100 * 0.95
+                    local pos = v74.Position
+                    local diff = (hrp.Position - pos).Unit
+                    if diff.Magnitude == 0 then diff = Vector3.new(0, 0, 1) end
+                    local targetPos = pos + CFrame.Angles(0, v10, 0) * diff * v11
+                    local ray = workspaceService:Raycast(hrp.Position, targetPos - hrp.Position, RaycastParams.new({FilterDescendantsInstances = {char, v54}, FilterType = Enum.RaycastFilterType.Exclude}))
+                    if ray and ray.Instance.CanCollide then
+                        targetPos = targetPos + Vector3.new(0, hum.JumpPower * 0.5, 0)
+                        hum.Jump = true
                     end
-                    local cframe = CFrame.lookAt(v78, Vector3.new(position4.X, v78.Y, position4.Z))
-                    humanoidRootPart12.Velocity = Vector3.new(0, 0, 0)
+                    local cf = CFrame.lookAt(targetPos, Vector3.new(pos.X, targetPos.Y, pos.Z))
+                    hrp.Velocity = Vector3.new(0, 0, 0)
                     if v24 == "Teleport" then
-                        if create then
-                            create:Cancel()
-                            create = nil
-                        end
-                        humanoidRootPart12.CFrame = cframe
+                        if create then create:Cancel() create = nil end
+                        hrp.CFrame = cf
                     else
-                        local v79 = (humanoidRootPart12.Position - v78).Magnitude / math.max(15, v76 / 100 * 507.5)
-                        if not create or create.PlaybackState ~= Enum.PlaybackState.Playing or (vector - v78).Magnitude > 3 then
+                        local distTo = (hrp.Position - targetPos).Magnitude / math.max(15, spd / 100 * 507.5)
+                        if not create or create.PlaybackState ~= Enum.PlaybackState.Playing or (vector - targetPos).Magnitude > 3 then
                             if create then create:Cancel() end
-                            vector = v78
-                            create = tweenService:Create(
-                                humanoidRootPart12,
-                                TweenInfo.new(v79, Enum.EasingStyle.Linear),
-                                { CFrame = cframe }
-                            )
+                            vector = targetPos
+                            create = tweenService:Create(hrp, TweenInfo.new(distTo, Enum.EasingStyle.Linear), {CFrame = cf})
                             create:Play()
                         end
                     end
-                    if (Vector3.new(
-                        humanoidRootPart12.Position.X,
-                        0,
-                        humanoidRootPart12.Position.Z
-                    ) - Vector3.new(position4.X, 0, position4.Z)).Magnitude <= v11 + 3 then
-                        if tick() - v8 >= v77 then
+                    if (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude <= v11 + 3 then
+                        if tick() - v8 >= freq then
                             local lmb = replicatedStorage:FindFirstChild("LMB")
                             if lmb then lmb:FireServer() end
                             v8 = tick()
@@ -1128,66 +982,49 @@ runService.Heartbeat:Connect(function()
                     end
                 end
             else
-                v55 = nil
-                v10 = 0
-                if create then
-                    create:Cancel()
-                    create = nil
-                end
-                local map = workspaceService:FindFirstChild("Map")
-                local circle = map
-                circle = map and workspaceService.Map:FindFirstChild("Circle")
+                v55 = nil v10 = 0
+                if create then create:Cancel() create = nil end
+                local circle = workspaceService:FindFirstChild("Map") and workspaceService.Map:FindFirstChild("Circle")
                 if circle then
-                    humanoidRootPart12.Velocity = Vector3.new(0, 0, 0)
-                    humanoidRootPart12.CFrame = CFrame.new(circle.Position + Vector3.new(0, 3, 0))
+                    hrp.Velocity = Vector3.new(0, 0, 0)
+                    hrp.CFrame = CFrame.new(circle.Position + Vector3.new(0, 3, 0))
                 end
             end
-            return
         end
-    else
-        return
     end
 end)
 
 localPlayer.CharacterAdded:Connect(function()
     task.wait(1)
-    v55 = nil
-    v54 = nil
-    v15 = false
-    if create then
-        create:Cancel()
-        create = nil
-    end
+    v55 = nil v54 = nil v15 = false
+    if create then create:Cancel() create = nil end
     if enableFlight then makeBodyVelocity() end
     if faceNearest then makeAttachment() end
 end)
 
 task.spawn(function()
     while true do
-        if not task.wait(0.1) then break end
+        task.wait(0.1)
         if flushAura then
-            local character17 = localPlayer.Character
-            if character17 and character17:FindFirstChild("HumanoidRootPart") then
-                local position5 = character17.HumanoidRootPart.Position
+            local char = localPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrpPos = char.HumanoidRootPart.Position
                 local living5 = workspaceService:FindFirstChild("Living")
                 if living5 then
-                    for index10, value87 in ipairs(living5:GetChildren()) do
-                        if value87:IsA("Model") and value87 ~= character17 then
-                            local humanoidRootPart14 = value87:FindFirstChild("HumanoidRootPart")
-                            if humanoidRootPart14 and (position5 - humanoidRootPart14.Position).Magnitude <= 50 then
-                                for index11, value88 in ipairs(value87:GetDescendants()) do
-                                    local v80 = value88
-                                    if v80:IsA("ProximityPrompt") and (v80.Parent.Name == "lever" or v80.Parent.Name == "Lever") then
-                                        if v80.Enabled then
-                                            pcall(function()
-                                                local cframe2 = character17.HumanoidRootPart.CFrame
-                                                character17.HumanoidRootPart.CFrame = v80.Parent.CFrame
-                                                v80.RequiresLineOfSight = false
-                                                v80.HoldDuration = 0
-                                                if fireproximityprompt then fireproximityprompt(v80) end
-                                                character17.HumanoidRootPart.CFrame = cframe2
-                                            end)
-                                        end
+                    for _, mob in ipairs(living5:GetChildren()) do
+                        if mob:IsA("Model") and mob ~= char then
+                            local mobHrp = mob:FindFirstChild("HumanoidRootPart")
+                            if mobHrp and (hrpPos - mobHrp.Position).Magnitude <= 50 then
+                                for _, p in ipairs(mob:GetDescendants()) do
+                                    if p:IsA("ProximityPrompt") and (p.Parent.Name == "lever" or p.Parent.Name == "Lever") and p.Enabled then
+                                        pcall(function()
+                                            local oldCf = char.HumanoidRootPart.CFrame
+                                            char.HumanoidRootPart.CFrame = p.Parent.CFrame
+                                            p.RequiresLineOfSight = false
+                                            p.HoldDuration = 0
+                                            if fireproximityprompt then fireproximityprompt(p) end
+                                            char.HumanoidRootPart.CFrame = oldCf
+                                        end)
                                     end
                                 end
                             end
@@ -1201,21 +1038,21 @@ end)
 
 task.spawn(function()
     while true do
-        if not task.wait(0.1) then break end
+        task.wait(0.1)
         if not collectDropables then v15 = false else
-            local v81, v82 = f12()
-            if v81 and v82 then
+            local item, prompt = f12()
+            if item and prompt then
                 v15 = true
-                local character18 = localPlayer.Character
-                if character18 and character18:FindFirstChild("HumanoidRootPart") then
-                    local v83 = (v81:IsA("Model") and (v81.PrimaryPart and v81.PrimaryPart.Position or v81:GetPivot().Position) or v81.Position) + Vector3.new(0, 3, 0)
-                    character18.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-                    character18.HumanoidRootPart.CFrame = CFrame.new(v83)
+                local char = localPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    local targetPos = (item:IsA("Model") and (item.PrimaryPart and item.PrimaryPart.Position or item:GetPivot().Position) or item.Position) + Vector3.new(0, 3, 0)
+                    char.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                    char.HumanoidRootPart.CFrame = CFrame.new(targetPos)
                     task.wait(0.2)
-                    if v82 and v82.Parent then
-                        v82.RequiresLineOfSight = false
-                        v82.HoldDuration = 0
-                        if fireproximityprompt then fireproximityprompt(v82) end
+                    if prompt and prompt.Parent then
+                        prompt.RequiresLineOfSight = false
+                        prompt.HoldDuration = 0
+                        if fireproximityprompt then fireproximityprompt(prompt) end
                     end
                     task.wait(0.5)
                 end
@@ -1227,16 +1064,10 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while true do
-        if not task.wait(0.1) then break end
-    end
-end)
-
-task.spawn(function()
     while task.wait(0.5) do
         if skipHelicopter then
-            local skipHelicopter2 = replicatedStorage:FindFirstChild("SkipHelicopter")
-            if skipHelicopter2 then skipHelicopter2:FireServer() end
+            local skip = replicatedStorage:FindFirstChild("SkipHelicopter")
+            if skip then skip:FireServer() end
         end
     end
 end)
@@ -1257,13 +1088,10 @@ task.spawn(function()
     while task.wait(0.5) do
         if v28 then replicatedStorage.ShopSystem:FireServer("Buy", "FillHP") end
         if v34 then
-            for key17, value89 in pairs(weaponDropdown) do
-                if value89 then
-                    if key17 == "Speaker Request" then
-                        replicatedStorage.ChangeToCinema:FireServer()
-                    else
-                        replicatedStorage.ShopSystem:FireServer("Buy", key17)
-                    end
+            for key17, val in pairs(weaponDropdown) do
+                if val then
+                    if key17 == "Speaker Request" then replicatedStorage.ChangeToCinema:FireServer()
+                    else replicatedStorage.ShopSystem:FireServer("Buy", key17) end
                 end
             end
         end
@@ -1273,16 +1101,16 @@ end)
 task.spawn(function()
     while task.wait(0.5) do
         if v30 then
-            local playerValues = localPlayer:FindFirstChild("PlayerValues")
-            if playerValues then
-                local value90 = playerValues:FindFirstChild("Character") and playerValues.Character.Value or ""
-                local v84 = v39[playerValues:FindFirstChild("SpecialTitan") and playerValues.SpecialTitan.Value or ""] or v39[value90]
-                if v84 then
+            local pv = localPlayer:FindFirstChild("PlayerValues")
+            if pv then
+                local charName = pv:FindFirstChild("Character") and pv.Character.Value or ""
+                local skillTreeData = v39[pv:FindFirstChild("SpecialTitan") and pv.SpecialTitan.Value or ""] or v39[charName]
+                if skillTreeData then
                     local skillTrees = replicatedStorage:FindFirstChild("SkillTrees")
                     if skillTrees then
-                        for key18, value91 in pairs(v84) do
+                        for skillName, _ in pairs(skillTreeData) do
                             if not v30 then break end
-                            skillTrees:FireServer(key18)
+                            skillTrees:FireServer(skillName)
                             task.wait(0.05)
                         end
                     end
@@ -1296,18 +1124,9 @@ task.spawn(function()
     while task.wait(1) do
         if v29 then
             pcall(function()
-                for index12, value92 in ipairs({ "Upgrade", "Jetpack", "OverCharge", "SoundBooster", "Core", }) do
-                    replicatedStorage.ChangeUpgradedTitanSpeaker:FireServer(value92)
-                    task.wait(0.05)
-                end
-                for index13, value93 in ipairs({ "Shield", "Blaster", "Lens", "Heat", "Armor" }) do
-                    replicatedStorage.ForUpgradeUTCM:FireServer(value93)
-                    task.wait(0.05)
-                end
-                for index14, value94 in ipairs({ "Absorb", "ShareOverCharge", "Shield", "AstroArm" }) do
-                    replicatedStorage.ForUpgradeTV:FireServer(value94)
-                    task.wait(0.05)
-                end
+                for _, u in ipairs({ "Upgrade", "Jetpack", "OverCharge", "SoundBooster", "Core" }) do replicatedStorage.ChangeUpgradedTitanSpeaker:FireServer(u) task.wait(0.05) end
+                for _, u in ipairs({ "Shield", "Blaster", "Lens", "Heat", "Armor" }) do replicatedStorage.ForUpgradeUTCM:FireServer(u) task.wait(0.05) end
+                for _, u in ipairs({ "Absorb", "ShareOverCharge", "Shield", "AstroArm" }) do replicatedStorage.ForUpgradeTV:FireServer(u) task.wait(0.05) end
             end)
         end
     end
@@ -1317,22 +1136,22 @@ task.spawn(function()
     while task.wait(1.25) do
         if v31 then
             pcall(function()
-                local character19 = localPlayer.Character
-                local backpack = localPlayer:FindFirstChild("Backpack")
-                if character19 and backpack then
-                    local humanoid14 = character19:FindFirstChildOfClass("Humanoid")
-                    if humanoid14 then
-                        local specialTitanRequest = backpack:FindFirstChild("SpecialTitan-Request") or character19:FindFirstChild("SpecialTitan-Request")
-                        if specialTitanRequest then
-                            humanoid14:EquipTool(specialTitanRequest)
-                            local specialRequest = replicatedStorage:FindFirstChild("SpecialRequest")
-                            if specialRequest then specialRequest:FireServer() end
+                local char = localPlayer.Character
+                local bp = localPlayer:FindFirstChild("Backpack")
+                if char and bp then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        local specReq = bp:FindFirstChild("SpecialTitan-Request") or char:FindFirstChild("SpecialTitan-Request")
+                        if specReq then
+                            hum:EquipTool(specReq)
+                            local sReq = replicatedStorage:FindFirstChild("SpecialRequest")
+                            if sReq then sReq:FireServer() end
                         end
-                        local titanRequest = backpack:FindFirstChild("Titan-Request") or character19:FindFirstChild("Titan-Request")
-                        if titanRequest then
-                            humanoid14:EquipTool(titanRequest)
-                            local requestTitan = replicatedStorage:FindFirstChild("RequestTitan")
-                            if requestTitan then requestTitan:FireServer() end
+                        local titReq = bp:FindFirstChild("Titan-Request") or char:FindFirstChild("Titan-Request")
+                        if titReq then
+                            hum:EquipTool(titReq)
+                            local rTit = replicatedStorage:FindFirstChild("RequestTitan")
+                            if rTit then rTit:FireServer() end
                         end
                     end
                 end
@@ -1343,21 +1162,21 @@ end)
 
 task.spawn(function()
     while task.wait(0.6) do
-        if autoKeybinds or v27 and v23 and v54 then
+        if autoKeybinds or (v27 and v23 and v54) then
             if keybindDropdown.All then
-                for index15, value95 in ipairs(v14) do
-                    if not (autoKeybinds or v27 and v23) then break end
-                    virtualInputManager:SendKeyEvent(true, Enum.KeyCode[value95], false, game)
+                for _, code in ipairs(v14) do
+                    if not (autoKeybinds or (v27 and v23)) then break end
+                    virtualInputManager:SendKeyEvent(true, Enum.KeyCode[code], false, game)
                     task.wait(0.01)
-                    virtualInputManager:SendKeyEvent(false, Enum.KeyCode[value95], false, game)
+                    virtualInputManager:SendKeyEvent(false, Enum.KeyCode[code], false, game)
                 end
             else
-                for key19, value96 in pairs(keybindDropdown) do
-                    if value96 and key19 ~= "All" then
-                        if not (autoKeybinds or v27 and v23) then break end
-                        virtualInputManager:SendKeyEvent(true, Enum.KeyCode[key19], false, game)
+                for k, val in pairs(keybindDropdown) do
+                    if val and k ~= "All" then
+                        if not (autoKeybinds or (v27 and v23)) then break end
+                        virtualInputManager:SendKeyEvent(true, Enum.KeyCode[k], false, game)
                         task.wait(0.01)
-                        virtualInputManager:SendKeyEvent(false, Enum.KeyCode[key19], false, game)
+                        virtualInputManager:SendKeyEvent(false, Enum.KeyCode[k], false, game)
                     end
                 end
             end
@@ -1367,43 +1186,34 @@ end)
 
 task.spawn(function()
     while task.wait(10) do
-        if not (not autoSkins and not autoCharacters) then
-            local v85 = "1Spin"
-            if spinAmount == "10" then v85 = "10Spins" elseif spinAmount == "Lucky Spin" then v85 = "1LuckySpin" end
-            if autoSkins then replicatedStorage.GachaSkins:FireServer(v85)
-            elseif autoCharacters then replicatedStorage.GachaCharacter:FireServer(v85) end
+        if autoSkins or autoCharacters then
+            local sp = "1Spin"
+            if spinAmount == "10" then sp = "10Spins" elseif spinAmount == "Lucky Spin" then sp = "1LuckySpin" end
+            if autoSkins then replicatedStorage.GachaSkins:FireServer(sp)
+            elseif autoCharacters then replicatedStorage.GachaCharacter:FireServer(sp) end
         end
     end
 end)
 
 task.spawn(function()
     while task.wait(0.15) do
-        local character20 = localPlayer.Character
+        local char = localPlayer.Character
         if hitboxExpander then
             local living6 = workspaceService:FindFirstChild("Living")
             if living6 then
-                for index16, value97 in ipairs(living6:GetChildren()) do
-                    if value97:IsA("Model") and value97 ~= character20 then
-                        local humanoid15 = value97:FindFirstChildOfClass("Humanoid")
-                        if humanoid15 and humanoid15.Health > 0 then
-                            for index17, value98 in ipairs({
-                                value97:FindFirstChild("Head"),
-                                value97:FindFirstChild("Fake Head"),
-                                value97:FindFirstChild("Toilet"),
-                            }) do
-                                if value98 and value98:IsA("BasePart") then
-                                    if not v12[value98] then
-                                        v12[value98] = {
-                                            Size = value98.Size,
-                                            Transparency = value98.Transparency,
-                                            CanCollide = value98.CanCollide,
-                                            Massless = value98.Massless,
-                                        }
+                for _, mob in ipairs(living6:GetChildren()) do
+                    if mob:IsA("Model") and mob ~= char then
+                        local hum = mob:FindFirstChildOfClass("Humanoid")
+                        if hum and hum.Health > 0 then
+                            for _, partName in ipairs({ mob:FindFirstChild("Head"), mob:FindFirstChild("Fake Head"), mob:FindFirstChild("Toilet") }) do
+                                if partName and partName:IsA("BasePart") then
+                                    if not v12[partName] then
+                                        v12[partName] = { Size = partName.Size, Transparency = partName.Transparency, CanCollide = partName.CanCollide, Massless = partName.Massless }
                                     end
-                                    value98.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-                                    value98.Transparency = 0.6
-                                    value98.CanCollide = false
-                                    value98.Massless = true
+                                    partName.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                                    partName.Transparency = 0.6
+                                    partName.CanCollide = false
+                                    partName.Massless = true
                                 end
                             end
                         end
@@ -1411,12 +1221,12 @@ task.spawn(function()
                 end
             end
         else
-            for key20, value99 in pairs(v12) do
-                if key20 and key20.Parent then
-                    key20.Size = value99.Size
-                    key20.Transparency = value99.Transparency
-                    key20.CanCollide = value99.CanCollide
-                    key20.Massless = value99.Massless
+            for partRef, data in pairs(v12) do
+                if partRef and partRef.Parent then
+                    partRef.Size = data.Size
+                    partRef.Transparency = data.Transparency
+                    partRef.CanCollide = data.CanCollide
+                    partRef.Massless = data.Massless
                 end
             end
             v12 = {}
