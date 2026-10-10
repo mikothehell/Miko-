@@ -18,14 +18,10 @@ local localPlayer = players.LocalPlayer
 local v1, v2 = pcall(function() return require("./src/Init") end)
 local dist
 if v1 then dist = v2 else dist = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))() end
-local function f1(p1) local gsub = p1:gsub("#", "") local v3 = tonumber(gsub:sub(1, 2), 16) local v4 = tonumber(gsub:sub(3, 4), 16) local v5 = tonumber(gsub:sub(5, 6), 16) return Color3.new(v3 / 255, v4 / 255, v5 / 255) end
-local function f2(value) return string.format( "#%02X%02X%02X", math.floor(value.R * 255 + 0.5), math.floor(value.G * 255 + 0.5), math.floor(value.B * 255 + 0.5) ) end
-local v6
-local v7 = { Accent = v6 and v6.Accent or "#7c3aed", Background = v6 and v6.Background or "#101010", Outline = v6 and v6.Outline or "#aa70f1", Text = v6 and v6.Text or "#FFFFFF", Placeholder = v6 and v6.Placeholder or "#7a7a7a", Button = v6 and v6.Button or "#aa70f1", Icon = v6 and v6.Icon or "#aa70f1", }
-pcall(function() dist:AddTheme({ Name = "PolyHubSaved", Accent = f1(v7.Accent), Background = f1(v7.Background), Outline = f1(v7.Outline), Text = f1(v7.Text), Placeholder = f1(v7.Placeholder), Button = f1(v7.Button), Icon = f1(v7.Icon), }) end)
-local polyHUBWindow = dist:CreateWindow({ Title = "POLY HUB", Icon = "rbxassetid://78217995810099", Folder = "PolyHub", NewElements = true, Theme = "PolyHubSaved", OpenButton = { Title = "Poly Hub", Enabled = true, Draggable = true }, Topbar = { Height = 44, ButtonsType = "Default" }, })
-dist:Notify({ Title = "Poly Hub", Content = "Script loaded! by dev miko", Icon = "rbxassetid://78217995810099", Duration = 6, })
-polyHUBWindow:Tag({ Title = "RE-PUBLISHED", Icon = "github", Color = Color3.fromHex("#30ff6a"), Radius = 13, })
+
+local mikoHUBWindow = dist:CreateWindow({ Title = "MIKO HUB", Icon = "rbxassetid://78217995810099", Folder = "MikoHub", NewElements = true, OpenButton = { Title = "Miko Hub", Enabled = true, Draggable = true }, Topbar = { Height = 44, ButtonsType = "Default" }, })
+dist:Notify({ Title = "Miko Hub", Content = "Script loaded! by dev miko", Icon = "rbxassetid://78217995810099", Duration = 6, })
+mikoHUBWindow:Tag({ Title = "RE-PUBLISHED", Icon = "github", Color = Color3.fromHex("#30ff6a"), Radius = 13, })
 local v8 = 0
 local v9 = 0
 local v10 = 0
@@ -474,7 +470,7 @@ local function f14()
     end
 end
 
-local autoFarmTab = polyHUBWindow:Section({ Title = "Auto Farms", Icon = "wrench", Opened = true, }):Tab({ Title = "Auto Farm", Icon = "crosshair", })
+local autoFarmTab = mikoHUBWindow:Section({ Title = "Auto Farms", Icon = "wrench", Opened = true, }):Tab({ Title = "Auto Farm", Icon = "crosshair", })
 autoFarmTab:Section({ Title = "Core Farm Settings" })
 local v54, v55, create
 autoFarmTab:Toggle({ Flag = "AutoFarmToggle", Title = "Enable Auto Farm", Desc = "Automatically targets and attacks nearby enemies.", Value = false, Callback = function(value18)
@@ -512,7 +508,7 @@ autoFarmTab:Space()
 autoFarmTab:Toggle({ Flag = "HitboxExpander", Title = "Expand Enemy Hitboxes", Desc = "Increases enemy hitbox size to make them easier to hit.", Value = false, Callback = function(value25) hitboxExpander = value25 end, })
 autoFarmTab:Slider({ Flag = "HitboxSize", Title = "Hitbox Size", Desc = "Controls how large enemy hitboxes become.", Value = { Min = 1, Max = 15, Default = 5 }, Step = 1, Callback = function(value26) hitboxSize = value26 end, })
 
-local autoSkillsTab = polyHUBWindow:Section({ Title = "Auto Skills", Icon = "brain-circuit", Opened = true, }):Tab({ Title = "Auto Skills", Icon = "keyboard", })
+local autoSkillsTab = mikoHUBWindow:Section({ Title = "Auto Skills", Icon = "brain-circuit", Opened = true, }):Tab({ Title = "Auto Skills", Icon = "keyboard", })
 autoSkillsTab:Section({ Title = "Skill Keybinds" })
 autoSkillsTab:Dropdown({ Flag = "KeybindDropdown", Title = "Auto Skill Keys", Desc = "Keys the script will press automatically during combat.", Values = { "All", "E", "R", "T", "Y", "U", "I", "O", "P", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M", }, Multi = true, Value = { "All" }, Callback = function(value27) keybindDropdown = value27 end, })
 autoSkillsTab:Toggle({ Flag = "AutoKeybinds", Title = "Enable Auto Skills", Desc = "Starts pressing the selected keys continuously.", Value = false, Callback = function(value28)
@@ -548,7 +544,7 @@ autoSkillsTab:Section({ Title = "God Mode" })
 autoSkillsTab:Toggle({ Flag = "GodMode", Title = "Enable God Mode", Desc = "Prevents your character from dying below a HP threshold.", Value = false, Callback = function(value35) godMode = value35 end, })
 autoSkillsTab:Slider({ Flag = "GodModeSlider", Title = "HP Threshold", Desc = "HP percentage at which God Mode activates.", Value = { Min = 1, Max = 99, Default = 30 }, Step = 1, Callback = function(value36) hpThreshold = value36 end, })
 
-local playerTab = polyHUBWindow:Section({ Title = "Player", Icon = "user-round", Opened = true, }):Tab({ Title = "Player", Icon = "user", })
+local playerTab = mikoHUBWindow:Section({ Title = "Player", Icon = "user-round", Opened = true, }):Tab({ Title = "Player", Icon = "user", })
 playerTab:Section({ Title = "Movement" })
 playerTab:Toggle({ Flag = "WalkSpeedToggle", Title = "Custom Walk Speed", Desc = "Overrides the default walk speed.", Value = false, Callback = function(value37)
     v32 = value37
@@ -597,7 +593,7 @@ playerTab:Toggle({ Flag = "MaxZoom", Title = "Unlock Max Camera Zoom", Desc = "Z
 end, })
 playerTab:Slider({ Flag = "MaxZoomSlider", Title = "Max Zoom Distance", Desc = "Sets the limit for zooming out.", Value = { Min = 128, Max = 10000, Default = 128 }, Step = 1, Callback = function(value47) cameraMaxZoomDistance = value47 end, })
 
-local worldTab = polyHUBWindow:Section({ Title = "World", Icon = "earth", Opened = true }):Tab({ Title = "World", Icon = "globe", })
+local worldTab = mikoHUBWindow:Section({ Title = "World", Icon = "earth", Opened = true }):Tab({ Title = "World", Icon = "globe", })
 worldTab:Section({ Title = "Matchmaking" })
 worldTab:Dropdown({ Flag = "VoteDropdown", Title = "Vote Difficulty", Desc = "Choose which difficulty to automatically vote for.", Values = { "Average", "Hard", "Extreme", "Insane", "Nightmare", "Boss Rush", "In the Mist", "Zombie", "Christmas", "Hell Wave", "Dark Dimension", "The Invasion", "Astro Holdout", "Vague Memory", }, Value = "Average", Callback = function(value48) end, })
 worldTab:Toggle({ Flag = "AutoVoteToggle", Title = "Auto Vote", Desc = "Votes automatically when match selection starts.", Value = false, Callback = function(value49) autoVote = value49 end, })
@@ -637,11 +633,11 @@ worldTab:Space()
 worldTab:Button({ Title = "Remove Helicopter Shop", Desc = "Destroys the Helicopter Shop structure from the map.", Icon = "trash", Callback = function()
     if workspaceService:FindFirstChild("HelicopterShop") then
         workspaceService.HelicopterShop:Destroy()
-        dist:Notify({ Title = "Poly Hub", Content = "Helicopter removed.", Duration = 3 })
+        dist:Notify({ Title = "Miko Hub", Content = "Helicopter removed.", Duration = 3 })
     end
 end, })
 
-local visualsTab = polyHUBWindow:Section({ Title = "Visuals", Icon = "eye", Opened = true }):Tab({ Title = "Visuals", Icon = "eye", })
+local visualsTab = mikoHUBWindow:Section({ Title = "Visuals", Icon = "eye", Opened = true }):Tab({ Title = "Visuals", Icon = "eye", })
 visualsTab:Section({ Title = "Enemy ESP" })
 visualsTab:Toggle({ Flag = "ESPEnabled", Title = "Enable ESP Highlights", Desc = "Glowing outline around enemies visible through walls.", Value = false, Callback = function(value59)
     espEnabled = value59
@@ -690,7 +686,7 @@ visualsTab:Toggle({ Flag = "Fullbright", Title = "Fullbright", Desc = "Removes a
     end
 end, })
 
-local shopTab = polyHUBWindow:Section({ Title = "Shop", Icon = "store", Opened = true }):Tab({ Title = "Shop", Icon = "shopping-cart", })
+local shopTab = mikoHUBWindow:Section({ Title = "Shop", Icon = "store", Opened = true }):Tab({ Title = "Shop", Icon = "shopping-cart", })
 shopTab:Section({ Title = "Gacha & Rolling" })
 shopTab:Dropdown({ Flag = "SpinAmount", Title = "Spin Amount", Desc = "How many times to roll at once.", Values = { "1", "10", "Lucky Spin" }, Value = "1", Callback = function(value67) spinAmount = value67 end, })
 shopTab:Space()
@@ -765,18 +761,18 @@ shopTab:Button({ Title = "Redeem Selected Codes", Desc = "Redeems all checked co
             end)
         end
     end
-    dist:Notify({ Title = "Poly Hub", Content = "Codes redeemed!", Duration = 3 })
+    dist:Notify({ Title = "Miko Hub", Content = "Codes redeemed!", Duration = 3 })
 end, })
 
-local settingsTab = polyHUBWindow:Section({ Title = "Settings", Icon = "settings", Opened = true, }):Tab({ Title = "Settings", Icon = "sliders-horizontal", })
-local config = polyHUBWindow.ConfigManager:CreateConfig("PolyHubConfig")
+local settingsTab = mikoHUBWindow:Section({ Title = "Settings", Icon = "settings", Opened = true, }):Tab({ Title = "Settings", Icon = "sliders-horizontal", })
+local config = mikoHUBWindow.ConfigManager:CreateConfig("MikoHubConfig")
 settingsTab:Section({ Title = "Configuration" })
-settingsTab:Paragraph({ Title = "Config System", Desc = "Save your current settings to a file and load them back anytime. Configs are stored in your executor's workspace folder under PolyHub/config/.", })
+settingsTab:Paragraph({ Title = "Config System", Desc = "Save your current settings to a file and load them back anytime. Configs are stored in your executor's workspace folder under MikoHub/config/.", })
 settingsTab:Space()
 settingsTab:Button({ Title = "Save Config", Desc = "Saves all current toggle/slider/dropdown values.", Icon = "save", Callback = function()
     local v60, v61 = pcall(function() config:Save() end)
     if v60 then
-        dist:Notify({ Title = "Config Saved", Content = "PolyHubConfig.json saved successfully!", Icon = "check", Duration = 4, })
+        dist:Notify({ Title = "Config Saved", Content = "MikoHubConfig.json saved successfully!", Icon = "check", Duration = 4, })
     else
         dist:Notify({ Title = "Save Failed", Content = tostring(v61), Duration = 5 })
     end
@@ -784,7 +780,7 @@ end, })
 settingsTab:Space()
 settingsTab:Button({ Title = "Load Config", Desc = "Restores all settings from the saved config file.", Icon = "folder-open", Callback = function()
     if pcall(function() config:Load() end) then
-        dist:Notify({ Title = "Config Loaded", Content = "Settings restored from PolyHubConfig.json!", Icon = "check", Duration = 4, })
+        dist:Notify({ Title = "Config Loaded", Content = "Settings restored from MikoHubConfig.json!", Icon = "check", Duration = 4, })
     else
         dist:Notify({ Title = "Load Failed", Content = "No saved config found or error loading.", Duration = 4, })
     end
@@ -796,96 +792,32 @@ end, })
 settingsTab:Section({ Title = "Auto-Load on Start" })
 settingsTab:Toggle({ Flag = "AutoLoadConfig", Title = "Auto Load Config on Start", Desc = "Automatically loads your saved config every time the script runs.", Value = false, Callback = function(value81)
     pcall(function()
-        if not isfolder("PolyHub") then makefolder("PolyHub") end
-        writefile("PolyHub/autoload.txt", value81 and "true" or "false")
+        if not isfolder("MikoHub") then makefolder("MikoHub") end
+        writefile("MikoHub/autoload.txt", value81 and "true" or "false")
     end)
 end, })
 settingsTab:Section({ Title = "Keybind" })
-settingsTab:Keybind({ Flag = "ToggleHubKey", Title = "Toggle Hub Keybind", Desc = "Press this key to show/hide the Poly Hub window.", Value = Enum.KeyCode.RightShift, Callback = function(value82) end, })
+settingsTab:Keybind({ Flag = "ToggleHubKey", Title = "Toggle Hub Keybind", Desc = "Press this key to show/hide the Miko Hub window.", Value = Enum.KeyCode.RightShift, Callback = function(value82) end, })
 
-local themeCreatorTab = polyHUBWindow:Section({ Title = "Theme", Icon = "palette", Opened = true, }):Tab({ Title = "Theme Creator", Icon = "paintbrush", })
-themeCreatorTab:Section({ Title = "Custom Theme Colors" })
-themeCreatorTab:Paragraph({ Title = "Theme Editor", Desc = "Customize every color of the UI. Click 'Apply & Save' to use your theme and save it so it loads automatically next time.", })
-themeCreatorTab:Space()
-local v62 = {}
-for index9, value83 in ipairs({
-    { flag = "ThemeAccent", label = "Accent", desc = "Main accent/sidebar color.", key = "Accent", },
-    { flag = "ThemeBackground", label = "Background", desc = "Main background color.", key = "Background", },
-    { flag = "ThemeOutline", label = "Outline", desc = "Border and outline color.", key = "Outline", },
-    { flag = "ThemeText", label = "Text", desc = "Primary text color.", key = "Text", },
-    { flag = "ThemePlaceholder", label = "Placeholder", desc = "Placeholder / secondary text.", key = "Placeholder", },
-    { flag = "ThemeButton", label = "Button", desc = "Button background color.", key = "Button", },
-    { flag = "ThemeIcon", label = "Icon", desc = "Icon tint color.", key = "Icon", },
-}) do
-    local v63 = value83
-    local default = f1(v7[v63.key])
-    local colorpicker = themeCreatorTab:Colorpicker({ Flag = v63.flag, Title = v63.label, Desc = v63.desc, Default = default, Callback = function(value84) v7[v63.key] = f2(value84) end, })
-    v62[v63.key] = colorpicker
-    themeCreatorTab:Space()
-end
-themeCreatorTab:Section({ title = "Presets" })
-themeCreatorTab:Dropdown({ Flag = "ThemePreset", Title = "Load Preset", Desc = "Apply a pre-made color scheme as a starting point.", Values = { "Dark (Default)", "Midnight Blue", "Neon Green", "Blood Red", "Purple Haze", "Gold & Black", }, Value = "Dark (Default)", Callback = function(value85)
-    local v64 = ({
-        ["Dark (Default)"] = { Accent = "#18181b", Background = "#101010", Outline = "#FFFFFF", Text = "#FFFFFF", Placeholder = "#7a7a7a", Button = "#52525b", Icon = "#a1a1aa", },
-        ["Midnight Blue"] = { Accent = "#0d1b2a", Background = "#060d14", Outline = "#4fc3f7", Text = "#e0f0ff", Placeholder = "#5588aa", Button = "#1a3a5c", Icon = "#4fc3f7", },
-        ["Neon Green"] = { Accent = "#0a1a0a", Background = "#050f05", Outline = "#39ff14", Text = "#ccffcc", Placeholder = "#4a8a4a", Button = "#0f3010", Icon = "#39ff14", },
-        ["Blood Red"] = { Accent = "#1a0505", Background = "#0d0101", Outline = "#ff2222", Text = "#ffcccc", Placeholder = "#8a4444", Button = "#3a0808", Icon = "#ff2222", },
-        ["Purple Haze"] = { Accent = "#1a0a2e", Background = "#0d0519", Outline = "#bf5fff", Text = "#e8ccff", Placeholder = "#7a4a9a", Button = "#2d1050", Icon = "#bf5fff", },
-        ["Gold & Black"] = { Accent = "#1a1400", Background = "#0d0a00", Outline = "#ffd700", Text = "#fff8cc", Placeholder = "#8a7a00", Button = "#2e2400", Icon = "#ffd700", },
-    })[value85]
-    if v64 then
-        for key16, value86 in pairs(v64) do v7[key16] = value86 end
-        dist:Notify({ Title = "Preset Loaded", Content = value85 .. " loaded. Click Apply & Save to use it.", Duration = 4, })
-    end
-end, })
-themeCreatorTab:Space()
-themeCreatorTab:Button({ Title = "Apply & Save Theme", Desc = "Applies your custom colors and saves them for next session.", Icon = "check-circle", Callback = function()
-    pcall(function()
-        dist:AddTheme({ Name = "PolyHubCustom", Accent = f1(v7.Accent), Background = f1(v7.Background), Outline = f1(v7.Outline), Text = f1(v7.Text), Placeholder = f1(v7.Placeholder), Button = f1(v7.Button), Icon = f1(v7.Icon), })
-        dist:SetTheme("PolyHubCustom")
-    end)
-    pcall(function()
-        if not isfolder then return end
-        if not isfolder("PolyHub") then makefolder("PolyHub") end
-        writefile("PolyHub/theme.json", (httpService:JSONEncode(v7)))
-    end)
-    dist:Notify({ Title = "Theme Applied", Content = "Custom theme applied and saved! It will load automatically next time.", Icon = "palette", Duration = 5, })
-end, })
-themeCreatorTab:Space()
-themeCreatorTab:Button({ Title = "Reset to Default Theme", Desc = "Removes custom theme and reverts to purple default.", Icon = "rotate-ccw", Callback = function()
-    pcall(function()
-        v7 = { Accent = "#7c3aed", Background = "#101010", Outline = "#aa70f1", Text = "#FFFFFF", Placeholder = "#7a7a7a", Button = "#aa70f1", Icon = "#aa70f1", }
-        dist:AddTheme({ Name = "PolyHubSaved", Accent = f1(v7.Accent), Background = f1(v7.Background), Outline = f1(v7.Outline), Text = f1(v7.Text), Placeholder = f1(v7.Placeholder), Button = f1(v7.Button), Icon = f1(v7.Icon), })
-        dist:SetTheme("PolyHubSaved")
-        if isfolder and isfolder("PolyHub") then
-            pcall(function() delfile("PolyHub/theme.json") end)
-        end
-    end)
-    dist:Notify({ Title = "Theme Reset", Content = "Reverted to purple default theme.", Duration = 3, })
-end, })
-
-local infoTab = polyHUBWindow:Section({ Title = "Info", Icon = "info", Opened = true }):Tab({ Title = "Info", Icon = "info", })
-infoTab:Section({ Title = "Credits" })
-infoTab:Paragraph({ Title = "Poly Hub", Desc = [[Creator: dev miko
-Discord: https://discord.gg/RNkWgMWc
+local infoTab = mikoHUBWindow:Section({ Title = "Info", Icon = "info", Opened = true }):Tab({ Title = "Info", Icon = "info", })
+infoTab:Section({ Title = "Discord & Credits" })
+infoTab:Paragraph({ Title = "Miko Hub", Desc = [[Creator: dev miko
+Discord: https://discord.gg/Zd9eEty4Xw
 Configure combat settings carefully before enabling Auto Farm.]], })
 infoTab:Button({ Title = "Copy Discord Link", Desc = "Copies the Discord invite to your clipboard.", Icon = "link", Callback = function()
     if setclipboard then
-        setclipboard("https://discord.gg/RNkWgMWc")
-        dist:Notify({ Title = "Poly Hub", Content = "Discord link copied!", Duration = 3 })
+        setclipboard("https://discord.gg/Zd9eEty4Xw")
+        dist:Notify({ Title = "Miko Hub", Content = "Discord link copied!", Duration = 3 })
     else
-        dist:Notify({ Title = "Poly Hub", Content = "Clipboard not supported by your executor.", Duration = 3, })
+        dist:Notify({ Title = "Miko Hub", Content = "Clipboard not supported by your executor.", Duration = 3, })
     end
 end, })
-infoTab:Section({ Title = "Script Info" })
-infoTab:Paragraph({ Title = "Version", Desc = "Poly Hub v2.0 — Fixed & Enhanced\nWindUI " .. (dist.Version or "latest"), })
-infoTab:Paragraph({ Title = "Fixes in this version", Desc = "• Fixed espEnabled / espLinesEnabled global scope error\n• Fixed InfoTab\n• Fixed Section:Tab() → proper WindUI API\n• Added Settings tab with save/load config\n• Added Theme Creator tab with persistence\n• Purple theme by default (#aa70f1)", })
 
 task.spawn(function()
     task.wait(1.5)
     pcall(function()
-        if readfile and isfolder and isfolder("PolyHub") then
-            local v65, v66 = pcall(readfile, "PolyHub/autoload.txt")
+        if readfile and isfolder and isfolder("MikoHub") then
+            local v65, v66 = pcall(readfile, "MikoHub/autoload.txt")
             if v65 and v66 == "true" then
                 pcall(function() config:Load() end)
                 dist:Notify({ Title = "Auto Load", Content = "Config loaded automatically!", Duration = 3, })
