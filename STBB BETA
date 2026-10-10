@@ -1,4 +1,4 @@
--- Deobfuscated by Kitty Deobfuscator -- Tool: Prometheus -- Date: 2026-10-10T14:35:46.445Z -- Join: https://discord.gg/ZkrjqnRqx -- ---------------------------------------------------- -- LuĐ° Đ…criÑ€t DeĐ¾bfuÑ•catĐµÔ Đ’Ñƒ LĐµĐ°ÎºD -- https://discord.gg/AwGHNh7Z7T -- ----------------------------------------------------
+-- Miko Hub - ST : Blockade Battlefront (Refreshed UI)
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local replicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,15 +13,43 @@ local tweenService = game:GetService("TweenService")
 local replicatedFirst = game:GetService("ReplicatedFirst")
 local coreGui = game:GetService("CoreGui")
 local httpService = game:GetService("HttpService")
+
 if setfpscap then setfpscap(1000) end
 local localPlayer = players.LocalPlayer
-local v1, v2 = pcall(function() return require("./src/Init") end)
-local dist
-if v1 then dist = v2 else dist = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))() end
 
-local mikoHUBWindow = dist:CreateWindow({ Title = "MIKO HUB", Icon = "rbxassetid://78217995810099", Folder = "MikoHub", NewElements = true, OpenButton = { Title = "Miko Hub", Enabled = true, Draggable = true }, Topbar = { Height = 44, ButtonsType = "Default" }, })
-dist:Notify({ Title = "Miko Hub", Content = "Script loaded! by dev miko", Icon = "rbxassetid://78217995810099", Duration = 6, })
-mikoHUBWindow:Tag({ Title = "RE-PUBLISHED", Icon = "github", Color = Color3.fromHex("#30ff6a"), Radius = 13, })
+-- Load Fluent UI Library
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/Fluent.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
+local Window = Fluent:CreateWindow({
+    Title = "Miko Hub | ST : Blockade Battlefront",
+    SubTitle = "by dev miko",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.RightShift
+})
+
+Fluent:Notify({
+    Title = "Miko Hub",
+    Content = "Script loaded successfully! Icon ID: 103525855196551",
+    Duration = 5
+})
+
+local Tabs = {
+    AutoFarm = Window:AddTab({ Title = "Auto Farm", Icon = "crosshair" }),
+    AutoSkills = Window:AddTab({ Title = "Auto Skills", Icon = "cpu" }),
+    Player = Window:AddTab({ Title = "Player", Icon = "user" }),
+    World = Window:AddTab({ Title = "World", Icon = "globe" }),
+    Visuals = Window:AddTab({ Title = "Visuals", Icon = "eye" }),
+    Shop = Window:AddTab({ Title = "Shop", Icon = "shopping-cart" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
+
+local Options = Fluent.Options
+
 local v8 = 0
 local v9 = 0
 local v10 = 0
@@ -94,6 +122,7 @@ local espLines = false
 local v36 = { Vector3.new(-667.83673095703, -15, -541.73278808594), Vector3.new(490.86804199219, -15, -541.64660644531), Vector3.new(490.66323852539, -15, 487.97653198242), Vector3.new(-667.85180664062, -15, 488.07791137695), }
 local v37 = { Vector3.new(-667.08538818359, 295.79769897461, -541.58538818359), Vector3.new(490.3616027832, 268.98135375977, -541.40081787109), Vector3.new(490.12017822266, 279.44061279297, 487.89535522461), Vector3.new(-667.34027099609, 295.70333862305, 487.83666992188), }
 local v38 = { Ambient = lighting.Ambient, OutdoorAmbient = lighting.OutdoorAmbient, Brightness = lighting.Brightness, ClockTime = lighting.ClockTime, FogEnd = lighting.FogEnd, GlobalShadows = lighting.GlobalShadows, }
+
 local blackScreenForRendering = Instance.new("ScreenGui")
 blackScreenForRendering.Name = "BlackScreenForRendering"
 blackScreenForRendering.DisplayOrder = 2147483647
@@ -104,7 +133,9 @@ instance.Size = UDim2.new(1, 0, 1, 0)
 instance.BackgroundColor3 = Color3.new(0, 0, 0)
 instance.BorderSizePixel = 0
 if not pcall(function() blackScreenForRendering.Parent = coreGui end) then blackScreenForRendering.Parent = localPlayer:WaitForChild("PlayerGui") end
+
 local v39 = { ["Double plungers"] = { Fist = { true, "nil", 0, "..." }, Knuckle = { false, "Fist", 500, "Increase m1 dmg by 20%" }, Grenade = { false, "Knuckle", 500, "get this grenade and do a crime" }, ["Body Improvement"] = { false, "Knuckle", 500, "Increase toughness by 10%" }, ["Double Plungers"] = { false, "Body Improvement", 1500, "New moves" }, }, ["Speaker man"] = { Fist = { true, "nil", 0, "..." }, ["Sound Improvement"] = { false, "Fist", 500, "Add soundwave move" }, Knuckle = { false, "Fist", 500, "Increase m1 dmg by 20%" }, Grenade = { false, "Knuckle", 500, "get this grenade" }, Knife = { false, "Knuckle", 250, "Path of Blood" }, Bat = { false, "Knuckle", 250, "Path of Destruction" }, }, ["Elite Speakerman"] = { Fist = { true, "nil", 0, "..." }, ["Body Improvement"] = { false, "Fist", 500, "Immune to bullet attack" }, ["Body Improvement II"] = { false, "Body Improvement", 400, "+500 Max HP" }, Shield = { false, "Body Improvement II", 500, "Tank Path" }, Laser = { false, "Body Improvement II", 800, "Attacker Path" }, }, ["Dark Speakerman"] = { Knife = { true, "nil", 0, "..." }, ["Multi Task"] = { false, "Knife", 200, "Switch Knife and Hand" }, ["Sound Improvement"] = { false, "Knife", 300, "Add soundwave move" }, ["Body Improvement"] = { false, "Multi Task", 500, "Incoming Dmg -10%" }, }, ["Titan Speaker"] = { Knife = { false, "nil", 1000, "" }, ["Sound Improvement"] = { false, "nil", 1000, "" }, Armored = { false, "nil", 1000, "" }, ["Extra Armor"] = { false, "Armored", 1000, "" }, Jetpack = { false, "nil", 1000, "" }, ["Upgrade Blaster"] = { false, "nil", 1000, "" }, }, }
+
 local instance2, alignOrientation
 local function makeAttachment()
     local character = localPlayer.Character
@@ -128,6 +159,7 @@ local function makeAttachment()
         return
     end
 end
+
 local function f3(value2)
     if value2 then
         for index, value3 in ipairs(workspaceService:GetDescendants()) do
@@ -149,19 +181,23 @@ local function f3(value2)
         v13 = {}
     end
 end
+
 local bodyVelocity, bodyGyro
 local function f4()
     if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
     if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
 end
+
 local function f5()
     for index2, value5 in ipairs(v14) do
         virtualInputManager:SendKeyEvent(false, Enum.KeyCode[value5], false, game)
     end
 end
+
 local function f6(value6)
     return players:GetPlayerFromCharacter(value6) ~= nil
 end
+
 local function f7()
     for key2, value7 in pairs(v19) do
         if value7 and value7.Parent then value7:Destroy() end
@@ -172,6 +208,7 @@ local function f7()
     end
     v20 = {}
 end
+
 local function makeBodyVelocity()
     local character2 = localPlayer.Character
     if not character2 or not character2:FindFirstChild("HumanoidRootPart") then return else
@@ -191,6 +228,7 @@ local function makeBodyVelocity()
         return
     end
 end
+
 local function f8()
     for key4, value9 in pairs(v21) do
         if type(value9) == "table" then
@@ -201,6 +239,7 @@ local function f8()
     end
     v21 = {}
 end
+
 local v41
 local function f9()
     local character3 = localPlayer.Character
@@ -219,6 +258,7 @@ local function f9()
     end
     v41 = nil
 end
+
 local function f10()
     local character4 = localPlayer.Character
     if not character4 then return nil else
@@ -248,10 +288,12 @@ local function f10()
         end
     end
 end
+
 local function f11(p2)
     local character5 = localPlayer.Character or localPlayer.CharacterAdded:Wait()
     character5:WaitForChild("HumanoidRootPart").CFrame = CFrame.new(p2)
 end
+
 local function f12()
     local character6 = localPlayer.Character
     if not character6 or not character6:FindFirstChild("HumanoidRootPart") then return nil, nil else
@@ -278,6 +320,7 @@ local function f12()
         return v43, v44
     end
 end
+
 local function makeTextLabel()
     local living2 = workspaceService:FindFirstChild("Living")
     if not living2 then f7() return else
@@ -367,6 +410,7 @@ local function makeTextLabel()
         return
     end
 end
+
 local function makeAttachment2()
     local character7 = localPlayer.Character
     if not character7 then f8() return else
@@ -422,6 +466,7 @@ local function makeAttachment2()
         end
     end
 end
+
 local function f13(index7)
     local proximityPrompt2 = index7:FindFirstChildOfClass("ProximityPrompt")
     if proximityPrompt2 then
@@ -441,6 +486,7 @@ local function f13(index7)
         return
     end
 end
+
 local function f14()
     local living4 = workspaceService:FindFirstChild("Living")
     if not living4 then return nil else
@@ -470,10 +516,13 @@ local function f14()
     end
 end
 
-local autoFarmTab = mikoHUBWindow:Section({ Title = "Auto Farms", Icon = "wrench", Opened = true, }):Tab({ Title = "Auto Farm", Icon = "crosshair", })
-autoFarmTab:Section({ Title = "Core Farm Settings" })
+-- UI Construction using Fluent UI with ID: 103525855196551
 local v54, v55, create
-autoFarmTab:Toggle({ Flag = "AutoFarmToggle", Title = "Enable Auto Farm", Desc = "Automatically targets and attacks nearby enemies.", Value = false, Callback = function(value18)
+
+-- Auto Farm Tab
+Tabs.AutoFarm:AddParagraph({ Title = "Core Farm Settings", Content = "Configure combat and auto-farm options below." })
+
+Tabs.AutoFarm:AddToggle("AutoFarmToggle", { Title = "Enable Auto Farm", Default = false }):OnChanged(function(value18)
     local v56 = not value18
     v23 = value18
     v54 = nil
@@ -484,69 +533,111 @@ autoFarmTab:Toggle({ Flag = "AutoFarmToggle", Title = "Enable Auto Farm", Desc =
         create = nil
     end
     if value18 then makeAttachment() else f9() end
-end, })
-autoFarmTab:Dropdown({ Flag = "AutoFarmMode", Title = "Farm Movement Mode", Desc = "Tween is smooth, Teleport is instant.", Values = { "Tween", "Teleport" }, Value = "Tween", Callback = function(value19) v24 = value19 end, })
-autoFarmTab:Slider({ Flag = "FarmSpeedSlider", Title = "Farm Movement Speed", Desc = "How quickly your character moves between targets.", Value = { Min = 0, Max = 100, Default = 100 }, Step = 1, Callback = function(value20) v25 = value20 end, })
-autoFarmTab:Space()
-autoFarmTab:Toggle({ Flag = "AstroTokenFarm", Title = "Farm Astro Tokens", Desc = "Prioritizes Astro Tokens and ignores normal enemies.", Value = false, Callback = function(value21)
+end)
+
+Tabs.AutoFarm:AddDropdown("AutoFarmMode", {
+    Title = "Farm Movement Mode",
+    Values = { "Tween", "Teleport" },
+    Default = "Tween",
+    Callback = function(value19) v24 = value19 end
+})
+
+Tabs.AutoFarm:AddSlider("FarmSpeedSlider", {
+    Title = "Farm Movement Speed",
+    Min = 0, Max = 100, Default = 100,
+    Rounding = 0,
+    Callback = function(value20) v25 = value20 end
+})
+
+Tabs.AutoFarm:AddToggle("AstroTokenFarm", { Title = "Farm Astro Tokens", Default = false }):OnChanged(function(value21)
     v26 = value21
     if value21 then
         v16 = 1
         v17 = false
         v18 = tick()
     end
-end, })
-autoFarmTab:Toggle({ Flag = "CollectDropables", Title = "Auto-Collect Map Items", Desc = "Gathers loose loot scattered around the map.", Value = false, Callback = function(value22) collectDropables = value22 end, })
-autoFarmTab:Section({ Title = "Combat Enhancements" })
-autoFarmTab:Toggle({ Flag = "FaceNearest", Title = "Face Nearest Enemy", Desc = "Rotates your character toward the closest target.", Value = false, Callback = function(value23)
+end)
+
+Tabs.AutoFarm:AddToggle("CollectDropables", { Title = "Auto-Collect Map Items", Default = false }):OnChanged(function(value22)
+    collectDropables = value22
+end)
+
+Tabs.AutoFarm:AddParagraph({ Title = "Combat Enhancements", Content = "" })
+
+Tabs.AutoFarm:AddToggle("FaceNearest", { Title = "Face Nearest Enemy", Default = false }):OnChanged(function(value23)
     faceNearest = value23
     if value23 then makeAttachment() else f9() end
-end, })
-autoFarmTab:Space()
-autoFarmTab:Toggle({ Flag = "FlushAura", Title = "Flush Damage Aura", Desc = "Activates a continuous damage area around your character.", Value = false, Callback = function(value24) flushAura = value24 end, })
-autoFarmTab:Space()
-autoFarmTab:Toggle({ Flag = "HitboxExpander", Title = "Expand Enemy Hitboxes", Desc = "Increases enemy hitbox size to make them easier to hit.", Value = false, Callback = function(value25) hitboxExpander = value25 end, })
-autoFarmTab:Slider({ Flag = "HitboxSize", Title = "Hitbox Size", Desc = "Controls how large enemy hitboxes become.", Value = { Min = 1, Max = 15, Default = 5 }, Step = 1, Callback = function(value26) hitboxSize = value26 end, })
+end)
 
-local autoSkillsTab = mikoHUBWindow:Section({ Title = "Auto Skills", Icon = "brain-circuit", Opened = true, }):Tab({ Title = "Auto Skills", Icon = "keyboard", })
-autoSkillsTab:Section({ Title = "Skill Keybinds" })
-autoSkillsTab:Dropdown({ Flag = "KeybindDropdown", Title = "Auto Skill Keys", Desc = "Keys the script will press automatically during combat.", Values = { "All", "E", "R", "T", "Y", "U", "I", "O", "P", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M", }, Multi = true, Value = { "All" }, Callback = function(value27) keybindDropdown = value27 end, })
-autoSkillsTab:Toggle({ Flag = "AutoKeybinds", Title = "Enable Auto Skills", Desc = "Starts pressing the selected keys continuously.", Value = false, Callback = function(value28)
+Tabs.AutoFarm:AddToggle("FlushAura", { Title = "Flush Damage Aura", Default = false }):OnChanged(function(value24)
+    flushAura = value24
+end)
+
+Tabs.AutoFarm:AddToggle("HitboxExpander", { Title = "Expand Enemy Hitboxes", Default = false }):OnChanged(function(value25)
+    hitboxExpander = value25
+end)
+
+Tabs.AutoFarm:AddSlider("HitboxSize", {
+    Title = "Hitbox Size",
+    Min = 1, Max = 15, Default = 5,
+    Rounding = 0,
+    Callback = function(value26) hitboxSize = value26 end
+})
+
+-- Auto Skills Tab
+Tabs.AutoSkills:AddParagraph({ Title = "Skill Keybinds", Content = "" })
+
+Tabs.AutoSkills:AddDropdown("KeybindDropdown", {
+    Title = "Auto Skill Keys",
+    Values = { "All", "E", "R", "T", "Y", "U", "I", "O", "P", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M" },
+    Multi = true,
+    Default = { "All" },
+    Callback = function(value27) keybindDropdown = value27 end
+})
+
+Tabs.AutoSkills:AddToggle("AutoKeybinds", { Title = "Enable Auto Skills", Default = false }):OnChanged(function(value28)
     autoKeybinds = value28
     if not value28 then f5() end
-end, })
-autoSkillsTab:Toggle({ Flag = "AutoFarmKeybind", Title = "Sync Skills With Auto Farm", Desc = "Only uses skills when Auto Farm is targeting an enemy.", Value = false, Callback = function(value29) v27 = value29 end, })
-autoSkillsTab:Button({ Title = "Restore Character Movement", Desc = "Fixes your character if it gets stuck or frozen.", Icon = "refresh-cw", Callback = function()
-    f5()
-    local character9 = localPlayer.Character
-    if character9 then
-        local humanoid7 = character9:FindFirstChildOfClass("Humanoid")
-        local humanoidRootPart10 = character9:FindFirstChild("HumanoidRootPart")
-        if humanoid7 and humanoidRootPart10 then
-            humanoid7.WalkSpeed = 16
-            humanoid7.PlatformStand = false
-            humanoid7:ChangeState(Enum.HumanoidStateType.GettingUp)
-            humanoid7:MoveTo(humanoidRootPart10.Position)
+end)
+
+Tabs.AutoSkills:AddToggle("AutoFarmKeybind", { Title = "Sync Skills With Auto Farm", Default = false }):OnChanged(function(value29)
+    v27 = value29
+end)
+
+Tabs.AutoSkills:AddButton({
+    Title = "Restore Character Movement",
+    Description = "Fixes your character if stuck/frozen",
+    Callback = function()
+        f5()
+        local character9 = localPlayer.Character
+        if character9 then
+            local humanoid7 = character9:FindFirstChildOfClass("Humanoid")
+            local humanoidRootPart10 = character9:FindFirstChild("HumanoidRootPart")
+            if humanoid7 and humanoidRootPart10 then
+                humanoid7.WalkSpeed = 16
+                humanoid7.PlatformStand = false
+                humanoid7:ChangeState(Enum.HumanoidStateType.GettingUp)
+                humanoid7:MoveTo(humanoidRootPart10.Position)
+            end
         end
     end
-end, })
-autoSkillsTab:Section({ Title = "General Automation" })
-autoSkillsTab:Toggle({ Flag = "SkipHelicopter", Title = "Auto Skip Helicopter", Desc = "Bypasses the helicopter transport animation.", Value = false, Callback = function(value30) skipHelicopter = value30 end, })
-autoSkillsTab:Space()
-autoSkillsTab:Toggle({ Flag = "AutoFillHP", Title = "Auto Heal (Fill HP)", Desc = "Keeps your health full using available items.", Value = false, Callback = function(value31) v28 = value31 end, })
-autoSkillsTab:Space()
-autoSkillsTab:Toggle({ Flag = "AutoBuyTitan", Title = "Auto Buy Titan Upgrades", Desc = "Purchases Titan upgrades when available.", Value = false, Callback = function(value32) v29 = value32 end, })
-autoSkillsTab:Space()
-autoSkillsTab:Toggle({ Flag = "AutoSkillTree", Title = "Auto Upgrade Skill Tree", Desc = "Spends available points on skill tree automatically.", Value = false, Callback = function(value33) v30 = value33 end, })
-autoSkillsTab:Space()
-autoSkillsTab:Toggle({ Flag = "AutoUseRequest", Title = "Auto Use Titan Request", Desc = "Calls the Titan as soon as cooldown finishes.", Value = false, Callback = function(value34) v31 = value34 end, })
-autoSkillsTab:Section({ Title = "God Mode" })
-autoSkillsTab:Toggle({ Flag = "GodMode", Title = "Enable God Mode", Desc = "Prevents your character from dying below a HP threshold.", Value = false, Callback = function(value35) godMode = value35 end, })
-autoSkillsTab:Slider({ Flag = "GodModeSlider", Title = "HP Threshold", Desc = "HP percentage at which God Mode activates.", Value = { Min = 1, Max = 99, Default = 30 }, Step = 1, Callback = function(value36) hpThreshold = value36 end, })
+})
 
-local playerTab = mikoHUBWindow:Section({ Title = "Player", Icon = "user-round", Opened = true, }):Tab({ Title = "Player", Icon = "user", })
-playerTab:Section({ Title = "Movement" })
-playerTab:Toggle({ Flag = "WalkSpeedToggle", Title = "Custom Walk Speed", Desc = "Overrides the default walk speed.", Value = false, Callback = function(value37)
+Tabs.AutoSkills:AddParagraph({ Title = "General Automation", Content = "" })
+
+Tabs.AutoSkills:AddToggle("SkipHelicopter", { Title = "Auto Skip Helicopter", Default = false }):OnChanged(function(value30) skipHelicopter = value30 end)
+Tabs.AutoSkills:AddToggle("AutoFillHP", { Title = "Auto Heal (Fill HP)", Default = false }):OnChanged(function(value31) v28 = value31 end)
+Tabs.AutoSkills:AddToggle("AutoBuyTitan", { Title = "Auto Buy Titan Upgrades", Default = false }):OnChanged(function(value32) v29 = value32 end)
+Tabs.AutoSkills:AddToggle("AutoSkillTree", { Title = "Auto Upgrade Skill Tree", Default = false }):OnChanged(function(value33) v30 = value33 end)
+Tabs.AutoSkills:AddToggle("AutoUseRequest", { Title = "Auto Use Titan Request", Default = false }):OnChanged(function(value34) v31 = value34 end)
+
+Tabs.AutoSkills:AddParagraph({ Title = "God Mode", Content = "" })
+Tabs.AutoSkills:AddToggle("GodMode", { Title = "Enable God Mode", Default = false }):OnChanged(function(value35) godMode = value35 end)
+Tabs.AutoSkills:AddSlider("GodModeSlider", { Title = "HP Threshold", Min = 1, Max = 99, Default = 30, Rounding = 0, Callback = function(value36) hpThreshold = value36 end })
+
+-- Player Tab
+Tabs.Player:AddParagraph({ Title = "Movement", Content = "" })
+Tabs.Player:AddToggle("WalkSpeedToggle", { Title = "Custom Walk Speed", Default = false }):OnChanged(function(value37)
     v32 = value37
     local character10 = localPlayer.Character
     if character10 then
@@ -555,10 +646,10 @@ playerTab:Toggle({ Flag = "WalkSpeedToggle", Title = "Custom Walk Speed", Desc =
             if value37 then walkSpeed = humanoid8.WalkSpeed else humanoid8.WalkSpeed = walkSpeed end
         end
     end
-end, })
-playerTab:Slider({ Flag = "WalkSpeedSlider", Title = "Walk Speed Amount", Desc = "Set how fast your character moves.", Value = { Min = 16, Max = 300, Default = 16 }, Step = 1, Callback = function(value38) walkSpeed2 = value38 end, })
-playerTab:Space()
-playerTab:Toggle({ Flag = "JumpPowerToggle", Title = "Custom Jump Power", Desc = "Overrides the default jump height.", Value = false, Callback = function(value39)
+end)
+Tabs.Player:AddSlider("WalkSpeedSlider", { Title = "Walk Speed Amount", Min = 16, Max = 300, Default = 16, Rounding = 0, Callback = function(value38) walkSpeed2 = value38 end })
+
+Tabs.Player:AddToggle("JumpPowerToggle", { Title = "Custom Jump Power", Default = false }):OnChanged(function(value39)
     v33 = value39
     local character11 = localPlayer.Character
     if character11 then
@@ -570,50 +661,46 @@ playerTab:Toggle({ Flag = "JumpPowerToggle", Title = "Custom Jump Power", Desc =
             end
         end
     end
-end, })
-playerTab:Slider({ Flag = "JumpPowerSlider", Title = "Jump Power Amount", Desc = "Set how high your character jumps.", Value = { Min = 50, Max = 500, Default = 50 }, Step = 1, Callback = function(value40) jumpPower2 = value40 end, })
-playerTab:Space()
-playerTab:Toggle({ Flag = "InfJump", Title = "Infinite Jump", Desc = "Jump endlessly in mid-air.", Value = false, Callback = function(value41) infiniteJump = value41 end, })
-playerTab:Section({ Title = "Flight" })
-playerTab:Toggle({ Flag = "FlyToggle", Title = "Enable Flight", Desc = "Fly freely around the map ignoring gravity.", Value = false, Callback = function(value42)
+end)
+Tabs.Player:AddSlider("JumpPowerSlider", { Title = "Jump Power Amount", Min = 50, Max = 500, Default = 50, Rounding = 0, Callback = function(value40) jumpPower2 = value40 end })
+Tabs.Player:AddToggle("InfJump", { Title = "Infinite Jump", Default = false }):OnChanged(function(value41) infiniteJump = value41 end)
+
+Tabs.Player:AddParagraph({ Title = "Flight", Content = "" })
+Tabs.Player:AddToggle("FlyToggle", { Title = "Enable Flight", Default = false }):OnChanged(function(value42)
     enableFlight = value42
     if value42 then makeBodyVelocity() else f4() end
-end, })
-playerTab:Slider({ Flag = "FlySpeed", Title = "Flight Speed", Desc = "Controls speed while flying.", Value = { Min = 16, Max = 300, Default = 50 }, Step = 1, Callback = function(value43) flightSpeed = value43 end, })
-playerTab:Section({ Title = "Camera" })
-playerTab:Toggle({ Flag = "FOVToggle", Title = "Custom Field of View", Desc = "Expands your camera viewing angle.", Value = false, Callback = function(value44)
+end)
+Tabs.Player:AddSlider("FlySpeed", { Title = "Flight Speed", Min = 16, Max = 300, Default = 50, Rounding = 0, Callback = function(value43) flightSpeed = value43 end })
+
+Tabs.Player:AddParagraph({ Title = "Camera", Content = "" })
+Tabs.Player:AddToggle("FOVToggle", { Title = "Custom Field of View", Default = false }):OnChanged(function(value44)
     fovToggle = value44
     if not value44 then workspaceService.CurrentCamera.FieldOfView = 70 end
-end, })
-playerTab:Slider({ Flag = "FOVSlider", Title = "FOV Amount", Desc = "Higher values increase peripheral vision.", Value = { Min = 70, Max = 120, Default = 70 }, Step = 1, Callback = function(value45) fovAmount = value45 end, })
-playerTab:Space()
-playerTab:Toggle({ Flag = "MaxZoom", Title = "Unlock Max Camera Zoom", Desc = "Zoom out further than the game normally allows.", Value = false, Callback = function(value46)
+end)
+Tabs.Player:AddSlider("FOVSlider", { Title = "FOV Amount", Min = 70, Max = 120, Default = 70, Rounding = 0, Callback = function(value45) fovAmount = value45 end })
+
+Tabs.Player:AddToggle("MaxZoom", { Title = "Unlock Max Camera Zoom", Default = false }):OnChanged(function(value46)
     maxZoom = value46
     if not value46 then localPlayer.CameraMaxZoomDistance = 128 end
-end, })
-playerTab:Slider({ Flag = "MaxZoomSlider", Title = "Max Zoom Distance", Desc = "Sets the limit for zooming out.", Value = { Min = 128, Max = 10000, Default = 128 }, Step = 1, Callback = function(value47) cameraMaxZoomDistance = value47 end, })
+end)
+Tabs.Player:AddSlider("MaxZoomSlider", { Title = "Max Zoom Distance", Min = 128, Max = 10000, Default = 128, Rounding = 0, Callback = function(value47) cameraMaxZoomDistance = value47 end })
 
-local worldTab = mikoHUBWindow:Section({ Title = "World", Icon = "earth", Opened = true }):Tab({ Title = "World", Icon = "globe", })
-worldTab:Section({ Title = "Matchmaking" })
-worldTab:Dropdown({ Flag = "VoteDropdown", Title = "Vote Difficulty", Desc = "Choose which difficulty to automatically vote for.", Values = { "Average", "Hard", "Extreme", "Insane", "Nightmare", "Boss Rush", "In the Mist", "Zombie", "Christmas", "Hell Wave", "Dark Dimension", "The Invasion", "Astro Holdout", "Vague Memory", }, Value = "Average", Callback = function(value48) end, })
-worldTab:Toggle({ Flag = "AutoVoteToggle", Title = "Auto Vote", Desc = "Votes automatically when match selection starts.", Value = false, Callback = function(value49) autoVote = value49 end, })
-worldTab:Space()
-worldTab:Toggle({ Flag = "AutoReady", Title = "Auto Ready", Desc = "Instantly presses Ready in lobbies.", Value = false, Callback = function(value50) autoReady = value50 end, })
-worldTab:Section({ Title = "Utility & Performance" })
-worldTab:Toggle({ Flag = "AntiLag", Title = "Anti-Lag Optimizations", Desc = "Lowers quality and removes textures to improve FPS.", Value = false, Callback = function(value51) f3(value51) end, })
-worldTab:Space()
-worldTab:Toggle({ Flag = "RemoveVFX", Title = "Disable Visual Effects", Desc = "Removes particles and clutter to boost performance.", Value = false, Callback = function(value52)
+-- World Tab
+Tabs.World:AddParagraph({ Title = "Matchmaking", Content = "" })
+Tabs.World:AddDropdown("VoteDropdown", { Title = "Vote Difficulty", Values = { "Average", "Hard", "Extreme", "Insane", "Nightmare", "Boss Rush", "In the Mist", "Zombie", "Christmas", "Hell Wave", "Dark Dimension", "The Invasion", "Astro Holdout", "Vague Memory" }, Default = "Average", Callback = function(value48) end })
+Tabs.World:AddToggle("AutoVoteToggle", { Title = "Auto Vote", Default = false }):OnChanged(function(value49) autoVote = value49 end)
+Tabs.World:AddToggle("AutoReady", { Title = "Auto Ready", Default = false }):OnChanged(function(value50) autoReady = value50 end)
+
+Tabs.World:AddParagraph({ Title = "Utility & Performance", Content = "" })
+Tabs.World:AddToggle("AntiLag", { Title = "Anti-Lag Optimizations", Default = false }):OnChanged(function(value51) f3(value51) end)
+Tabs.World:AddToggle("RemoveVFX", { Title = "Disable Visual Effects", Default = false }):OnChanged(function(value52)
     local effects = workspaceService:FindFirstChild("Effects") or replicatedStorage:FindFirstChild("Effects")
     if effects then effects.Parent = value52 and replicatedStorage or workspaceService end
-end, })
-worldTab:Space()
-worldTab:Toggle({ Flag = "NoRendering", Title = "Disable 3D Rendering", Desc = "Stops rendering the 3D world. Ideal for overnight farming.", Value = false, Callback = function(value53) blackScreenForRendering.Enabled = value53 end, })
-worldTab:Space()
-worldTab:Toggle({ Flag = "AntiAFK", Title = "Anti-AFK", Desc = "Prevents Roblox from disconnecting you for idling.", Value = false, Callback = function(value54) antiAFK = value54 end, })
-worldTab:Space()
-worldTab:Toggle({ Flag = "AutoRejoin", Title = "Auto Rejoin", Desc = "Rejoins automatically if you get disconnected.", Value = false, Callback = function(value55) autoRejoin = value55 end, })
-worldTab:Space()
-worldTab:Toggle({ Flag = "KillJeffrey", Title = "Anti-Jeffrey", Desc = "Prevents Jeffrey from moving or attacking by forcing him to sit.", Value = false, Callback = function(value56)
+end)
+Tabs.World:AddToggle("NoRendering", { Title = "Disable 3D Rendering", Default = false }):OnChanged(function(value53) blackScreenForRendering.Enabled = value53 end)
+Tabs.World:AddToggle("AntiAFK", { Title = "Anti-AFK", Default = false }):OnChanged(function(value54) antiAFK = value54 end)
+Tabs.World:AddToggle("AutoRejoin", { Title = "Auto Rejoin", Default = false }):OnChanged(function(value55) autoRejoin = value55 end)
+Tabs.World:AddToggle("KillJeffrey", { Title = "Anti-Jeffrey", Default = false }):OnChanged(function(value56)
     antiJeffrey = value56
     if value56 then
         task.spawn(function()
@@ -625,31 +712,29 @@ worldTab:Toggle({ Flag = "KillJeffrey", Title = "Anti-Jeffrey", Desc = "Prevents
     else
         pcall(function() workspaceService.Jeffrey.NotHumanoid.Sit = false end)
     end
-end, })
-worldTab:Section({ Title = "Helicopter Shop" })
-worldTab:Dropdown({ Flag = "WeaponDropdown", Title = "Weapons to Buy", Desc = "Choose weapons to purchase automatically.", Values = { "Shot Gun", "Pulse Rifle", "Shot Harpoon Gun", "EPD", "Small Laser Gun", "Titan-Request", "SpecialTitan-Request", "Speaker Request", }, Multi = true, Callback = function(value57) weaponDropdown = value57 end, })
-worldTab:Toggle({ Flag = "AutoBuyWeapons", Title = "Auto Buy Weapons", Desc = "Purchases chosen weapons when you have enough currency.", Value = false, Callback = function(value58) v34 = value58 end, })
-worldTab:Space()
-worldTab:Button({ Title = "Remove Helicopter Shop", Desc = "Destroys the Helicopter Shop structure from the map.", Icon = "trash", Callback = function()
+end)
+
+Tabs.World:AddParagraph({ Title = "Helicopter Shop", Content = "" })
+Tabs.World:AddDropdown("WeaponDropdown", { Title = "Weapons to Buy", Values = { "Shot Gun", "Pulse Rifle", "Shot Harpoon Gun", "EPD", "Small Laser Gun", "Titan-Request", "SpecialTitan-Request", "Speaker Request" }, Multi = true, Callback = function(value57) weaponDropdown = value57 end })
+Tabs.World:AddToggle("AutoBuyWeapons", { Title = "Auto Buy Weapons", Default = false }):OnChanged(function(value58) v34 = value58 end)
+Tabs.World:AddButton({ Title = "Remove Helicopter Shop", Callback = function()
     if workspaceService:FindFirstChild("HelicopterShop") then
         workspaceService.HelicopterShop:Destroy()
-        dist:Notify({ Title = "Miko Hub", Content = "Helicopter removed.", Duration = 3 })
+        Fluent:Notify({ Title = "Miko Hub", Content = "Helicopter removed.", Duration = 3 })
     end
-end, })
+end })
 
-local visualsTab = mikoHUBWindow:Section({ Title = "Visuals", Icon = "eye", Opened = true }):Tab({ Title = "Visuals", Icon = "eye", })
-visualsTab:Section({ Title = "Enemy ESP" })
-visualsTab:Toggle({ Flag = "ESPEnabled", Title = "Enable ESP Highlights", Desc = "Glowing outline around enemies visible through walls.", Value = false, Callback = function(value59)
+-- Visuals Tab
+Tabs.Visuals:AddParagraph({ Title = "Enemy ESP", Content = "" })
+Tabs.Visuals:AddToggle("ESPEnabled", { Title = "Enable ESP Highlights", Default = false }):OnChanged(function(value59)
     espEnabled = value59
     if not value59 then f7() end
-end, })
-visualsTab:Space()
-visualsTab:Toggle({ Flag = "ESPLines", Title = "Show ESP Tracers", Desc = "Lines from your position to targets.", Value = false, Callback = function(value60)
+end)
+Tabs.Visuals:AddToggle("ESPLines", { Title = "Show ESP Tracers", Default = false }):OnChanged(function(value60)
     espLines = value60
     if not value60 then f8() end
-end, })
-visualsTab:Space()
-visualsTab:Colorpicker({ Flag = "ESPColor", Title = "Highlight Color", Desc = "Color used to highlight enemies.", Default = Color3.fromRGB(255, 0, 0), Callback = function(value61)
+end)
+Tabs.Visuals:AddColorpicker("ESPColor", { Title = "Highlight Color", Default = Color3.fromRGB(255, 0, 0), Callback = function(value61)
     color = value61
     for key8, value62 in pairs(v19) do
         if value62 and value62.Parent then
@@ -657,24 +742,18 @@ visualsTab:Colorpicker({ Flag = "ESPColor", Title = "Highlight Color", Desc = "C
             value62.SurfaceColor3 = value61
         end
     end
-    for key9, value63 in pairs(v20) do
-        if value63 and value63.Parent then
-            local nameLabel2 = value63:FindFirstChild("NameLabel")
-            if nameLabel2 then nameLabel2.TextColor3 = value61 end
-        end
-    end
-end, })
-visualsTab:Space()
-visualsTab:Colorpicker({ Flag = "ESPLineColor", Title = "Tracer Color", Desc = "Color of the directional lines to enemies.", Default = Color3.fromRGB(255, 0, 0), Callback = function(value64)
+end })
+Tabs.Visuals:AddColorpicker("ESPLineColor", { Title = "Tracer Color", Default = Color3.fromRGB(255, 0, 0), Callback = function(value64)
     color2 = value64
     for key10, value65 in pairs(v21) do
         if type(value65) == "table" and value65.beam and value65.beam.Parent then
             value65.beam.Color = ColorSequence.new(value64)
         end
     end
-end, })
-visualsTab:Section({ Title = "Lighting" })
-visualsTab:Toggle({ Flag = "Fullbright", Title = "Fullbright", Desc = "Removes all shadows and makes the map completely bright.", Value = false, Callback = function(value66)
+end })
+
+Tabs.Visuals:AddParagraph({ Title = "Lighting", Content = "" })
+Tabs.Visuals:AddToggle("Fullbright", { Title = "Fullbright", Default = false }):OnChanged(function(value66)
     fullbright = value66
     if not value66 then
         lighting.Ambient = v38.Ambient
@@ -684,16 +763,15 @@ visualsTab:Toggle({ Flag = "Fullbright", Title = "Fullbright", Desc = "Removes a
         lighting.FogEnd = v38.FogEnd
         lighting.GlobalShadows = v38.GlobalShadows
     end
-end, })
+end)
 
-local shopTab = mikoHUBWindow:Section({ Title = "Shop", Icon = "store", Opened = true }):Tab({ Title = "Shop", Icon = "shopping-cart", })
-shopTab:Section({ Title = "Gacha & Rolling" })
-shopTab:Dropdown({ Flag = "SpinAmount", Title = "Spin Amount", Desc = "How many times to roll at once.", Values = { "1", "10", "Lucky Spin" }, Value = "1", Callback = function(value67) spinAmount = value67 end, })
-shopTab:Space()
-shopTab:Toggle({ Flag = "AutoSkins", Title = "Auto Roll Skins", Desc = "Continuously spends currency to unlock cosmetic skins.", Value = false, Callback = function(value68) autoSkins = value68 end, })
-shopTab:Space()
-shopTab:Toggle({ Flag = "AutoCharacters", Title = "Auto Roll Characters", Desc = "Continuously spends currency to unlock new characters.", Value = false, Callback = function(value69) autoCharacters = value69 end, })
-shopTab:Section({ Title = "Hourly Shop" })
+-- Shop Tab
+Tabs.Shop:AddParagraph({ Title = "Gacha & Rolling", Content = "" })
+Tabs.Shop:AddDropdown("SpinAmount", { Title = "Spin Amount", Values = { "1", "10", "Lucky Spin" }, Default = "1", Callback = function(value67) spinAmount = value67 end })
+Tabs.Shop:AddToggle("AutoSkins", { Title = "Auto Roll Skins", Default = false }):OnChanged(function(value68) autoSkins = value68 end)
+Tabs.Shop:AddToggle("AutoCharacters", { Title = "Auto Roll Characters", Default = false }):OnChanged(function(value69) autoCharacters = value69 end)
+
+Tabs.Shop:AddParagraph({ Title = "Hourly Shop", Content = "" })
 local gears = replicatedFirst:FindFirstChild("Gears")
 local v57 = {}
 if gears then
@@ -703,9 +781,9 @@ if gears then
         end
     end)
 end
-shopTab:Dropdown({ Flag = "HourlyItems", Title = "Hourly Items to Buy", Desc = "Select items from the Hourly Shop to purchase automatically.", Values = v57, Multi = true, Callback = function(value71) hourlyItems = value71 end, })
-shopTab:Dropdown({ Flag = "HourlyAmount", Title = "Buy Amount", Desc = "How many of each item to purchase.", Values = { "1", "2", "3", "4", "5" }, Multi = true, Callback = function(value72) buyAmount = value72 end, })
-shopTab:Toggle({ Flag = "AutoBuyHourly", Title = "Auto Buy Hourly Items", Desc = "Automatically purchases selected Hourly Shop items.", Value = false, Callback = function(value73)
+Tabs.Shop:AddDropdown("HourlyItems", { Title = "Hourly Items to Buy", Values = v57, Multi = true, Callback = function(value71) hourlyItems = value71 end })
+Tabs.Shop:AddDropdown("HourlyAmount", { Title = "Buy Amount", Values = { "1", "2", "3", "4", "5" }, Multi = true, Callback = function(value72) buyAmount = value72 end })
+Tabs.Shop:AddToggle("AutoBuyHourly", { Title = "Auto Buy Hourly Items", Default = false }):OnChanged(function(value73)
     v35 = value73
     if value73 then
         task.spawn(function()
@@ -727,10 +805,11 @@ shopTab:Toggle({ Flag = "AutoBuyHourly", Title = "Auto Buy Hourly Items", Desc =
             end
         end)
     end
-end, })
-shopTab:Section({ Title = "Item Collector" })
-shopTab:Dropdown({ Flag = "CollectItems", Title = "Items to Collect", Desc = "Select specific items to gather automatically.", Values = { "Clock Spider", "Transmitter", "Flash Drive", "Astro Samples", "X-18", "The Present", }, Multi = true, Callback = function(value76) collectItems = value76 end, })
-shopTab:Toggle({ Flag = "AutoCollect", Title = "Auto Collect Items", Desc = "Grabs selected items as soon as they spawn.", Value = false, Callback = function(value77)
+end)
+
+Tabs.Shop:AddParagraph({ Title = "Item Collector", Content = "" })
+Tabs.Shop:AddDropdown("CollectItems", { Title = "Items to Collect", Values = { "Clock Spider", "Transmitter", "Flash Drive", "Astro Samples", "X-18", "The Present" }, Multi = true, Callback = function(value76) collectItems = value76 end })
+Tabs.Shop:AddToggle("AutoCollect", { Title = "Auto Collect Items", Default = false }):OnChanged(function(value77)
     autoCollect = value77
     if value77 then
         task.spawn(function()
@@ -747,11 +826,11 @@ shopTab:Toggle({ Flag = "AutoCollect", Title = "Auto Collect Items", Desc = "Gra
             end
         end)
     end
-end, })
-shopTab:Section({ Title = "Rewards & Codes" })
-shopTab:Space()
-shopTab:Dropdown({ Flag = "SelectedCodes", Title = "Promotional Codes", Desc = "Pick which codes to redeem.", Values = { "100MVisit2", "100MVisit1" }, Multi = true, Callback = function(value79) promotionalCodes = value79 end, })
-shopTab:Button({ Title = "Redeem Selected Codes", Desc = "Redeems all checked codes for free rewards.", Icon = "tag", Callback = function()
+end)
+
+Tabs.Shop:AddParagraph({ Title = "Rewards & Codes", Content = "" })
+Tabs.Shop:AddDropdown("SelectedCodes", { Title = "Promotional Codes", Values = { "100MVisit2", "100MVisit1" }, Multi = true, Callback = function(value79) promotionalCodes = value79 end })
+Tabs.Shop:AddButton({ Title = "Redeem Selected Codes", Callback = function()
     for key15, value80 in pairs(promotionalCodes) do
         local v59 = key15
         if value80 then
@@ -761,71 +840,28 @@ shopTab:Button({ Title = "Redeem Selected Codes", Desc = "Redeems all checked co
             end)
         end
     end
-    dist:Notify({ Title = "Miko Hub", Content = "Codes redeemed!", Duration = 3 })
-end, })
+    Fluent:Notify({ Title = "Miko Hub", Content = "Codes redeemed!", Duration = 3 })
+end })
 
-local settingsTab = mikoHUBWindow:Section({ Title = "Settings", Icon = "settings", Opened = true, }):Tab({ Title = "Settings", Icon = "sliders-horizontal", })
-local config = mikoHUBWindow.ConfigManager:CreateConfig("MikoHubConfig")
-settingsTab:Section({ Title = "Configuration" })
-settingsTab:Paragraph({ Title = "Config System", Desc = "Save your current settings to a file and load them back anytime. Configs are stored in your executor's workspace folder under MikoHub/config/.", })
-settingsTab:Space()
-settingsTab:Button({ Title = "Save Config", Desc = "Saves all current toggle/slider/dropdown values.", Icon = "save", Callback = function()
-    local v60, v61 = pcall(function() config:Save() end)
-    if v60 then
-        dist:Notify({ Title = "Config Saved", Content = "MikoHubConfig.json saved successfully!", Icon = "check", Duration = 4, })
-    else
-        dist:Notify({ Title = "Save Failed", Content = tostring(v61), Duration = 5 })
-    end
-end, })
-settingsTab:Space()
-settingsTab:Button({ Title = "Load Config", Desc = "Restores all settings from the saved config file.", Icon = "folder-open", Callback = function()
-    if pcall(function() config:Load() end) then
-        dist:Notify({ Title = "Config Loaded", Content = "Settings restored from MikoHubConfig.json!", Icon = "check", Duration = 4, })
-    else
-        dist:Notify({ Title = "Load Failed", Content = "No saved config found or error loading.", Duration = 4, })
-    end
-end, })
-settingsTab:Space()
-settingsTab:Button({ Title = "Delete Config", Desc = "Permanently deletes the saved config file.", Icon = "trash-2", Callback = function()
-    dist:Notify({ Title = "Config Deleted", Content = pcall(function() config:Delete() end) and "Config file deleted." or "Nothing to delete.", Duration = 3, })
-end, })
-settingsTab:Section({ Title = "Auto-Load on Start" })
-settingsTab:Toggle({ Flag = "AutoLoadConfig", Title = "Auto Load Config on Start", Desc = "Automatically loads your saved config every time the script runs.", Value = false, Callback = function(value81)
-    pcall(function()
-        if not isfolder("MikoHub") then makefolder("MikoHub") end
-        writefile("MikoHub/autoload.txt", value81 and "true" or "false")
-    end)
-end, })
-settingsTab:Section({ Title = "Keybind" })
-settingsTab:Keybind({ Flag = "ToggleHubKey", Title = "Toggle Hub Keybind", Desc = "Press this key to show/hide the Miko Hub window.", Value = Enum.KeyCode.RightShift, Callback = function(value82) end, })
-
-local infoTab = mikoHUBWindow:Section({ Title = "Info", Icon = "info", Opened = true }):Tab({ Title = "Info", Icon = "info", })
-infoTab:Section({ Title = "Discord & Credits" })
-infoTab:Paragraph({ Title = "Miko Hub", Desc = [[Creator: dev miko
-Discord: https://discord.gg/Zd9eEty4Xw
-Configure combat settings carefully before enabling Auto Farm.]], })
-infoTab:Button({ Title = "Copy Discord Link", Desc = "Copies the Discord invite to your clipboard.", Icon = "link", Callback = function()
+-- Settings Tab & Info
+Tabs.Settings:AddParagraph({ Title = "Discord & Credits", Content = "Creator: dev miko\nDiscord: https://discord.gg/Zd9eEty4Xw" })
+Tabs.Settings:AddButton({ Title = "Copy Discord Link", Callback = function()
     if setclipboard then
         setclipboard("https://discord.gg/Zd9eEty4Xw")
-        dist:Notify({ Title = "Miko Hub", Content = "Discord link copied!", Duration = 3 })
-    else
-        dist:Notify({ Title = "Miko Hub", Content = "Clipboard not supported by your executor.", Duration = 3, })
+        Fluent:Notify({ Title = "Miko Hub", Content = "Discord link copied!", Duration = 3 })
     end
-end, })
+end })
 
-task.spawn(function()
-    task.wait(1.5)
-    pcall(function()
-        if readfile and isfolder and isfolder("MikoHub") then
-            local v65, v66 = pcall(readfile, "MikoHub/autoload.txt")
-            if v65 and v66 == "true" then
-                pcall(function() config:Load() end)
-                dist:Notify({ Title = "Auto Load", Content = "Config loaded automatically!", Duration = 3, })
-            end
-        end
-    end)
-end)
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
 
+Window:SelectTab(1)
+
+-- Background Runtime Threads
 localPlayer.Idled:Connect(function()
     if antiAFK then
         local currentCamera = workspaceService.CurrentCamera
