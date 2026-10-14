@@ -42,7 +42,8 @@ local function f1()
 end
 
 local v2 = f1()
-local v3 = "TowerMacroSettings_" .. v2 "_" .. localPlayer.UserId .. ".json"
+-- [Đã sửa lỗi thiếu dấu .. ở đây]
+local v3 = "TowerMacroSettings_" .. v2 .. "_" .. localPlayer.UserId .. ".json"
 local rightControl = Enum.KeyCode.RightControl
 
 local v4 = {
@@ -616,7 +617,7 @@ end
 local f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23, f24, f25,
   f26, f27, waitForChild, towerAdd, towerUpgrade, towerSell, playAgain, localPlayer2, v36, v37,
   v38, v39, v40, v41, f28, units, v42, f29, f30, f31, v43, f32, value8, f33, f34, v44, v45, v46,
-  v47, f35, v48, v49, v50, v51, f36, f37, f38, v52, v53, v54, v55, v56, v57, f39, v58, v59, v60,
+  v47, f35, f48, v49, v50, v51, f36, f37, f38, v52, v53, v54, v55, v56, v57, f39, v58, v59, v60,
   v61, v62, f40
 
 if v1 then
@@ -1198,7 +1199,6 @@ else
     if p40:IsA("Model") then
       local v97, v98 = pcall(p40.GetPivot, p40)
 
--- https://discord.gg/AwGHNh7Z7T
       if v97 then
         position3 = v98.Position
       end
