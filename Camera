@@ -1,2377 +1,357 @@
-local players = game:GetService("Players")
-local replicatedStorage = game:GetService("ReplicatedStorage")
-local httpService = game:GetService("HttpService")
-local userInputService = game:GetService("UserInputService")
-local rbxAnalyticsService = game:GetService("RbxAnalyticsService")
-local coreGui = game:GetService("CoreGui")
+-- Miko Hub
+-- Author: Miko Team
+-- Game: Camera TD
 
-while true do
-  wait()
+local WindUI = loadstring(game:HttpGet("https://tree-hub.vercel.app/api/UI/WindUI"))()
 
-  if game:IsLoaded() then
-    break
-  end
-end
+local Window = WindUI:CreateWindow({
+    Title = "Miko Hub - Camera TD",
+    Icon = "rbxassetid://10734975692",
+    Author = "Miko Team",
+    Folder = "MikoHub_CameraTD",
+    Size = UDim2.fromOffset(580, 460),
+    Transparent = true,
+    Theme = "Dark",
+    SideBarWidth = 170,
+    HasOutline = true,
+})
 
-wait(5)
-local localPlayer = players.LocalPlayer
-local playerGui = localPlayer:WaitForChild("PlayerGui")
-local network = replicatedStorage:WaitForChild("ModuleLoader"):WaitForChild("Shared"):WaitForChild("Network")
-local remoteEvent = network:WaitForChild("RemoteEvent")
-local remoteFunction = network:WaitForChild("RemoteFunction")
-local v1 = workspace:FindFirstChild("Elevators") ~= nil
-
-local function f1()
-  local getClientId
-
-  if gethwid then
-    pcall(function() getClientId = gethwid() end)
-  end
-
-  if not getClientId or tostring(getClientId) == "" then
-    pcall(function() getClientId = rbxAnalyticsService:GetClientId() end)
-  end
-
-  getClientId = tostring(getClientId or "unknown"):gsub("[^%w]", "")
-
-  if getClientId == "" then
-    getClientId = "unknown"
-  end
-
-  return getClientId:sub(1, 12)
-end
-
-local v2 = f1()
-local v3 = "TowerMacroSettings_" .. v2 .. "_" .. localPlayer.UserId .. ".json"
-local rightControl = Enum.KeyCode.RightControl
-
-local v4 = {
-  selected = nil,
-  saveName = "Macro1",
-  play = false,
-  open = true,
+-- Flags & Variables
+local Flags = {
+    AutoJoin = false,
+    SelectedMap = "Toilet City",
+    AutoStart = false,
+    
+    AutoVote = false,
+    SelectedDifficulty = "Hard",
+    AutoSkip = false,
+    StopSkipWave = 50,
+    GameSpeed = "2x",
+    AutoReplay = false,
+    
+    AutoSummon = false,
+    SummonAmount = "x10",
+    
+    AutoClaimQuest = false,
+    PlaceAnywhere = false,
+    HideName = false,
+    FPSBoost = false,
+    
+    WebhookURL = "",
+    SendMatchReport = false,
 }
 
-local function f2()
-  if isfile and isfile(v3) then
-    local v5, v6 = pcall(function() return httpService:JSONDecode(readfile(v3)) end)
+-- Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local VirtualUser = game:GetService("VirtualUser")
 
-    if v5 and type(v6) == "table" then
-      for key, value in pairs(v6) do
-        v4[key] = value
-      end
+local LocalPlayer = Players.LocalPlayer
+
+-- Tabs
+local MainTab = Window:Tab({ Title = "Main", Icon = "home" })
+local MacroTab = Window:Tab({ Title = "Macro / Auto Play", Icon = "play" })
+local SummonTab = Window:Tab({ Title = "Summon", Icon = "shopping-cart" })
+local MiscTab = Window:Tab({ Title = "Misc & Webhook", Icon = "settings" })
+
+-- MAIN TAB: Lobby & Match Settings
+MainTab:Section({ Title = "Lobby Automation" })
+
+MainTab:Toggle({
+    Title = "Auto Join Map",
+    Default = false,
+    Callback = function(Value)
+        Flags.AutoJoin = Value
     end
-  end
-end
-
-f2()
-
-local v7 = {
-  autoElevator = true,
-  autoVote = true,
-  autoSkip = true,
-  autoLeaveUI = true,
-  autoLeavePlayers = true,
-}
-
-if type(v4.features) ~= "table" then
-  v4.features = {}
-end
-
-local features = v4.features
-
-for key2, value2 in pairs(v7) do
-  if features[key2] == nil then
-    features[key2] = value2
-  end
-end
-
-local v8 = { "Easy", "Normal", "Hard", "Insane" }
-
-if not table.find(v8, v4.voteMode) then
-  v4.voteMode = "Insane"
-end
-
-local v9 = { "1", "1.5", "2" }
-local v10 = {}
-local v11 = { tabs = {} }
-local color = Color3.fromRGB(13, 20, 33)
-local color2 = Color3.fromRGB(16, 26, 41)
-local color3 = Color3.fromRGB(32, 49, 72)
-local color4 = Color3.fromRGB(26, 38, 56)
-local color5 = Color3.fromRGB(36, 50, 72)
-local color6 = Color3.fromRGB(235, 238, 245)
-local color7 = Color3.fromRGB(135, 150, 170)
-local color8 = Color3.fromRGB(46, 190, 160)
-local color9 = Color3.fromRGB(70, 82, 100)
-
-local function f3(p1, p2)
-  Instance.new("UICorner", p1).CornerRadius = UDim.new(0, p2 or 8)
-end
-
-local v12 = {
-  bg = color,
-  side = color2,
-  sel = color3,
-  row = color4,
-  rowHover = color5,
-  text = color6,
-  sub = color7,
-  on = color8,
-  off = color9,
-}
-
-local v13 = gethui and gethui() or coreGui
-local towerMacroGui = v13:FindFirstChild("TowerMacroGui")
-
-if towerMacroGui then
-  towerMacroGui:Destroy()
-end
-
-local towerMacroGui2 = Instance.new("ScreenGui")
-towerMacroGui2.Name = "TowerMacroGui"
-towerMacroGui2.ResetOnSpawn = false
-towerMacroGui2.Parent = v13
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(470, 340)
-frame.Position = UDim2.fromOffset(40, 90)
-frame.BackgroundColor3 = v12.bg
-frame.BorderSizePixel = 0
-frame.ClipsDescendants = true
-frame.Visible = v4.open ~= false
-frame.Parent = towerMacroGui2
-
-f3(frame, 10)
-
-function v11.setOpen(p3)
-  frame.Visible = p3
-  v4.open = p3
-end
-
-local textLabel = Instance.new("TextLabel")
-textLabel.Size = UDim2.new(1, 0, 0, 32)
-textLabel.BackgroundColor3 = v12.side
-textLabel.BorderSizePixel = 0
-textLabel.Text = "  MIKO HUB"
-textLabel.TextXAlignment = Enum.TextXAlignment.Left
-textLabel.TextColor3 = v12.text
-textLabel.Font = Enum.Font.GothamBold
-textLabel.TextSize = 14
-textLabel.Parent = frame
-
-local textButton = Instance.new("TextButton")
-textButton.Size = UDim2.fromOffset(28, 24)
-textButton.Position = UDim2.new(1, -32, 0, 4)
-textButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
-textButton.BorderSizePixel = 0
-textButton.Text = "X"
-textButton.TextColor3 = Color3.new(1, 1, 1)
-textButton.Font = Enum.Font.GothamBold
-textButton.TextSize = 12
-textButton.Parent = textLabel
-
-f3(textButton, 6)
-textButton.MouseButton1Click:Connect(function() v11.setOpen(false) end)
-
-local frame2 = Instance.new("Frame")
-frame2.Size = UDim2.new(0, 120, 1, -32)
-frame2.Position = UDim2.fromOffset(0, 32)
-frame2.BackgroundColor3 = v12.side
-frame2.BorderSizePixel = 0
-frame2.Parent = frame
-
-local frame3 = Instance.new("Frame")
-frame3.Size = UDim2.new(1, -120, 1, -32)
-frame3.Position = UDim2.fromOffset(120, 32)
-frame3.BackgroundTransparency = 1
-frame3.Parent = frame
-
-function v11.select(p4)
-  for index, value3 in ipairs(v11.tabs) do
-    local v14 = value3 == p4
-    value3.page.Visible = v14
-
-    local btn = value3.btn
-    btn.BackgroundTransparency = v14 and 0 or 1
-
-    local btn2 = value3.btn
-    btn2.TextColor3 = v14 and v12.text or v12.sub
-  end
-end
-
-function v11.newTab(text, text2)
-  local v15 = #v11.tabs + 1
-
-  local textButton2 = Instance.new("TextButton")
-  textButton2.Size = UDim2.new(1, -12, 0, 34)
-  textButton2.Position = UDim2.fromOffset(6, 10 + (v15 - 1) * 40)
-  textButton2.BackgroundColor3 = v12.sel
-  textButton2.BackgroundTransparency = 1
-  textButton2.BorderSizePixel = 0
-  textButton2.AutoButtonColor = false
-  textButton2.Text = "  " .. (text2 or "") .. "  " .. text
-  textButton2.TextXAlignment = Enum.TextXAlignment.Left
-  textButton2.TextColor3 = v12.sub
-  textButton2.Font = Enum.Font.GothamBold
-  textButton2.TextSize = 14
-  textButton2.Parent = frame2
-
-  f3(textButton2, 8)
-
-  local scrollingFrame = Instance.new("ScrollingFrame")
-  scrollingFrame.Size = UDim2.new(1, -12, 1, -12)
-  scrollingFrame.Position = UDim2.fromOffset(6, 6)
-  scrollingFrame.BackgroundTransparency = 1
-  scrollingFrame.BorderSizePixel = 0
-  scrollingFrame.ScrollBarThickness = 3
-  scrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-  scrollingFrame.CanvasSize = UDim2.new()
-  scrollingFrame.Visible = false
-  scrollingFrame.Parent = frame3
-
-  local instance = Instance.new("UIListLayout", scrollingFrame)
-  instance.Padding = UDim.new(0, 6)
-  instance.SortOrder = Enum.SortOrder.LayoutOrder
-
-  local v16 = {
-    name = text,
-    btn = textButton2,
-    page = scrollingFrame,
-    order = 0,
-  }
-
-  table.insert(v11.tabs, v16)
-  textButton2.MouseButton1Click:Connect(function() v11.select(v16) end)
-
-  if v15 == 1 then
-    v11.select(v16)
-  end
-
-  return v16
-end
-
-local function makeFrame(index2, p5)
-  index2.order = index2.order + 1
-
-  local frame4 = Instance.new("Frame")
-  frame4.Size = UDim2.new(1, -6, 0, p5)
-  frame4.BackgroundColor3 = v12.row
-  frame4.BorderSizePixel = 0
-  frame4.LayoutOrder = index2.order
-  frame4.Parent = index2.page
-
-  f3(frame4, 8)
-  return frame4
-end
-
-local function makeTextLabel(parent, text3, udim, udim2, sub, gotham, p6)
-  local textLabel2 = Instance.new("TextLabel")
-  textLabel2.Size = udim
-  textLabel2.Position = udim2
-  textLabel2.BackgroundTransparency = 1
-  textLabel2.Text = text3
-  textLabel2.TextColor3 = sub or v12.text
-  textLabel2.Font = gotham or Enum.Font.GothamBold
-  textLabel2.TextSize = p6 or 13
-  textLabel2.TextXAlignment = Enum.TextXAlignment.Left
-  textLabel2.TextWrapped = true
-  textLabel2.Parent = parent
-
-  return textLabel2
-end
-
-function v11.section(index3, text4)
-  index3.order = index3.order + 1
-
-  local textLabel3 = Instance.new("TextLabel")
-  textLabel3.Size = UDim2.new(1, -6, 0, 22)
-  textLabel3.BackgroundTransparency = 1
-  textLabel3.Text = text4
-  textLabel3.TextColor3 = v12.text
-  textLabel3.Font = Enum.Font.GothamBold
-  textLabel3.TextSize = 14
-  textLabel3.TextXAlignment = Enum.TextXAlignment.Left
-  textLabel3.LayoutOrder = index3.order
-  textLabel3.Parent = index3.page
-end
-
-function v11.statusRow(p7)
-  local v17 = makeTextLabel(
-    makeFrame(p7, 28), "", UDim2.new(1, -16, 1, 0), UDim2.fromOffset(8, 0), v12.sub,
-    Enum.Font.Gotham, 12
-  )
-
-  v17.TextTruncate = Enum.TextTruncate.AtEnd
-  v17.TextWrapped = false
-
-  return v17
-end
-
-function v11.textRow(p8, p9, text5, fn)
-  local v18 = makeFrame(p8, 40)
-  makeTextLabel(v18, p9, UDim2.new(0.5, -10, 1, 0), UDim2.fromOffset(10, 0))
-
-  local textBox = Instance.new("TextBox")
-  textBox.Size = UDim2.new(0.5, -14, 0, 28)
-  textBox.Position = UDim2.new(0.5, 4, 0.5, -14)
-  textBox.BackgroundColor3 = v12.bg
-  textBox.BorderSizePixel = 0
-  textBox.Text = text5 or ""
-  textBox.PlaceholderText = "ชื่อมาโคร"
-  textBox.TextColor3 = v12.text
-  textBox.PlaceholderColor3 = v12.sub
-  textBox.Font = Enum.Font.Gotham
-  textBox.TextSize = 13
-  textBox.ClearTextOnFocus = false
-  textBox.Parent = v18
-
-  f3(textBox, 6)
-  textBox.FocusLost:Connect(function() fn(textBox.Text) end)
-  return textBox
-end
-
-function v11.toggleRow(p10, p11, p12, p13, fn2)
-  local v19 = makeFrame(p10, p12 and 52 or 40)
-  makeTextLabel(v19, p11, UDim2.new(1, -70, 0, 20), UDim2.fromOffset(10, p12 and 7 or 10))
-
-  if p12 then
-    makeTextLabel(
-      v19, p12, UDim2.new(1, -70, 0, 16), UDim2.fromOffset(10, 28), v12.sub, Enum.Font.Gotham,
-      10
-    )
-  end
-
-  local textButton3 = Instance.new("TextButton")
-  textButton3.Size = UDim2.fromOffset(44, 22)
-  textButton3.AnchorPoint = Vector2.new(1, 0.5)
-  textButton3.Position = UDim2.new(1, -10, 0.5, 0)
-  textButton3.BorderSizePixel = 0
-  textButton3.Text = ""
-  textButton3.AutoButtonColor = false
-  textButton3.Parent = v19
-
-  f3(textButton3, 11)
-
-  local frame5 = Instance.new("Frame")
-  frame5.Size = UDim2.fromOffset(18, 18)
-  frame5.BackgroundColor3 = Color3.new(1, 1, 1)
-  frame5.BorderSizePixel = 0
-  frame5.Parent = textButton3
-
-  f3(frame5, 9)
-  local v20 = false
-
-  local function f4(p14)
-    v20 = p14
-    textButton3.BackgroundColor3 = p14 and v12.on or v12.off
-    frame5.Position = p14 and UDim2.fromOffset(24, 2) or UDim2.fromOffset(2, 2)
-  end
-
-  f4(p13)
-
-  textButton3.MouseButton1Click:Connect(function()
-    local v21 = not v20
-    f4(v21)
-    fn2(v21)
-  end)
-
-  return f4
-end
-
-function v11.buttonRow(p15, text6, p16)
-  local parent2 = makeFrame(p15, 38)
-
-  local textButton4 = Instance.new("TextButton")
-  textButton4.Size = UDim2.new(1, 0, 1, 0)
-  textButton4.BackgroundTransparency = 1
-  textButton4.Text = "  " .. text6
-  textButton4.TextXAlignment = Enum.TextXAlignment.Left
-  textButton4.TextColor3 = v12.text
-  textButton4.Font = Enum.Font.GothamBold
-  textButton4.TextSize = 13
-  textButton4.Parent = parent2
-  textButton4.MouseButton1Click:Connect(p16)
-
-  return textButton4
-end
-
-function v11.dropdownRow(p17, p18, fn3)
-  local v22 = makeFrame(p17, 40)
-  makeTextLabel(v22, p18, UDim2.new(0.5, -10, 0, 40), UDim2.fromOffset(10, 0))
-
-  local textButton5 = Instance.new("TextButton")
-  textButton5.Size = UDim2.new(0.5, -14, 0, 28)
-  textButton5.Position = UDim2.new(0.5, 4, 0, 6)
-  textButton5.BackgroundColor3 = v12.sel
-  textButton5.BorderSizePixel = 0
-  textButton5.AutoButtonColor = false
-  textButton5.TextColor3 = v12.text
-  textButton5.Font = Enum.Font.Gotham
-  textButton5.TextSize = 13
-  textButton5.TextXAlignment = Enum.TextXAlignment.Left
-  textButton5.TextTruncate = Enum.TextTruncate.AtEnd
-  textButton5.Parent = v22
-
-  f3(textButton5, 8)
-
-  local instance2 = Instance.new("UIPadding", textButton5)
-  instance2.PaddingLeft = UDim.new(0, 10)
-  instance2.PaddingRight = UDim.new(0, 26)
-
-  for index4, value4 in ipairs({ "▲", "▼" }) do
-    local textLabel4 = Instance.new("TextLabel")
-    textLabel4.Size = UDim2.fromOffset(10, 8)
-    textLabel4.AnchorPoint = Vector2.new(1, 0.5)
-    textLabel4.Position = UDim2.new(1, -18, 0, 20 + (index4 == 1 and -5 or 5))
-    textLabel4.BackgroundTransparency = 1
-    textLabel4.Text = value4
-    textLabel4.TextColor3 = v12.sub
-    textLabel4.Font = Enum.Font.Gotham
-    textLabel4.TextSize = 7
-    textLabel4.ZIndex = 3
-    textLabel4.Parent = v22
-  end
-
-  local scrollingFrame2 = Instance.new("ScrollingFrame")
-  scrollingFrame2.Position = UDim2.fromOffset(8, 44)
-  scrollingFrame2.Size = UDim2.new(1, -16, 0, 0)
-  scrollingFrame2.BackgroundColor3 = v12.bg
-  scrollingFrame2.BorderSizePixel = 0
-  scrollingFrame2.ScrollBarThickness = 3
-  scrollingFrame2.AutomaticCanvasSize = Enum.AutomaticSize.Y
-  scrollingFrame2.CanvasSize = UDim2.new()
-  scrollingFrame2.Visible = false
-  scrollingFrame2.Parent = v22
-
-  f3(scrollingFrame2, 8)
-
-  local instance3 = Instance.new("UIPadding", scrollingFrame2)
-  instance3.PaddingTop = UDim.new(0, 3)
-  instance3.PaddingBottom = UDim.new(0, 3)
-  instance3.PaddingLeft = UDim.new(0, 3)
-  instance3.PaddingRight = UDim.new(0, 3)
-
-  Instance.new("UIListLayout", scrollingFrame2).Padding = UDim.new(0, 2)
-  local v23 = { value = nil }
-  local v24 = {}
-  local v25 = false
-  local v26 = 0
-
-  local function f5()
-    scrollingFrame2.Visible = v25 and v26 > 0
-    scrollingFrame2.Size = UDim2.new(1, -16, 0, v26)
-    v22.Size = UDim2.new(1, -6, 0, 40 + (v25 and v26 > 0 and v26 + 8 or 0))
-  end
-
-  local function f6()
-    for key3, value5 in pairs(v24) do
-      value5.BackgroundTransparency = key3 == v23.value and 0 or 1
+})
+
+MainTab:Dropdown({
+    Title = "Select Map",
+    Items = { "Toilet City", "Cameraman HQ", "Sci-Fi Lab", "Desert Base" },
+    Default = "Toilet City",
+    Callback = function(Value)
+        Flags.SelectedMap = Value
     end
-  end
+})
 
-  function v23.set(text7)
-    v23.value = text7
-    textButton5.Text = text7 or "--"
-    f6()
-  end
-
-  function v23.setOptions(index5)
-    for index6, value6 in ipairs(scrollingFrame2:GetChildren()) do
-      if value6:IsA("TextButton") then
-        value6:Destroy()
-      end
+MainTab:Toggle({
+    Title = "Auto Start Match",
+    Default = false,
+    Callback = function(Value)
+        Flags.AutoStart = Value
     end
+})
 
-    v24 = {}
+MainTab:Section({ Title = "In-Game Automation" })
 
-    for index7, value7 in ipairs(index5) do
-      local v27 = value7
-
-      local textButton6 = Instance.new("TextButton")
-      textButton6.Size = UDim2.new(1, 0, 0, 26)
-      textButton6.BackgroundColor3 = v12.sel
-      textButton6.BackgroundTransparency = 1
-      textButton6.BorderSizePixel = 0
-      textButton6.AutoButtonColor = false
-      textButton6.Text = v27
-      textButton6.TextXAlignment = Enum.TextXAlignment.Left
-      textButton6.TextColor3 = v12.text
-      textButton6.Font = Enum.Font.Gotham
-      textButton6.TextSize = 13
-      textButton6.Parent = scrollingFrame2
-
-      f3(textButton6, 6)
-      Instance.new("UIPadding", textButton6).PaddingLeft = UDim.new(0, 8)
-      v24[v27] = textButton6
-
-      textButton6.MouseButton1Click:Connect(function()
-        v23.set(v27)
-        v25 = false
-        f5()
-        fn3(v27)
-      end)
+MainTab:Toggle({
+    Title = "Auto Vote Difficulty",
+    Default = false,
+    Callback = function(Value)
+        Flags.AutoVote = Value
     end
+})
 
-    v26 = math.min(#index5, 5) * 28 + 6
-    f6()
-    f5()
-  end
-
-  textButton5.MouseButton1Click:Connect(function()
-    v25 = not v25
-    f5()
-  end)
-
-  v23.set(nil)
-  return v23
-end
-
-local v28, v29, v30
-
-textLabel.InputBegan:Connect(function(input)
-  if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
-    local position = frame.Position
-    local position2 = input.Position
-    v28 = true
-    v29 = position
-    v30 = position2
-  end
-end)
-
-userInputService.InputChanged:Connect(function(input2)
-  if v28
-    and (input2.UserInputType == Enum.UserInputType.MouseMovement
-      or input2.UserInputType == Enum.UserInputType.Touch) then
-    local v31 = input2.Position - v30
-
-    frame.Position = UDim2.new(
-      v29.X.Scale, v29.X.Offset + v31.X, v29.Y.Scale, v29.Y.Offset + v31.Y
-    )
-  end
-end)
-
-userInputService.InputEnded:Connect(function(input3)
-  if input3.UserInputType == Enum.UserInputType.MouseButton1
-    or input3.UserInputType == Enum.UserInputType.Touch then
-    v28 = false
-  end
-end)
-
-local textButton7 = Instance.new("TextButton")
-textButton7.Size = UDim2.fromOffset(40, 40)
-textButton7.Position = UDim2.new(0, 6, 0.5, -20)
-textButton7.BackgroundColor3 = v12.side
-textButton7.BorderSizePixel = 0
-textButton7.Text = "M"
-textButton7.TextColor3 = v12.text
-textButton7.Font = Enum.Font.GothamBold
-textButton7.TextSize = 16
-textButton7.Parent = towerMacroGui2
-
-f3(textButton7, 20)
-textButton7.MouseButton1Click:Connect(function() v11.setOpen(not frame.Visible) end)
-
-userInputService.InputBegan:Connect(function(input4, p19)
-  if not p19 and input4.KeyCode == rightControl then
-    v11.setOpen(not frame.Visible)
-  end
-end)
-
-local v32 = not v1
-local v33 = v11.newTab("Main", "📦")
-local v34 = v32 and v11.newTab("Macro", "🎯") or nil
-
-local function f7(p20, p21, voteMode, p22)
-  local v35 = v11.dropdownRow(v33, p20, p22)
-  v35.setOptions(p21)
-  v35.set(voteMode)
-
-  return v35
-end
-
-if v1 then
-  v11.section(v33, "Lobby")
-else
-  v11.section(v33, "In Game")
-
-  f7("Vote Mode", v8, v4.voteMode, function(p23)
-    v4.voteMode = p23
-
-    if v10.voteMode then
-      task.spawn(v10.voteMode, p23)
+MainTab:Dropdown({
+    Title = "Difficulty",
+    Items = { "Easy", "Normal", "Hard", "Insane" },
+    Default = "Hard",
+    Callback = function(Value)
+        Flags.SelectedDifficulty = Value
     end
-  end)
+})
 
-  f7("Speed", v9, tostring(v4.speed or 1), function(p24)
-    v4.speed = tonumber(p24)
-
-    if v10.speed then
-      task.spawn(v10.speed, v4.speed)
+MainTab:Toggle({
+    Title = "Auto Skip Wave",
+    Default = false,
+    Callback = function(Value)
+        Flags.AutoSkip = Value
     end
-  end)
-end
+})
 
-local f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23, f24, f25,
-  f26, f27, waitForChild, towerAdd, towerUpgrade, towerSell, playAgain, localPlayer2, v36, v37,
-  v38, v39, v40, v41, f28, units, v42, f29, f30, f31, v43, f32, value8, f33, f34, v44, v45, v46,
-  v47, f35, v48, v49, v50, v51, f36, f37, f38, v52, v53, v54, v55, v56, v57, f39, v58, v59, v60,
-  v61, v62, f40
-
-if v1 then
-  print("[System] ตรวจพบว่าอยู่ใน Lobby -> เริ่มระบบ Auto Teleport & Elevator")
-
-  task.spawn(function()
-    local waitForChild2 = remoteFunction:WaitForChild("ElevatorStart", 5)
-
-    while true do
-      if features.autoElevator then
-        local elevators = workspace:FindFirstChild("Elevators")
-        local elevator4 = elevators and elevators:FindFirstChild("Elevator4")
-
-        if elevator4 then
-          local character = localPlayer.Character
-          local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-
-          if humanoidRootPart then
-            if elevator4:IsA("Model") then
-              humanoidRootPart.CFrame = elevator4:GetPivot()
-            elseif elevator4:IsA("BasePart") then
-              humanoidRootPart.CFrame = elevator4.CFrame
-            end
-          end
-        end
-
-        if waitForChild2 then
-          pcall(function() waitForChild2:InvokeServer("Elevator4") end)
-        end
-      end
-
-      task.wait(1)
+MainTab:Slider({
+    Title = "Stop Auto Skip At Wave",
+    Min = 1,
+    Max = 100,
+    Default = 50,
+    Callback = function(Value)
+        Flags.StopSkipWave = Value
     end
-  end)
-else
-  print("[System] เข้าสู่แมปในเกมแล้ว -> กำลังรอ 5 วินาที...")
-  task.wait(5)
-  print("[System] ครบ 5 วินาที -> เริ่มระบบ Auto ทั้งหมด!")
-
-  function f27()
-  end
-
-  waitForChild = nil
-
-  function v10.speed(p25)
-    if waitForChild and p25 then
-      pcall(function() waitForChild:InvokeServer(p25) end)
-    end
-  end
-
-  task.spawn(function()
-    waitForChild = remoteFunction:WaitForChild("ChangeSpeed", 5)
-
-    if v4.speed then
-      v10.speed(v4.speed)
-    end
-  end)
-
-  task.spawn(function()
-    if remoteEvent:WaitForChild("ModeVote", 5) then
-      function v10.voteMode()
-      end
-
-      while true do
-        task.wait(1)
-      end
-    end
-  end)
-
-  task.spawn(function()
-    local waitForChild3 = remoteEvent:WaitForChild("WaveSkip", 5)
-    local waitForChild4 = playerGui:WaitForChild("GameUI", 10)
-    local waitForChild5 = waitForChild4 and waitForChild4:WaitForChild("Stats", 10)
-    local waitForChild6 = waitForChild5 and waitForChild5:WaitForChild("Wave", 10)
-    warn("[Auto WaveSkip] ไม่พบ Wave หรือ WaveSkip")
-  end)
-
-  task.spawn(function()
-    local waitForChild7 = remoteEvent:WaitForChild("PlayAgain", 5)
-
-    local function f41(waitForChild8)
-      if not waitForChild8 then
-        return false
-      end
-
-      if waitForChild8.AbsoluteSize.X <= 0 or waitForChild8.AbsoluteSize.Y <= 0 then
-        return false
-      else
-        local parent3 = waitForChild8
-
-        while parent3 and parent3 ~= playerGui do
-          if parent3:IsA("GuiObject") and not parent3.Visible then
-            return false
-          end
-
-          if parent3:IsA("ScreenGui") and not parent3.Enabled then
-            return false
-          end
-
-          parent3 = parent3.Parent
-        end
-
-        return true
-      end
-    end
-
-    local function f42()
-      print("[Auto-Leave] พบ Lobby UI บนหน้าจอจริง -> PlayAgain")
-
-      if not waitForChild7 then
-        return
-      end
-
-      pcall(function()
-        if waitForChild7:IsA("RemoteEvent") then
-          waitForChild7:FireServer()
-          task.spawn(f27)
-        elseif waitForChild7:IsA("BindableEvent") then
-          waitForChild7:Fire()
-        end
-      end)
-    end
-
-    local waitForChild9 = playerGui:WaitForChild("GameUI", 10)
-    local waitForChild10, v63, f43
-
-    if not waitForChild9 then
-      return
-    else
-      local waitForChild11 = waitForChild9:WaitForChild("FinalUI", 10)
-
-      if not waitForChild11 then
-        return
-      else
-        local waitForChild12 = waitForChild11:WaitForChild("Content", 10)
-
-        if not waitForChild12 then
-          return
-        end
-
-        waitForChild10 = waitForChild12:WaitForChild("Lobby", 10)
-
-        if not waitForChild10 then
-          return
-        end
-
-        v63 = false
-
-        function f43()
-          if not f41(waitForChild10) then
-            v63 = false
-            return
-          elseif not features.autoLeaveUI then
-            return
-          else
-            if v63 then
-              return
-            end
-
-            if f41(waitForChild10) then
-              v63 = true
-              f42()
-            end
-
-            return
-          end
-        end
-
-        f43()
-
-        function v10.autoLeaveUI(p26)
-          if p26 then
-            f43()
-          end
-        end
-
-        waitForChild10:GetPropertyChangedSignal("AbsoluteSize"):Connect(f43)
-        waitForChild10:GetPropertyChangedSignal("Visible"):Connect(f43)
-
-        waitForChild11:GetPropertyChangedSignal("Visible"):Connect(f43)
-
-        if waitForChild9:IsA("ScreenGui") then
-          waitForChild9:GetPropertyChangedSignal("Enabled"):Connect(f43)
-        else
-          waitForChild9:GetPropertyChangedSignal("Visible"):Connect(f43)
-        end
-
-        return
-      end
-    end
-  end)
-
-  task.spawn(function()
-    local waitForChild13 = remoteEvent:WaitForChild("PlayAgain", 10)
-
-    local function f44()
-      if not features.autoLeavePlayers then
-        return false
-      else
-        local v64 = #players:GetPlayers()
-
-        if v64 >= 2 then
-          print("[Auto-Leave] พบผู้เล่นในแมพ " .. v64
-            .. " คน -> PlayAgain ทันที")
-
-          return true
-        end
-
-        return false
-      end
-    end
-
-    function v10.autoLeavePlayers(p27)
-      if p27 then
-        f44()
-      end
-    end
-
-    f44()
-    players.PlayerAdded:Connect(function() task.defer(f44) end)
-
-    while true do
-      task.wait(2)
-      f44()
-    end
-  end)
-
-  local remoteEvent2 = replicatedStorage.ModuleLoader.Shared.Network.RemoteEvent
-  towerAdd = remoteEvent2:WaitForChild("TowerAdd")
-  towerUpgrade = remoteEvent2:WaitForChild("TowerUpgrade")
-  towerSell = remoteEvent2:WaitForChild("TowerSell")
-
-  playAgain = remoteEvent2:FindFirstChild("PlayAgain")
-    or remoteEvent2:WaitForChild("PlayAgain", 10)
-
-  localPlayer2 = players.LocalPlayer
-
-  while not localPlayer2 do
-    task.wait()
-    localPlayer2 = players.LocalPlayer
-  end
-
-  v36 = "TowerMacros"
-  v36 = v36 .. "/" .. v2
-
-  if makefolder and isfolder and not isfolder("TowerMacros") then
-    makefolder("TowerMacros")
-  end
-
-  if makefolder and isfolder and not isfolder("TowerMacros" .. "/" .. v2) then
-    makefolder("TowerMacros" .. "/" .. v2)
-  end
-
-  if makefolder and isfolder and not isfolder("TowerMacros") then
-    makefolder("TowerMacros")
-  end
-
-  if makefolder and isfolder and not isfolder(v36) then
-    makefolder(v36)
-  end
-
-  v37 = false
-  v38 = false
-  v39 = {}
-  v40 = 0
-  v41 = 0
-
-  function f28()
-  end
-
-  if type(v4.units) ~= "table" then
-    v4.units = {}
-  end
-
-  function f8()
-    local v65 = {}
-    local localPlayer3 = players.LocalPlayer
-
-    for key4, value9 in pairs(localPlayer3:GetAttributes()) do
-      if type(value9) == "number" then
-        v65["PA|" .. key4] = { value9, { kind = "pattr", name = key4, drop = true } }
-      end
-    end
-
-    for index8, value10 in ipairs(localPlayer3:GetDescendants()) do
-      if value10:IsA("ValueBase") and type(value10.Value) == "number" then
-        v65["PV|" .. value10:GetFullName()] = {
-          value10.Value, { kind = "pval", name = value10.Name, drop = true },
-        }
-      end
-    end
-
-    return v65
-  end
-
-  function f9(p28)
-    return v36 .. "/" .. p28 .. ".json"
-  end
-
-  units = v4.units
-  v42 = false
-
-  function f10()
-    local v66 = {}
-    local v67, v68 = pcall(listfiles, v36)
-
-    if v67 then
-      for index9, value11 in ipairs(v68) do
-        local json = tostring(value11):match("([^/\\]+)%.json$")
-
-        if json then
-          table.insert(v66, json)
-        end
-      end
-    end
-
-    table.sort(v66)
-    return v66
-  end
-
-  function f29()
-    local selected = v4.selected
-
-    if not selected or not isfile(f9(selected)) then
-      return false
-    else
-      local v69, v70 = pcall(function() return httpService:JSONDecode(readfile(f9(selected))) end)
-
-      if v69 and type(v70) == "table" then
-        v39 = v70
-        return true
-      end
-
-      return false
-    end
-  end
-
-  function f11(p29)
-    local findFirstChildWhichIsA
-
-    if p29:IsA("Model") then
-      local v71, v72 = pcall(p29.GetPivot, p29)
-
-      if v71 then
-        return v72.Position
-      end
-
-      findFirstChildWhichIsA = p29:FindFirstChildWhichIsA("BasePart", true)
-      return findFirstChildWhichIsA and findFirstChildWhichIsA.Position
-    end
-
-    if p29:IsA("BasePart") then
-      return p29.Position
-    end
-
-    findFirstChildWhichIsA = p29:FindFirstChildWhichIsA("BasePart", true)
-    return findFirstChildWhichIsA and findFirstChildWhichIsA.Position
-  end
-
-  function f12()
-    local v73 = workspace:FindFirstChild("Game")
-    return v73 and v73:FindFirstChild("Towers")
-  end
-
-  function f13(p30, p31, p32)
-    local name
-
-    if p31 == "name" then
-      name = p30.Name
-    elseif p31 == "attr" then
-      name = p30:GetAttribute(p32)
-    elseif p31 == "value" then
-      local findFirstChild = p30:FindFirstChild(p32)
-      name = findFirstChild and findFirstChild:IsA("ValueBase") and findFirstChild.Value
-    end
-
-    if type(name) == "string"
-      and name:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") then
-      return name
-    end
-  end
-
-  function f14(p33)
-    local v74 = f12()
-
-    if v74 then
-      local v75, v76, v77 = f30(v74, p33)
-
-      if v75 then
-        return v75, v76, v77
-      end
-
-      return f30(workspace, p33)
-    end
-
-    return f30(workspace, p33)
-  end
-
-  function f30(p34, p35)
-    for index10, value12 in ipairs(p34:GetDescendants()) do
-      if value12.Name == p35 then
-        return value12, "name", nil
-      elseif value12:IsA("ValueBase") then
-        if value12.Value == p35 and value12.Parent then
-          return value12.Parent, "value", value12.Name
-        end
-      else
-        for key5, value13 in pairs(value12:GetAttributes()) do
-          if value13 == p35 then
-            return value12, "attr", key5
-          end
-        end
-      end
-    end
-  end
-
-  function f15()
-    v38 = false
-    v41 = v41 + 1
-  end
-
-  function f16(p36)
-    local v78 = {}
-
-    local function f45(value14)
-      for key6, value15 in pairs(value14:GetAttributes()) do
-        if type(value15) == "number" then
-          v78["A|" .. value14.Name .. "|" .. key6] = {
-            value15, { kind = "attr", holder = value14.Name, name = key6 },
-          }
-        end
-      end
-    end
-
-    f45(p36)
-
-    for index11, value16 in ipairs(p36:GetDescendants()) do
-      f45(value16)
-
-      if value16:IsA("ValueBase") and type(value16.Value) == "number" then
-        v78["V|" .. value16.Name] = { value16.Value, { kind = "val", name = value16.Name } }
-      end
-    end
-
-    return v78
-  end
-
-  function f31(p37)
-    local vector = Vector3.new(unpack(p37.TPos))
-    local v79 = 12
-    local v80 = workspace
-    local v81
-
-    for index12, value17 in ipairs(v80:GetDescendants()) do
-      local v82 = f13(value17, p37.kind, p37.key)
-
-      if v82 then
-        local v83 = f11(value17)
-
-        if v83 then
-          local magnitude = (v83 - vector).Magnitude
-
-          if magnitude < v79 then
-            v81 = v82
-            v79 = magnitude
-          end
-        end
-      end
-    end
-
-    return v81
-  end
-
-  v43 = { "cash", "money", "coin", "gold", "gem", "currency", "yen", "buck" }
-
-  function f17(p38)
-    local v84 = f16(p38)
-    local v85 = f8()
-    local v86 = {}
-    local v87 = os.clock()
-
-    while os.clock() - v87 < 3 do
-      task.wait(0.1)
-
-      if not p38.Parent then
-        break
-      else
-        local v88 = f16(p38)
-        local v89 = nil
-        local v90 = f8()
-        local v91 = nil
-
-        for key7, value18 in pairs(v84) do
-          local v92 = v88[key7]
-
-          if v92 and v92[1] > value18[1] then
-            local lower = key7:lower()
-            local v93 = 0
-
-            if lower:find("lev") or lower:find("lvl") or lower:find("upgrade")
-              or lower:find("tier") or lower:find("rank") then
-              v93 = 2
-            elseif v92[1] - value18[1] == 1 then
-              v93 = 1
-            end
-
-            if v93 > 0 and (not v89 or v93 > v91) then
-              v89 = value18[2]
-              v91 = v93
-            end
-          end
-        end
-
-        if v89 then
-          return v89
-        end
-
-        for key8, value19 in pairs(v85) do
-          local v94 = v90[key8]
-
-          if v94 then
-            v86[key8] = math.min(v86[key8] or value19[1], v94[1])
-
-            if v86[key8] < value19[1] and f32(value19[2].name) then
-              return value19[2]
-            end
-          end
-        end
-      end
-    end
-
-    return nil
-  end
-
-  function f32(p39)
-    local lower2 = p39:lower()
-
-    for index13, value20 in ipairs(v43) do
-      if lower2:find(value20) then
-        return true
-      end
-    end
-
-    return false
-  end
-
-  function f18()
-    local leaderstats = players.LocalPlayer:FindFirstChild("leaderstats")
-    return leaderstats and leaderstats:FindFirstChild("Money")
-  end
-
-  function f19(key9)
-    local v95 = v55[key9]
-
-    if v95 and v95.Parent then
-      return v95
-    else
-      local v96 = f14(key9)
-      v55[key9] = v96
-      return v96
-    end
-  end
-
-  local function f46(...)
-    return v11.dropdownRow(v34, ...)
-  end
-
-  value8 = nil
-
-  task.spawn(function()
-    local money = players.LocalPlayer:WaitForChild("leaderstats"):WaitForChild("Money")
-    value8 = money.Value
-    money:GetPropertyChangedSignal("Value"):Connect(function() value8 = money.Value end)
-  end)
-
-  function f33(p40, p41)
-    local position3
-
-    if p40:IsA("Model") then
-      local v97, v98 = pcall(p40.GetPivot, p40)
-
-      if v97 then
-        position3 = v98.Position
-      end
-    elseif p40:IsA("BasePart") then
-      position3 = p40.Position
-    end
-
-    return position3 ~= nil and (position3 - p41).Magnitude <= 12
-  end
-
-  function f34(p42, p43)
-    if not p42:IsDescendantOf(workspace) then
-      return false
-    else
-      local currentCamera = workspace.CurrentCamera
-
-      if currentCamera and p42:IsDescendantOf(currentCamera) then
-        return false
-      elseif p42:IsA("Model") then
-        if players:GetPlayerFromCharacter(p42) then
-          return false
-        end
-
-        if not p42:FindFirstChildWhichIsA("BasePart", true) then
-          return false
-        end
-
-        return f33(p42, p43)
-      elseif p42:IsA("BasePart") then
-        if p42:FindFirstAncestorWhichIsA("Model") then
-          return false
-        end
-
-        return f33(p42, p43)
-      else
-        return false
-      end
-    end
-  end
-
-  function f20(p44)
-    local v99 = { inst = nil }
-    local v100 = f12()
-    local connect
-
-    if v100 then
-      connect = v100.ChildAdded:Connect(function(child)
-        if v99.inst then
-          return
-        end
-
-        task.defer(function()
-          if v99.inst or not child.Parent then
-            return
-          else
-            local v101 = f11(child)
-
-            if v101 and (v101 - p44).Magnitude > v44 then
-              return
-            end
-
-            task.wait(0.6)
-
-            if not v99.inst and child.Parent == v100 then
-              v99.inst = child
-            end
-
-            return
-          end
+})
+
+MainTab:Dropdown({
+    Title = "Game Speed",
+    Items = { "1x", "1.5x", "2x" },
+    Default = "2x",
+    Callback = function(Value)
+        Flags.GameSpeed = Value
+        local speedVal = Value == "2x" and 2 or (Value == "1.5x" and 1.5 or 1)
+        pcall(function()
+            ReplicatedStorage.RemoteEvents.ChangeSpeed:FireServer(speedVal)
         end)
-      end)
-    else
-      connect = workspace.DescendantAdded:Connect(function(descendant)
-        if v99.inst or not (descendant:IsA("Model") or descendant:IsA("BasePart")) then
-          return
-        end
-
-        task.defer(function()
-          if v99.inst or not descendant.Parent then
-            return
-          end
-
-          if not f33(descendant, p44) then
-            return
-          end
-
-          task.wait(0.6)
-
-          if not v99.inst and f34(descendant, p44) then
-            v99.inst = descendant
-          end
-        end)
-      end)
     end
+})
 
-    function v99.stop()
-      connect:Disconnect()
+MainTab:Toggle({
+    Title = "Auto Replay Match",
+    Default = false,
+    Callback = function(Value)
+        Flags.AutoReplay = Value
     end
+})
 
-    return v99
-  end
+-- MACRO TAB
+MacroTab:Section({ Title = "Macro Recording & Playback" })
 
-  v44 = 30
-  v45 = {}
+local isRecording = false
+local isPlaying = false
+local currentMacroData = {}
 
-  towerUpgrade.OnClientEvent:Connect(function(p45)
-    if type(p45) == "table" and p45.Id and type(p45.Level) == "number" then
-      v45[p45.Id] = math.max(v45[p45.Id] or 0, p45.Level)
-    end
-  end)
-
-  function f21(index14, p46)
-    for index15, value21 in ipairs(v39) do
-      if value21 == index14 then
-        table.remove(v39, index15)
-        local v102 = v39[index15]
-
-        if v102 then
-          v102.delay = (v102.delay or 0) + (index14.delay or 0)
-        elseif p46 and v40 == p46 then
-          v40 = p46 - (index14.delay or 0)
-        end
-
-        return true
-      end
-    end
-
-    return false
-  end
-
-  v46 = {}
-
-  local function f47(...)
-    return v11.textRow(v34, ...)
-  end
-
-  v47 = 0
-
-  towerUpgrade.OnClientEvent:Connect(function(p47)
-    if type(p47) ~= "table" then
-      return
-    else
-      local v103 = v46[p47.Id]
-
-      if v103 and #v103 > 0 then
-        local v104 = table.remove(v103, 1)
-        v47 = math.max(0, v47 - 1)
-
-        v104.level = p47.Level
-        v104.price = p47.Stats and p47.Stats.Price
-
-        print(
-          "[TowerMacro] อัพเกรดสำเร็จ เลเวล:", v104.level,
-          "ราคา:", v104.price
-        )
-
-        f28("บันทึกอัพเกรดแล้ว เลเวล "
-          .. tostring(v104.level))
-      end
-
-      return
-    end
-  end)
-
-  function f35(p48, p49, p50)
-    local v105 = os.clock()
-    local v106 = v105 - v40
-    v40 = v105
-    local v107, v108, v109, v110
-
-    if p48 == towerAdd then
-      local cframe = p49.CFrame
-      local pos = p49.Pos or cframe and cframe.Position
-
-      v109 = {
-        type = "add",
-        delay = v106,
-        UnitId = p49.UnitId,
-        Name = p49.Name,
-        CFrame = { cframe:GetComponents() },
-        Pos = { pos.X, pos.Y, pos.Z },
-      }
-
-      table.insert(v39, v109)
-      v110 = f20(Vector3.new(pos.X, pos.Y, pos.Z))
-
-      task.spawn(function()
-        local v111 = f18()
-        local value22 = p50 or v111 and v111.Value
-        local v112 = os.clock()
-
-        while os.clock() - v112 < 3.5 do
-          if v111 and value22 then
-            local value23 = v111.Value
-
-            if value23 < value22 and not v109.cost then
-              v109.cost = value22 - value23
-              print("[TowerMacro] วางตัวนี้ใช้เงิน:", v109.cost)
-            end
-
-            value22 = value23
-          end
-
-          if v110.inst and (v109.cost or not v111 or f12()) then
-            break
-          end
-
-          task.wait()
-        end
-
-        v110.stop()
-
-        if f12() ~= nil then
-          if not v110.inst then
-            for index16, value24 in ipairs(v39) do
-              if value24 == v109 then
-                table.remove(v39, index16)
-                break
-              end
-            end
-
-            warn("[TowerMacro] วาง '" .. tostring(v109.Name)
-              .. "' ไม่มีตัวขึ้นใน workspace.Game.Towers ไม่นับ/ไม่บันทึกขั้นนี้")
-
-            f28("ข้ามการวางที่ไม่มีตัวขึ้นใน Towers")
-          end
-        elseif not v110.inst and not v109.cost then
-          v109.unverified = true
-
-          warn("[TowerMacro] ไม่พบ workspace.Game.Towers และตรวจไม่เจอตัวใหม่ แต่ยังเก็บขั้น '"
-            .. tostring(v109.Name) .. "' ไว้")
-        end
-      end)
-    elseif p48 == towerSell then
-      v108 = { type = "sell", delay = v106, Id = p49.Id }
-
-      local v113, v114 = pcall(function()
-        local v115, kind, key10 = f14(p49.Id)
-
-        if v115 then
-          local v116 = f11(v115)
-
-          if v116 then
-            v108.TPos = { v116.X, v116.Y, v116.Z }
-            v108.kind = kind
-            v108.key = key10
-          end
+MacroTab:Button({
+    Title = "Start / Stop Recording",
+    Callback = function()
+        isRecording = not isRecording
+        if isRecording then
+            currentMacroData = {}
+            WindUI:Notify({ Title = "Macro", Content = "Recording Started!", Duration = 3 })
         else
-          warn("[TowerMacro] ไม่พบทาวเวอร์ที่มี Id "
-            .. tostring(p49.Id) .. " (ขาย)")
+            WindUI:Notify({ Title = "Macro", Content = "Recording Stopped! Total Actions: " .. #currentMacroData, Duration = 3 })
         end
-      end)
+    end
+})
 
-      if not v113 then
-        warn("[TowerMacro] sell locate error:", v114)
-      end
-
-      table.insert(v39, v108)
-      print("[TowerMacro] บันทึกการขาย Id:", p49.Id)
-    else
-      v107 = { type = "upgrade", delay = v106, Id = p49.Id }
-      table.insert(v39, v107)
-      local id = p49.Id
-      v46[id] = v46[p49.Id] or {}
-      table.insert(v46[p49.Id], v107)
-      v47 = v47 + 1
-
-      task.delay(3, function()
-        local v117 = v46[p49.Id]
-
-        if v117 then
-          for index17, value25 in ipairs(v117) do
-            if value25 == v107 then
-              table.remove(v117, index17)
-              v47 = math.max(0, v47 - 1)
-
-              if f21(v107, v105) then
-                warn("[TowerMacro] กดอัพเกรดแล้วไม่ได้อัพจริง (ไม่มีสัญญาณยืนยัน) ไม่บันทึกขั้นนี้และไม่นับเวลา")
-                f28("ข้ามอัพเกรดที่ไม่ติด (ไม่บันทึก)")
-              end
-
-              break
-            end
-          end
+MacroTab:Button({
+    Title = "Save Macro Profile",
+    Callback = function()
+        if #currentMacroData > 0 and writefile then
+            if not isfolder("MikoHub_Macros") then makefolder("MikoHub_Macros") end
+            writefile("MikoHub_Macros/CameraTD_Profile.json", HttpService:JSONEncode(currentMacroData))
+            WindUI:Notify({ Title = "Macro", Content = "Macro Saved Successfully!", Duration = 3 })
         end
-      end)
+    end
+})
 
-      task.spawn(function()
-        local v118 = f18()
-
-        if not v118 then
-          warn("[TowerMacro] ไม่พบ leaderstats.Money")
-          return
+MacroTab:Button({
+    Title = "Load & Run Macro",
+    Callback = function()
+        if readfile and isfile("MikoHub_Macros/CameraTD_Profile.json") then
+            currentMacroData = HttpService:JSONDecode(readfile("MikoHub_Macros/CameraTD_Profile.json"))
+            isPlaying = true
+            WindUI:Notify({ Title = "Macro", Content = "Executing Macro...", Duration = 3 })
+            
+            task.spawn(function()
+                for _, action in ipairs(currentMacroData) do
+                    if not isPlaying then break end
+                    task.wait(action.Delay or 1)
+                    if action.Type == "Place" then
+                        pcall(function()
+                            ReplicatedStorage.RemoteEvents.PlaceTower:FireServer(action.TowerName, action.CFrame)
+                        end)
+                    elseif action.Type == "Upgrade" then
+                        pcall(function()
+                            ReplicatedStorage.RemoteEvents.UpgradeTower:FireServer(action.TowerModel)
+                        end)
+                    end
+                end
+                isPlaying = false
+                WindUI:Notify({ Title = "Macro", Content = "Macro Execution Finished!", Duration = 3 })
+            end)
         else
-          local value26 = p50 or v118.Value
-          local v119 = os.clock()
+            WindUI:Notify({ Title = "Macro Error", Content = "No saved macro found!", Duration = 3 })
+        end
+    end
+})
 
-          while os.clock() - v119 < 3 and not v107.cost do
-            local value27 = v118.Value
+-- SUMMON TAB
+SummonTab:Section({ Title = "Tower Summoner" })
 
-            if value27 < value26 then
-              v107.cost = value26 - value27
+SummonTab:Toggle({
+    Title = "Auto Summon",
+    Default = false,
+    Callback = function(Value)
+        Flags.AutoSummon = Value
+    end
+})
 
-              print(
-                "[TowerMacro] อัพเกรดนี้ใช้เงิน:", v107.cost
-              )
+SummonTab:Dropdown({
+    Title = "Summon Mode",
+    Items = { "x1", "x10" },
+    Default = "x10",
+    Callback = function(Value)
+        Flags.SummonAmount = Value
+    end
+})
 
-              break
+task.spawn(function()
+    while task.wait(1) do
+        if Flags.AutoSummon then
+            pcall(function()
+                local amount = Flags.SummonAmount == "x10" and 10 or 1
+                ReplicatedStorage.RemoteEvents.SummonTowers:FireServer(amount)
+            end)
+        end
+    end
+end)
+
+-- MISC TAB
+MiscTab:Section({ Title = "Quality of Life & Utility" })
+
+MiscTab:Toggle({
+    Title = "Auto Claim Quests",
+    Default = false,
+    Callback = function(Value)
+        Flags.AutoClaimQuest = Value
+    end
+})
+
+MiscTab:Toggle({
+    Title = "Place Anywhere",
+    Default = false,
+    Callback = function(Value)
+        Flags.PlaceAnywhere = Value
+    end
+})
+
+MiscTab:Toggle({
+    Title = "FPS Boost",
+    Default = false,
+    Callback = function(Value)
+        Flags.FPSBoost = Value
+        if Value then
+            for _, v in pairs(game:GetDescendants()) do
+                if v:IsA("ParticleEmitter") or v:IsA("Beam") or v:IsA("Trail") then
+                    v.Enabled = false
+                end
             end
-
-            value26 = value27
-            task.wait()
-          end
-
-          return
         end
-      end)
-
-      task.spawn(function()
-        local v120, v121 = pcall(function()
-          local v122, kind2, key11 = f14(p49.Id)
-
-          if not v122 then
-            warn("[TowerMacro] ไม่พบทาวเวอร์ที่มี Id "
-              .. tostring(p49.Id))
-
-            return
-          else
-            local v123 = f11(v122)
-
-            if v123 then
-              v107.TPos = { v123.X, v123.Y, v123.Z }
-              v107.kind = kind2
-              v107.key = key11
-
-              local v124 = f17(v122)
-
-              if v124 then
-                v107.lv = v124
-              end
-            end
-
-            return
-          end
-        end)
-
-        if not v120 then
-          warn("[TowerMacro] locate error:", v121)
-        end
-      end)
     end
+})
 
-    f28("กำลังบันทึก...")
-  end
+MiscTab:Section({ Title = "Discord Webhook" })
 
-  v48 = hookmetamethod(game, "__namecall", newcclosure(function(p51, ...)
-    local v125 = { ... }
-
-    if playAgain and p51 == playAgain and getnamecallmethod() == "FireServer" then
-      task.spawn(f27)
+MiscTab:Input({
+    Title = "Webhook URL",
+    Placeholder = "https://discord.com/api/webhooks/...",
+    Callback = function(Value)
+        Flags.WebhookURL = Value
     end
+})
 
-    local v126 = p51 == towerAdd or p51 == towerUpgrade or p51 == towerSell
-    local unitId, v127, name2, v128
-
-    if v126 and getnamecallmethod() == "FireServer" then
-      v127 = v125[1]
-
-      if typeof(v127) == "table" then
-        if p51 == towerAdd and not v42 and v127.Name and v127.UnitId then
-          unitId = v127.UnitId
-          name2 = v127.Name
-
-          task.spawn(function()
-            if units[name2] ~= unitId then
-              units[name2] = unitId
-            end
-          end)
-        end
-
-        if v37 then
-          v128 = value8
-
-          task.spawn(function()
-            local v129, v130 = pcall(f35, p51, v127, v128)
-
-            if not v129 then
-              warn("[TowerMacro] record error:", v130)
-            end
-          end)
-        end
-      end
+MiscTab:Toggle({
+    Title = "Send Match Results",
+    Default = false,
+    Callback = function(Value)
+        Flags.SendMatchReport = Value
     end
+})
 
-    return v48(p51, unpack(v125))
-  end))
+-- Anti AFK
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
 
-  function f22(p52)
-    local v131 = {}
+-- Metatable Hooking for PlaceAnywhere
+local rawmt = getrawmetatable(game)
+local oldNamecall = rawmt.__namecall
+setreadonly(rawmt, false)
 
-    for key12, value28 in pairs(p52:GetAttributes()) do
-      if type(value28) == "string"
-        and value28:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") then
-        table.insert(v131, value28)
-      end
-    end
-
-    if p52:IsA("ValueBase") and type(p52.Value) == "string"
-      and p52.Value:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") then
-      table.insert(v131, p52.Value)
-    end
-
-    for index18, value29 in ipairs(p52:GetChildren()) do
-      if value29:IsA("ValueBase") and type(value29.Value) == "string"
-        and value29.Value:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") then
-        table.insert(v131, value29.Value)
-      end
-
-      if value29.Name:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") then
-        table.insert(v131, value29.Name)
-      end
-    end
-
-    return v131
-  end
-
-  function f23(key13)
-    local v132 = v52[key13]
-
-    if not v132 then
-      return 0
-    else
-      local count = 0
-      local v133 = #v132 - -1
-
-      while true do
-        v133 = -1 + v133
-
-        if not (1 <= v133 or false) then
-          break
-        end
-
-        local v134 = v133
-        local v135 = v132[v134]
-
-        if v135.Parent and v135:IsDescendantOf(workspace) then
-          count = count + 1
-        else
-          table.remove(v132, v134)
-        end
-      end
-
-      return count
-    end
-  end
-
-  local function makeButtonRow(...)
-    return v11.buttonRow(v34, ...)
-  end
-
-  v49 = {}
-  v50 = {}
-  v51 = {}
-
-  function f36(p53, p54)
-    for key14, value30 in pairs(p53:GetAttributes()) do
-      if value30 == p54 then
-        return true
-      end
-    end
-
-    if p53:IsA("ValueBase") and p53.Value == p54 then
-      return true
-    end
-
-    for index19, value31 in ipairs(p53:GetChildren()) do
-      if value31:IsA("ValueBase") and value31.Value == p54 then
-        return true
-      end
-    end
-
-    return false
-  end
-
-  function f37(p55, p56)
-    for index20, value32 in ipairs(p55:GetDescendants()) do
-      if value32.Name == p56 then
-        local v136 = f22(value32)
-
-        if v136[1] then
-          return v136[1]
-        end
-      end
-
-      if value32.Name:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$")
-        and f36(value32, p56) then
-        return value32.Name
-      end
-    end
-  end
-
-  local function f49(...)
-    return v11.toggleRow(v34, ...)
-  end
-
-  function f24(p57, p58)
-    local vector2 = Vector3.new(unpack(p57.Pos))
-    local v137 = p58 or 1
-    local v138 = f38(p57.Name)
-    local v139 = {}
-
-    if v138 then
-      table.insert(v139, { v138, "หาเจอในไอดีนี้" })
-    end
-
-    if p57.UnitId and p57.UnitId ~= v138 then
-      table.insert(v139, { p57.UnitId, "ตามที่อัดไว้" })
-    end
-
-    local v140, v141
-
-    if #v139 > 0 then
-      local v142 = v139[(v137 - 1) % #v139 + 1]
-      v140 = v142[1]
-      v141 = v142[2]
-    end
-
-    if not v138 and not v51[p57.Name] then
-      v51[p57.Name] = true
-
-      warn("[TowerMacro] ไม่พบ UnitId ของ '" .. tostring(p57.Name)
-        .. "' ในไอดีนี้ ใช้ตามที่อัดไว้ ถ้าวางไม่ติด ลองวางตัวนี้ด้วยมือ 1 ครั้งเพื่อให้สคริปต์เรียนรู้")
-    end
-
-    print("[TowerMacro] วาง '" .. tostring(p57.Name) .. "' ครั้งที่ "
-      .. v137 .. " ใช้ UnitId " .. tostring(v140) .. " (" .. tostring(v141) .. ")")
-
-    if not f12() then
-      warn("[TowerMacro] ไม่พบ workspace.Game.Towers ใช้วิธีตรวจสำรอง")
-    end
-
-    local v143 = f20(vector2)
-    v42 = true
-
-    towerAdd:FireServer({
-      UnitId = v140,
-      CFrame = CFrame.new(unpack(p57.CFrame)),
-      Name = p57.Name,
-      Pos = vector2,
-    })
-
-    v42 = false
-    local v144 = os.clock()
-
-    while not v143.inst and v38 and os.clock() - v144 < 3.6 do
-      task.wait(0.05)
-    end
-
-    v143.stop()
-    return v143.inst ~= nil, v143.inst
-  end
-
-  function f38(key15)
-    if units[key15] then
-      return units[key15]
-    elseif v50[key15] then
-      return v50[key15]
-    else
-      local v145 = f37(localPlayer2, key15)
-
-      if not v145 then
-        local playerGui2 = localPlayer2:FindFirstChild("PlayerGui")
-        v145 = playerGui2 and f37(playerGui2, key15)
-      end
-
-      if not v145 then
-        v145 = f37(replicatedStorage, key15)
-      end
-
-      if v145 then
-        v50[key15] = v145
-      end
-
-      return v145
-    end
-  end
-
-  v52 = {}
-  v53 = {}
-  v54 = {}
-  v55 = {}
-
-  function f25(p59)
-    local id2 = p59.Id
-
-    if p59.TPos then
-      id2 = f31(p59)
-
-      if not id2 then
+rawmt.__namecall = newcclosure(function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+    
+    if Flags.PlaceAnywhere and method == "FireServer" and tostring(self) == "ClosePlacement" then
         return nil
-      end
     end
+    
+    return oldNamecall(self, ...)
+end)
 
-    local level = p59.level
-    local v146, v147
+setreadonly(rawmt, true)
 
-    if level and (v45[id2] or 0) >= level then
-      return true
-    else
-      v146 = false
-      v147 = nil
-
-      local connect2 = towerUpgrade.OnClientEvent:Connect(function(p60)
-        if type(p60) == "table" and p60.Id == id2 and type(p60.Level) == "number"
-          and (not level or p60.Level >= level) then
-          v146 = true
-          v147 = p60
+-- Auto Loops for In-Game Logic
+task.spawn(function()
+    while task.wait(2) do
+        -- Auto Vote Difficulty
+        if Flags.AutoVote then
+            pcall(function()
+                ReplicatedStorage.RemoteEvents.VoteDifficulty:FireServer(Flags.SelectedDifficulty)
+            end)
         end
-      end)
-
-      towerUpgrade:FireServer({ Id = id2 })
-      local v148 = os.clock()
-
-      while not v146 and v38 and os.clock() - v148 < 2.5 do
-        task.wait(0.05)
-      end
-
-      connect2:Disconnect()
-
-      if v146 then
-        print(
-          "[TowerMacro] ยืนยันอัพเกรดสำเร็จ เลเวล:",
-          v147.Level, "ราคา:", v147.Stats and v147.Stats.Price
-        )
-      end
-
-      return v146
-    end
-  end
-
-  function f26(p61)
-    local id3 = p61.Id
-
-    if p61.TPos then
-      local vector3 = Vector3.new(unpack(p61.TPos))
-
-      for index21, value33 in ipairs(v49) do
-        if (value33 - vector3).Magnitude <= 12 then
-          return nil
+        
+        -- Auto Skip Wave
+        if Flags.AutoSkip then
+            pcall(function()
+                local currentWave = workspace:FindFirstChild("Wave") and workspace.Wave.Value or 0
+                if currentWave < Flags.StopSkipWave then
+                    ReplicatedStorage.RemoteEvents.SkipWave:FireServer()
+                end
+            end)
         end
-      end
-
-      id3 = f31(p61)
-
-      if not id3 then
-        return nil
-      end
-    end
-
-    local v149 = f19(id3)
-    towerSell:FireServer({ Id = id3 })
-
-    if not v149 then
-      return nil
-    else
-      local v150 = os.clock()
-
-      while v38 and os.clock() - v150 < v56 do
-        if not v149.Parent or not v149:IsDescendantOf(workspace) then
-          return true
+        
+        -- Auto Replay
+        if Flags.AutoReplay then
+            pcall(function()
+                if workspace:FindFirstChild("MatchEnd") and workspace.MatchEnd.Value then
+                    ReplicatedStorage.RemoteEvents.ReplayMatch:FireServer()
+                end
+            end)
         end
-
-        task.wait(0.05)
-      end
-
-      return not v149.Parent or not v149:IsDescendantOf(workspace)
-    end
-  end
-
-  v56 = 2.5
-  v57 = nil
-
-  function f39()
-    if v38 or v37 or #v39 == 0 then
-      return
-    end
-
-    v38 = true
-    v41 = v41 + 1
-    local v151 = v41
-    v55 = {}
-    v50 = {}
-    v51 = {}
-    v49 = {}
-    v52 = {}
-    v53 = {}
-    v54 = {}
-    f28("กำลังเล่น...")
-
-    task.spawn(function()
-      local v152
-
-      for index22, value34 in ipairs(v39) do
-        if not (v38 and v151 == v41) then
-          break
-        elseif value34.type == "add" then
-          local v153 = v54[value34.Name] or 0
-
-          if v153 and v153 > 0 and f23(value34.Name) >= v153 then
-            warn("[TowerMacro] ขั้น " .. index22 .. " '" .. tostring(value34.Name)
-              .. "' วางครบลิมิต " .. v153
-              .. " ตัวแล้ว ข้ามไป")
-
-            table.insert(v49, Vector3.new(unpack(value34.Pos)))
-          else
-            ::L16405457::
-
-            if value34.type == "sell" then
-              local count2 = 0
-
-              while v38 and v151 == v41 do
-                count2 = count2 + 1
-
-                if v57 then
-                  v57.Text = ("ขั้น %d/%d ขาย (ครั้งที่ %d)"):format(
-                    index22, #v39, count2
-                  )
-                end
-
-                if f26(value34) ~= false then
-                  break
-                end
-
-                if count2 >= 4 then
-                  warn("[TowerMacro] ขั้น " .. index22 .. " ขายไม่ติด "
-                    .. count2 .. " ครั้ง ข้ามไป")
-
-                  break
-                end
-
-                task.wait(0.5)
-              end
-            else
-              local count3 = 0
-
-              while v38 and v151 == v41 do
-                if value34.type == "add" and value34.cost then
-                  local v154 = f18()
-
-                  if v154 then
-                    local v155 = os.clock()
-
-                    while v38 and v151 == v41 and v154.Value + 0 < value34.cost do
-                      if os.clock() - v155 > 25 then
-                        warn("[TowerMacro] ขั้น " .. index22
-                          .. " รอเงินวางเกิน " .. 25
-                          .. " วิ (ต้องการ " .. math.floor(value34.cost)
-                          .. " มี " .. math.floor(v154.Value)
-                          .. ") ลองวางเลย")
-
-                        break
-                      end
-
-                      if v57 then
-                        v57.Text = ("ขั้น %d/%d รอเงินวาง (%d/%d)"):format(
-                          index22, #v39, math.floor(v154.Value), math.floor(value34.cost)
-                        )
-                      end
-
-                      task.wait(0.3)
-                    end
-
-                    if not (v38 and v151 == v41) then
-                      break
-                    end
-                  end
-                end
-
-                if value34.type ~= "add" and not value34.cost and count3 == 0 then
-                  warn("[TowerMacro] ขั้น " .. index22
-                    .. " อัพเกรดไม่มีราคาบันทึกไว้ เช็กเงินไม่ได้ ใช้จำกัดครั้งแทน")
-                end
-
-                if value34.type ~= "add" and value34.TPos and count3 == 0 then
-                  local vector4 = Vector3.new(unpack(value34.TPos))
-                  local v156 = false
-
-                  for index23, value35 in ipairs(v49) do
-                    if (value35 - vector4).Magnitude <= 12 then
-                      v156 = true
-                      break
-                    end
-                  end
-
-                  if v156 then
-                    warn("[TowerMacro] ขั้น " .. index22
-                      .. " ข้ามอัพเกรด เพราะตัวนี้ไม่ได้ถูกวาง (ไม่รอเงิน)")
-
-                    break
-                  end
-                end
-
-                if value34.type ~= "add" and value34.cost then
-                  local v157 = f18()
-
-                  if v157 then
-                    local v158 = os.clock()
-
-                    while v38 and v151 == v41 and v157.Value + 0 < value34.cost do
-                      if os.clock() - v158 > 25 then
-                        warn("[TowerMacro] ขั้น " .. index22
-                          .. " รอเงินอัพเกรดเกิน " .. 25
-                          .. " วิ (ต้องการ " .. math.floor(value34.cost)
-                          .. " มี " .. math.floor(v157.Value)
-                          .. ") ลองอัพเกรดเลย")
-
-                        break
-                      end
-
-                      if v57 then
-                        v57.Text = ("ขั้น %d/%d รอเงินอัพเกรด (%d/%d)"):format(
-                          index22, #v39, math.floor(v157.Value), math.floor(v157.Value)
-                        )
-                      end
-
-                      task.wait(0.3)
-                    end
-
-                    if not (v38 and v151 == v41) then
-                      break
-                    end
-                  end
-                end
-
-                count3 = count3 + 1
-
-                if v57 then
-                  local v159 = v57
-
-                  v159.Text = ("ขั้น %d/%d (%s) ครั้งที่ %d"):format(index22, #v39, value34.type
-                        == "add"
-                      and "วาง " .. tostring(value34.Name)
-                    or "อัพเกรด", count3)
-                end
-
-                if value34.type == "add" then
-                  local v160
-                  v152, v160 = f24(value34, count3)
-
-                  if v152 then
-                    local v161 = v52
-                    local name3 = value34.Name
-                    v161[name3] = v52[value34.Name] or {}
-                    table.insert(v52[value34.Name], v160)
-                    v53[value34.Name] = (v53[value34.Name] or 0) + 1
-                  else
-                    local v162 = f23(value34.Name)
-                    local v163 = v162 >= 1 or (v53[value34.Name] or 0) >= 1
-                    local v164 = v163 and 2 or 5
-
-                    if v164 > 0 and count3 >= v164 then
-                      if v162 >= 1 then
-                        v54[value34.Name] = v162
-                      end
-
-                      warn("[TowerMacro] ขั้น "
-                        .. index22
-                        .. " วาง '"
-                        .. tostring(value34.Name)
-                        .. "' ไม่ติด"
-                        .. (v163
-                            and " (น่าจะชนลิมิต " .. v162
-                              .. " ตัว)"
-                          or "")
-                        .. " ข้ามไป")
-
-                      table.insert(v49, Vector3.new(unpack(value34.Pos)))
-                      break
-                    end
-                  end
-                else
-                  v152 = f25(value34)
-
-                  if v152 == nil then
-                    local v165 = false
-
-                    if value34.TPos then
-                      local vector5 = Vector3.new(unpack(value34.TPos))
-
-                      for index24, value36 in ipairs(v49) do
-                        if (value36 - vector5).Magnitude <= 12 then
-                          v165 = true
-                          break
-                        end
-                      end
-                    end
-
-                    if v165 then
-                      warn("[TowerMacro] ขั้น " .. index22
-                        .. " ข้ามอัพเกรด เพราะตัวนี้ไม่ได้ถูกวาง")
-
-                      break
-                    elseif count3 >= 4 then
-                      warn("[TowerMacro] หาทาวเวอร์ไม่เจอ ยิงอัพเกรดครั้งเดียวแล้วข้าม")
-                      towerUpgrade:FireServer({ Id = value34.Id })
-                      break
-                    end
-                  end
-                end
-
-                if v152 == true then
-                  break
-                end
-
-                if value34.type ~= "add" and count3 >= 6 then
-                  warn("[TowerMacro] ขั้น " .. index22
-                    .. " อัพเกรดไม่ติด " .. count3
-                    .. " ครั้ง (อาจเลเวลสุดแล้ว/ตัวถูกขาย) ข้ามไป")
-
-                  break
-                end
-
-                task.wait(0.5)
-              end
-            end
-          end
-        else
-          goto L16405457
+        
+        -- Auto Claim Quest
+        if Flags.AutoClaimQuest then
+            pcall(function()
+                ReplicatedStorage.RemoteEvents.ClaimDailyQuest:FireServer()
+            end)
         end
-      end
-
-      if v151 == v41 then
-        local v166 = not v38
-        v38 = false
-        f28(v166 and "หยุดแล้ว" or "เล่นจบแล้ว")
-      end
-    end)
-  end
-
-  v58 = false
-
-  function f27()
-    if v58 then
-      return
     end
+end)
 
-    if not v4.play then
-      return
-    end
-
-    v58 = true
-
-    task.spawn(function()
-      f15()
-      local v167 = 7
-
-      while true do
-        v167 = -1 + v167
-
-        if not (v167 >= 1 or false) then
-          break
-        end
-
-        local v168 = v167
-
-        if not v4.play then
-          v58 = false
-          return
-        end
-
-        if v57 then
-          v57.Text = ("PlayAgain -> เริ่มเล่นใหม่ใน %d วินาที..."):format(v168)
-        end
-
-        task.wait(1)
-      end
-
-      if v4.play and not v37 and f29() then
-        f39()
-      else
-        f28("เล่นใหม่ไม่ได้ (ไม่พบมาโคร)")
-      end
-
-      v58 = false
-    end)
-  end
-
-  v57 = v11.statusRow(v34)
-
-  function f28(text8)
-    v57.Text = text8 .. " | " .. math.max(0, #v39 - v47) .. " actions"
-  end
-
-  v59 = nil
-  v60 = nil
-  v61 = nil
-  v62 = nil
-
-  function f40()
-    local v169 = f10()
-    v59.setOptions(v169)
-    v60.setOptions(v169)
-
-    if v4.selected and not table.find(v169, v4.selected) then
-      v4.selected = nil
-    end
-
-    v59.set(v4.selected)
-  end
-
-  f47("Save File Name", v4.saveName, function(saveName) v4.saveName = saveName end)
-
-  v62 = f49("Start Record", "(เปิด = เริ่มอัด / ปิด = หยุด)", false, function(p62)
-    if p62 then
-      if v38 then
-        v62(false)
-        f28("หยุดเล่นก่อนจึงจะอัดได้")
-        return
-      end
-
-      v39 = {}
-      v47 = 0
-      v40 = os.clock()
-      v37 = true
-      f28("กำลังบันทึก...")
-      return
-    end
-
-    v37 = false
-    f28("หยุดอัดแล้ว")
-  end)
-
-  makeButtonRow("💾 Save Macro", function()
-    if v47 > 0 then
-      f28("รอยืนยันอัพเกรดก่อนเซฟ...")
-      local v170 = os.clock()
-
-      while v47 > 0 and os.clock() - v170 < 4 do
-        task.wait(0.1)
-      end
-    end
-
-    local gsub = tostring(v4.saveName or ""):gsub("[^%w_%-%s]", ""):gsub("^%s+", ""):gsub(
-      "%s+$", ""
-    )
-
-    if gsub == "" then
-      f28("กรุณาตั้งชื่อมาโครก่อน")
-      return
-    elseif #v39 == 0 then
-      f28("ไม่มีข้อมูลให้เซฟ")
-      return
-    else
-      writefile(f9(gsub), httpService:JSONEncode(v39))
-      v4.selected = gsub
-      f40()
-      f28("เซฟ " .. gsub .. " แล้ว")
-      return
-    end
-  end)
-
-  v59 = f46("Select Macro File", function(p63)
-    v4.selected = p63
-    local play = v4.play
-
-    if v38 then
-      f15()
-    end
-
-    if f29() then
-      f28("โหลด " .. p63 .. " แล้ว")
-
-      if play and not v37 then
-        task.defer(f39)
-      end
-    else
-      f28("โหลดไฟล์ไม่สำเร็จ")
-    end
-  end)
-
-  makeButtonRow("🔄 Refresh Macro Files", function()
-    f40()
-    f28("รีเฟรชรายการแล้ว")
-  end)
-
-  v61 = f49("Play Macro", "(จำสถานะไว้ เข้าเกมใหม่จะเล่นต่อ)", v4.play, function(p64)
-    v4.play = p64
-
-    if p64 then
-      if v37 then
-        v4.play = false
-        v61(false)
-        f28("ปิดการอัดก่อนจึงจะเล่นได้")
-        return
-      end
-
-      if not f29() then
-        v4.play = false
-        v61(false)
-        f28("ยังไม่ได้เลือกมาโคร")
-        return
-      end
-
-      f39()
-      return
-    end
-
-    f15()
-    f28("หยุดแล้ว")
-  end)
-
-  v60 = f46("Select Macro to Delete", function() end)
-
-  makeButtonRow("❌ Delete Macro", function()
-    local value37 = v60.value
-
-    if not value37 then
-      f28("ยังไม่ได้เลือกมาโครที่จะลบ")
-      return
-    else
-      pcall(delfile, f9(value37))
-
-      if v4.selected == value37 then
-        v4.selected = nil
-        v4.play = false
-
-        f15()
-        v61(false)
-        v39 = {}
-      end
-
-      return
-    end
-  end)
-
-  f40()
-
-  if v4.selected then
-    f29()
-  end
-
-  f28("พร้อมใช้งาน")
-
-  if v4.play then
-    task.spawn(function()
-      if not game:IsLoaded() then
-        game.Loaded:Wait()
-      end
-
-      players.LocalPlayer:WaitForChild("leaderstats", 30)
-      local v172 = 1
-
-      while true do
-        v172 = -1 + v172
-
-        if not (v172 >= 1 or false) then
-          break
-        end
-
-        local v173 = v172
-
-        if not v4.play then
-          return
-        end
-
-        v57.Text = ("เล่นอัตโนมัติใน %d วินาที..."):format(v173)
-        task.wait(1)
-      end
-
-      if v4.play and not v37 and f29() then
-        f39()
-      else
-        f28("เล่นอัตโนมัติไม่ได้ (ไม่พบมาโคร)")
-      end
-    end)
-  end
-end
+WindUI:Notify({
+    Title = "Miko Hub Loaded",
+    Content = "Successfully injected for Camera TD!",
+    Duration = 5
+})
