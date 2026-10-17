@@ -149,7 +149,7 @@ end;
 
 -- Hàm Notify
 d.Notify = function(s)
-	warn("[CameraTD MIKO] " .. tostring(s));
+	warn("[CameraTD] " .. tostring(s));
 	if d.UI then
 		pcall(function()
 			d.UI:Notify({["Title"]="CameraTD",["Content"]=tostring(s),["Duration"]=5});
