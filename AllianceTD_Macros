@@ -861,7 +861,7 @@ j.Webhook = function(url, title, fields, color, description, thumbnail)
 	if (type(requestFn) ~= "function") then
 		return false, "No HTTP request function";
 	end
-	local body = {username = title, avatar_url = thumbnail, embeds = {{title = title, description = description, color = (color or 5793266), fields = fields, footer = {text = "Miko Hub - Alliance TD", icon_url = "rbxassetid://103525855196551"}, timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")}}};
+	local body = {username = title, avatar_url = thumbnail, embeds = {{title = title, description = description, color = (color or 5793266), fields = fields, footer = {text = "Miko Hub - Alliance TD", icon_url = "https://cdn.discordapp.com/emojis/placeholder.png"}, timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")}}};
 	if thumbnail then body.thumbnail = {url = thumbnail}; end
 	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, {content = "", embeds = body.embeds, username = title, avatar_url = thumbnail});
 	if not ok then return false, "Encode failed"; end
@@ -894,7 +894,7 @@ j.MatchReport = function(result)
 	local function val(x, fallback)
 		return ((type(x) == "string") and (x ~= "") and x) or fallback;
 	end
-	return {Title = "Miko Hub - Match Result", Description = string.format("**Stage:** %s\n**Mode:** %s\n**Result:** %s", val(result.Map, tostring(j.MapId() or "Unknown")), val(result.Mode, Settings.Difficulty), status), Color = (((status == "VICTORY") and 65280) or ((status == "DEFEAT") and 16711680) or 16776960), Fields = {{name = "Player", value = ("👤 Name: ||" .. player.Name .. "||\n❤️ Base HP: " .. tostring(result.BaseHP or "N/A")), inline = false}, {name = "Time", value = ("⏱️ " .. val(result.Time, "N/A")), inline = true}, {name = "Rewards", value = val(result.Rewards, "No rewards"), inline = false}}, Image = "rbxassetid://103525855196551"};
+	return {Title = "Miko Hub - Match Result", Description = string.format("**Stage:** %s\n**Mode:** %s\n**Result:** %s", val(result.Map, tostring(j.MapId() or "Unknown")), val(result.Mode, Settings.Difficulty), status), Color = (((status == "VICTORY") and 65280) or ((status == "DEFEAT") and 16711680) or 16776960), Fields = {{name = "Player", value = ("👤 Name: ||" .. player.Name .. "||\n❤️ Base HP: " .. tostring(result.BaseHP or "N/A")), inline = false}, {name = "Time", value = ("⏱️ " .. val(result.Time, "N/A")), inline = true}, {name = "Rewards", value = val(result.Rewards, "No rewards"), inline = false}}, Image = "https://i.imgur.com/placeholder.png"};
 end;
 j.ReturnLobby = function()
 	j.SaveConfig(true);
@@ -2049,13 +2049,13 @@ end);
 local uiOk, uiErr = pcall(function()
 	local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/AllianceTD/Library/main/Library.lua"))();
 	j.UI = lib;
-	local window = lib:CreateWindow({Title = "Miko Hub - Alliance TD", Subtitle = "Auto Farm", Author = "Miko Hub", Icon = "rbxassetid://103525855196551", Theme = "Dark", Size = UDim2.fromOffset(620, 480), Transparent = true, MinimizeKey = Enum.KeyCode.RightShift, ShowToggle = true, ToggleKey = (Enum.KeyCode[Settings.ToggleKey] or Enum.KeyCode.RightShift), AutoShow = true});
+	local window = lib:CreateWindow({Title = "Miko Hub - Alliance TD", Subtitle = "Auto Farm", Author = "Miko Hub", Icon = "rbxassetid://0000000000", Theme = "Dark", Size = UDim2.fromOffset(620, 480), Transparent = true, MinimizeKey = Enum.KeyCode.RightShift, ShowToggle = true, ToggleKey = (Enum.KeyCode[Settings.ToggleKey] or Enum.KeyCode.RightShift), AutoShow = true});
 	j.Window = window;
-	local lobbyTab = window:Tab({Title = "Lobby", Icon = "rbxassetid://103525855196551"});
-	local matchTab = window:Tab({Title = "Match", Icon = "rbxassetid://103525855196551"});
-	local macroTab = window:Tab({Title = "Macro", Icon = "rbxassetid://103525855196551"});
-	local settingsTab = window:Tab({Title = "Settings", Icon = "rbxassetid://103525855196551"});
-	local socialTab = window:Tab({Title = "Social", Icon = "rbxassetid://103525855196551"});
+	local lobbyTab = window:Tab({Title = "Lobby", Icon = "rbxassetid://0000000001"});
+	local matchTab = window:Tab({Title = "Match", Icon = "rbxassetid://0000000002"});
+	local macroTab = window:Tab({Title = "Macro", Icon = "rbxassetid://0000000003"});
+	local settingsTab = window:Tab({Title = "Settings", Icon = "rbxassetid://0000000004"});
+	local socialTab = window:Tab({Title = "Social", Icon = "rbxassetid://0000000005"});
 	local function section(tab, text) tab:Section({Title = text}); end
 	local function toggle(tab, text, key, default, cb)
 		return tab:Toggle({Title = text, Default = Settings[key], Callback = function(v) Settings[key] = v == true; if cb then cb(Settings[key]); end; j.QueueSave(); end});
@@ -2248,7 +2248,7 @@ local uiOk, uiErr = pcall(function()
 		else
 			j.StopPlayback();
 		end
-	end);
+	end});
 	section(settingsTab, "Performance");
 	toggle(settingsTab, "Hide Name", "HideName", nil, j.SetHide);
 	toggle(settingsTab, "FPS Boost", "FPSBoost", nil, j.SetFPS);
