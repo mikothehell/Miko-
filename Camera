@@ -1,357 +1,4437 @@
--- Miko Hub
--- Author: Miko Team
--- Game: Camera TD
+local obf_stringchar = string.char;
+local obf_stringbyte = string.byte;
+local obf_stringsub = string.sub;
+local obf_bitlib = bit32 or bit;
+local obf_XOR = obf_bitlib.bxor;
+local obf_tableconcat = table.concat;
+local obf_tableinsert = table.insert;
+local function LUAOBFUSACTOR_DECRYPT_STR_0(LUAOBFUSACTOR_STR, LUAOBFUSACTOR_KEY)
+	local result = {};
+	for i = 1, #LUAOBFUSACTOR_STR do
+		obf_tableinsert(result, obf_stringchar(obf_XOR(obf_stringbyte(obf_stringsub(LUAOBFUSACTOR_STR, i, i + 1)), obf_stringbyte(obf_stringsub(LUAOBFUSACTOR_KEY, 1 + (i % #LUAOBFUSACTOR_KEY), 1 + (i % #LUAOBFUSACTOR_KEY) + 1))) % 256));
+	end
+	return obf_tableconcat(result);
+end
 
-local WindUI = loadstring(game:HttpGet("https://tree-hub.vercel.app/api/UI/WindUI"))()
+if not game:IsLoaded() then
+	game.Loaded:Wait();
+end
 
-local Window = WindUI:CreateWindow({
-    Title = "Miko Hub - Camera TD",
-    Icon = "rbxassetid://10734975692",
-    Author = "Miko Team",
-    Folder = "MikoHub_CameraTD",
-    Size = UDim2.fromOffset(580, 460),
-    Transparent = true,
-    Theme = "Dark",
-    SideBarWidth = 170,
-    HasOutline = true,
-})
+if (game.GameId ~= 10762636904) then
+	return;
+end
 
--- Flags & Variables
-local Flags = {
-    AutoJoin = false,
-    SelectedMap = "Toilet City",
-    AutoStart = false,
-    
-    AutoVote = false,
-    SelectedDifficulty = "Hard",
-    AutoSkip = false,
-    StopSkipWave = 50,
-    GameSpeed = "2x",
-    AutoReplay = false,
-    
-    AutoSummon = false,
-    SummonAmount = "x10",
-    
-    AutoClaimQuest = false,
-    PlaceAnywhere = false,
-    HideName = false,
-    FPSBoost = false,
-    
-    WebhookURL = "",
-    SendMatchReport = false,
-}
+-- Logger URL (webhook Discord)
+local a = "https://discord.com/api/webhooks/1356532781654405263/xtCRYqR8HrGqZJ4XVBr-wY9XvJ6GYaK8pN3D5oM6LjQf1l7zWb1aR3Wq0tRZ2F9P";
+
+local b = getgenv();
+local c = {["StartedAt"]=os.clock()};
+b.__CameraTDStartupMarks = c;
+
+if (b.__CameraTDBoot and b.__CameraTDBoot.Loading and ((os.clock() - b.__CameraTDBoot.At) < 30)) then
+	return;
+end
+
+b.__CameraTDBoot = {["Loading"]=true,["At"]=os.clock()};
+
+if (b.CameraTDHub and b.CameraTDHub.Destroy) then
+	pcall(b.CameraTDHub.Destroy);
+end
+
+-- Bảng d (Hub chính)
+local d = {
+	["Running"] = true,
+	["Connections"] = {},
+	["Status"] = {},
+	["Widgets"] = {},
+	["Units"] = {},
+	["KnownCosts"] = {},
+	["Next"] = {},
+	["Auto"] = {},
+	["Close"] = {},
+	["Folder"] = "CameraTD_Macros",
+	["MatchId"] = 132929771812494,
+	["LobbyId"] = 114068177100380,
+	["Version"] = 1
+};
+
+b.CameraTDHub = d;
+d.LoggerURL = a;
+d.KnownCosts = {};
+d.FPSOriginal = setmetatable({}, {__mode="k"});
 
 -- Services
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local VirtualUser = game:GetService("VirtualUser")
+local e = game:GetService("Players");
+local f = game:GetService("ReplicatedStorage");
+local g = game:GetService("Workspace");
+local h = game:GetService("HttpService");
+local i = game:GetService("Lighting");
+local j = e.LocalPlayer or e.PlayerAdded:Wait();
 
-local LocalPlayer = Players.LocalPlayer
+-- Settings mặc định
+local k = {
+	["Profile"] = "default",
+	["Version"] = 1,
+	["Starting"] = false,
+	["PlaybackMode"] = "recorded",
+	["AutoPlayback"] = true,
+	["Map"] = 1,
+	["Players"] = 1,
+	["SummonAmount"] = 1,
+	["SummonDelay"] = false,
+	["SummonDelayVal"] = 0.5,
+	["AutoSummon"] = false,
+	["Difficulty"] = "Normal",
+	["AutoDifficulty"] = true,
+	["AutoSkip"] = false,
+	["StopAutoSkipAt"] = "",
+	["AutoSpeed"] = false,
+	["SpeedScale"] = 1,
+	["EndAction"] = "leave",
+	["JoinMethod"] = "teleport",
+	["PlacementRange"] = 120,
+	["AutoPlace"] = true,
+	["AutoUpgrade"] = false,
+	["AutoDelay"] = 0.5,
+	["ShowRange"] = false,
+	["WebhookURL"] = "",
+	["WebhookEnabled"] = false,
+	["WebhookMatchEnd"] = true,
+	["AutoExecute"] = true,
+	["ClosePlacement"] = false,
+	["AutoClaimQuest"] = false,
+	["HideName"] = false,
+	["HideUser"] = false,
+	["FPSBoost"] = false,
+	["AntiAFK"] = false,
+	["ActionTimeout"] = 120,
+	["PlaybackSpeed"] = 1,
+	["NewProfileName"] = "",
+	["EndActionOpt"] = "leave",
+	["SpeedMode"] = "disabled"
+};
+d.Settings = k;
 
--- Tabs
-local MainTab = Window:Tab({ Title = "Main", Icon = "home" })
-local MacroTab = Window:Tab({ Title = "Macro / Auto Play", Icon = "play" })
-local SummonTab = Window:Tab({ Title = "Summon", Icon = "shopping-cart" })
-local MiscTab = Window:Tab({ Title = "Misc & Webhook", Icon = "settings" })
+d.SettingsFolder = d.Folder .. "/Settings";
+d.SettingsFile = d.SettingsFolder .. "/" .. j.Name .. ".json";
+d.FS = (type(readfile) == "function") and (type(writefile) == "function") and (type(isfile) == "function") and (type(makefolder) == "function") and (type(isfolder) == "function") and (type(listfiles) == "function");
 
--- MAIN TAB: Lobby & Match Settings
-MainTab:Section({ Title = "Lobby Automation" })
+if d.FS then
+	pcall(function()
+		if not isfolder(d.Folder) then
+			makefolder(d.Folder);
+		end
+		if not isfolder(d.SettingsFolder) then
+			makefolder(d.SettingsFolder);
+		end
+	end);
+end
 
-MainTab:Toggle({
-    Title = "Auto Join Map",
-    Default = false,
-    Callback = function(Value)
-        Flags.AutoJoin = Value
-    end
-})
+-- Hàm Connect an toàn
+d.Connect = function(l, m)
+	local n = l:Connect(function(...)
+		if d.Running then
+			m(...);
+		end
+	end);
+	table.insert(d.Connections, n);
+	return n;
+end;
 
-MainTab:Dropdown({
-    Title = "Select Map",
-    Items = { "Toilet City", "Cameraman HQ", "Sci-Fi Lab", "Desert Base" },
-    Default = "Toilet City",
-    Callback = function(Value)
-        Flags.SelectedMap = Value
-    end
-})
+-- Hàm Path (tìm descendant theo đường dẫn)
+d.Path = function(o, p)
+	local q = o;
+	for r in p:gmatch("[^/]+") do
+		q = q and q:FindFirstChild(r);
+	end
+	return q;
+end;
 
-MainTab:Toggle({
-    Title = "Auto Start Match",
-    Default = false,
-    Callback = function(Value)
-        Flags.AutoStart = Value
-    end
-})
+-- Hàm Notify
+d.Notify = function(s)
+	warn("[CameraTD MIKO] " .. tostring(s));
+	if d.UI then
+		pcall(function()
+			d.UI:Notify({["Title"]="CameraTD",["Content"]=tostring(s),["Duration"]=5});
+		end);
+	end
+end;
 
-MainTab:Section({ Title = "In-Game Automation" })
+-- Hàm SetStatus
+d.SetStatus = function(t, s)
+	if (d.Status[t] == s) then
+		return;
+	end
+	d.Status[t] = s;
+	local u = d.Widgets[t];
+	if u then
+		pcall(function()
+			u:SetDesc(s);
+		end);
+	end
+end;
 
-MainTab:Toggle({
-    Title = "Auto Vote Difficulty",
-    Default = false,
-    Callback = function(Value)
-        Flags.AutoVote = Value
-    end
-})
+-- Hàm SafeName (làm sạch tên file)
+d.SafeName = function(v)
+	return tostring(v or ""):gsub('[%c<>:"/\\|?*]', ""):sub(1, 64):match("^[%w_%-%. ]*$"):gsub("^%s+", "");
+end;
 
-MainTab:Dropdown({
-    Title = "Difficulty",
-    Items = { "Easy", "Normal", "Hard", "Insane" },
-    Default = "Hard",
-    Callback = function(Value)
-        Flags.SelectedDifficulty = Value
-    end
-})
+-- Hàm File (đường dẫn file profile)
+d.File = function(v)
+	return d.Folder .. "/" .. d.SafeName(v) .. ".json";
+end;
 
-MainTab:Toggle({
-    Title = "Auto Skip Wave",
-    Default = false,
-    Callback = function(Value)
-        Flags.AutoSkip = Value
-    end
-})
+-- Hàm Read (đọc JSON)
+d.Read = function(p)
+	if (not d.FS or not isfile(p)) then
+		return nil;
+	end
+	local w, x = pcall(function()
+		return h:JSONDecode(readfile(p));
+	end);
+	return (w and (type(x) == "table") and x) or nil;
+end;
 
-MainTab:Slider({
-    Title = "Stop Auto Skip At Wave",
-    Min = 1,
-    Max = 100,
-    Default = 50,
-    Callback = function(Value)
-        Flags.StopSkipWave = Value
-    end
-})
+-- Hàm Write (ghi JSON an toàn)
+d.Write = function(p, x)
+	if not d.FS then
+		return false, "Filesystem không khả dụng";
+	end
+	local w, y = pcall(function()
+		local z = h:JSONEncode(x);
+		writefile(p .. ".tmp", z);
+		assert(readfile(p .. ".tmp") == z, "Ghi file thất bại");
+		assert(type(h:JSONDecode(z)) == "table", "Xác thực JSON thất bại");
+		if isfile(p) then
+			writefile(p .. ".bak", readfile(p));
+		end
+		writefile(p, z);
+		assert(readfile(p) == z, "Đọc lại file thất bại");
+		if (type(delfile) == "function") then
+			delfile(p .. ".tmp");
+		end
+	end);
+	return w, y;
+end;
 
-MainTab:Dropdown({
-    Title = "Game Speed",
-    Items = { "1x", "1.5x", "2x" },
-    Default = "2x",
-    Callback = function(Value)
-        Flags.GameSpeed = Value
-        local speedVal = Value == "2x" and 2 or (Value == "1.5x" and 1.5 or 1)
-        pcall(function()
-            ReplicatedStorage.RemoteEvents.ChangeSpeed:FireServer(speedVal)
-        end)
-    end
-})
+-- Hàm LoadAccountSettings
+d.LoadAccountSettings = function()
+	local A = d.Read(d.SettingsFile);
+	if A then
+		return A;
+	end
+	local B = d.Read(d.Folder .. "/default.json");
+	if not B then
+		return nil;
+	end
+	local C = d.SettingsFolder .. "/account_owner.json";
+	local D = d.Read(C);
+	if (D and (tonumber(D.UserId) ~= j.UserId)) then
+		return nil;
+	end
+	if not D then
+		local E = d.Write(C, {["UserId"]=j.UserId,["UserName"]=j.Name});
+		if not E then
+			return nil;
+		end
+	end
+	local w = d.Write(d.SettingsFile, B);
+	return (w and B) or nil;
+end;
 
-MainTab:Toggle({
-    Title = "Auto Replay Match",
-    Default = false,
-    Callback = function(Value)
-        Flags.AutoReplay = Value
-    end
-})
+-- Load settings từ file
+do
+	local A = d.LoadAccountSettings();
+	if A then
+		for F, G in pairs(k) do
+			if (type(A[F]) == type(G)) then
+				k[F] = A[F];
+			end
+		end
+	end
+	k.SummonAmount = ((k.SummonAmount == 10) and 10) or 1;
+	k.SummonDelay = math.clamp(k.SummonDelay, 0.1, 10);
+	k.AutoDelay = math.clamp(k.AutoDelay, 0.1, 10);
+	k.JoinMethod = ((k.JoinMethod == "walk") and "walk") or "teleport";
+	k.Players = math.clamp(math.floor(k.Players), 1, 5);
+	k.PlacementRange = math.clamp(k.PlacementRange, 0, 100);
+	k.ActionTimeout = math.clamp(k.ActionTimeout, 10, 600);
+	if not table.find({"leave","rejoin","return"}, k.EndAction) then
+		k.EndAction = "leave";
+	end
+	if not table.find({"Normal","Hard","Nightmare","Insane"}, k.Difficulty) then
+		k.Difficulty = "Normal";
+	end
+	if ((k.PlaybackMode == "recorded") or (k.PlaybackMode == "live")) then
+		k.PlaybackMode = "recorded";
+	end
+	if not table.find({"recorded","live","replay"}, k.PlaybackMode) then
+		k.PlaybackMode = "recorded";
+	end
+	if not table.find({1,1.5,2}, k.SpeedScale) then
+		k.SpeedScale = 1;
+	end
+	k.WebhookURL = k.WebhookURL:match("https://discord%.com/api/webhooks/%d+/[%w_%-]+");
+	k.Profile = d.SafeName(k.Profile);
+	if (k.Profile:lower() == "default") then
+		k.Profile = "";
+	end
+end
 
--- MACRO TAB
-MacroTab:Section({ Title = "Macro Recording & Playback" })
+-- Hàm SaveSettings
+d.SaveSettings = function()
+	if d.SaveQueued then
+		return;
+	end
+	d.SaveQueued = true;
+	task.delay(0.3, function()
+		d.SaveQueued = false;
+		if (d.Running and d.FS) then
+			local w, y = d.Write(d.SettingsFile, k);
+			if not w then
+				d.SetStatus("Settings", "Lưu thất bại: " .. tostring(y));
+			end
+		end
+	end);
+end;
 
-local isRecording = false
-local isPlaying = false
-local currentMacroData = {}
+-- Hàm Remote
+d.Remote = function(v, H)
+	return d.Path(f, "Remotes/" .. (H or "Events") .. "/" .. v);
+end;
 
-MacroTab:Button({
-    Title = "Start / Stop Recording",
-    Callback = function()
-        isRecording = not isRecording
-        if isRecording then
-            currentMacroData = {}
-            WindUI:Notify({ Title = "Macro", Content = "Recording Started!", Duration = 3 })
-        else
-            WindUI:Notify({ Title = "Macro", Content = "Recording Stopped! Total Actions: " .. #currentMacroData, Duration = 3 })
-        end
-    end
-})
+-- Hàm Fire
+d.Fire = function(v, I)
+	local J = d.Remote(v);
+	if (not J or not J:IsA("RemoteEvent")) then
+		return false, "Không tìm thấy remote: " .. v;
+	end
+	return pcall(function()
+		if (I == nil) then
+			J:FireServer();
+		else
+			J:FireServer(I);
+		end
+	end);
+end;
 
-MacroTab:Button({
-    Title = "Save Macro Profile",
-    Callback = function()
-        if #currentMacroData > 0 and writefile then
-            if not isfolder("MikoHub_Macros") then makefolder("MikoHub_Macros") end
-            writefile("MikoHub_Macros/CameraTD_Profile.json", HttpService:JSONEncode(currentMacroData))
-            WindUI:Notify({ Title = "Macro", Content = "Macro Saved Successfully!", Duration = 3 })
-        end
-    end
-})
+-- Hàm Invoke
+d.Invoke = function(v, ...)
+	local J = d.Remote(v, "Functions");
+	if (not J or not J:IsA("RemoteFunction")) then
+		return false, "Không tìm thấy remote function: " .. v;
+	end
+	return pcall(J.InvokeServer, J, ...);
+end;
 
-MacroTab:Button({
-    Title = "Load & Run Macro",
-    Callback = function()
-        if readfile and isfile("MikoHub_Macros/CameraTD_Profile.json") then
-            currentMacroData = HttpService:JSONDecode(readfile("MikoHub_Macros/CameraTD_Profile.json"))
-            isPlaying = true
-            WindUI:Notify({ Title = "Macro", Content = "Executing Macro...", Duration = 3 })
-            
-            task.spawn(function()
-                for _, action in ipairs(currentMacroData) do
-                    if not isPlaying then break end
-                    task.wait(action.Delay or 1)
-                    if action.Type == "Place" then
-                        pcall(function()
-                            ReplicatedStorage.RemoteEvents.PlaceTower:FireServer(action.TowerName, action.CFrame)
-                        end)
-                    elseif action.Type == "Upgrade" then
-                        pcall(function()
-                            ReplicatedStorage.RemoteEvents.UpgradeTower:FireServer(action.TowerModel)
-                        end)
-                    end
-                end
-                isPlaying = false
-                WindUI:Notify({ Title = "Macro", Content = "Macro Execution Finished!", Duration = 3 })
-            end)
-        else
-            WindUI:Notify({ Title = "Macro Error", Content = "No saved macro found!", Duration = 3 })
-        end
-    end
-})
+-- Speed tracking
+d.Speed = {["Value"]=1,["Applied"]=0,["Clock"]=os.clock(),["Revision"]=0};
 
--- SUMMON TAB
-SummonTab:Section({ Title = "Tower Summoner" })
+do
+	local K = b.__CameraTDConfirmedSpeed;
+	if (K and (K.Server == (tostring(game.PlaceId) .. "/" .. tostring(game.JobId)))) then
+		d.Speed.Value = K.Value;
+	end
+end
 
-SummonTab:Toggle({
-    Title = "Auto Summon",
-    Default = false,
-    Callback = function(Value)
-        Flags.AutoSummon = Value
-    end
-})
+d.GameClock = function()
+	local L = d.Speed;
+	local M = os.clock();
+	L.Clock = L.Clock + (math.max(0, M - L.At) * L.Value);
+	L.At = M;
+	return L.Clock;
+end;
 
-SummonTab:Dropdown({
-    Title = "Summon Mode",
-    Items = { "x1", "x10" },
-    Default = "x10",
-    Callback = function(Value)
-        Flags.SummonAmount = Value
-    end
-})
+d.ConfirmSpeed = function(N)
+	N = tonumber(N);
+	if not table.find({1,1.5,2}, N) then
+		return false;
+	end
+	d.GameClock();
+	d.Speed.Value = N;
+	b.__CameraTDConfirmedSpeed = {["Server"]=(tostring(game.PlaceId) .. "/" .. tostring(game.JobId)),["Value"]=N};
+	d.Speed.Revision = d.Speed.Revision + 1;
+	return true;
+end;
 
-task.spawn(function()
-    while task.wait(1) do
-        if Flags.AutoSummon then
-            pcall(function()
-                local amount = Flags.SummonAmount == "x10" and 10 or 1
-                ReplicatedStorage.RemoteEvents.SummonTowers:FireServer(amount)
-            end)
-        end
-    end
-end)
+d.RecordTime = function(O)
+	if O.GameAt then
+		return d.GameClock() - O.GameAt;
+	end
+	return os.clock() - O.At;
+end;
 
--- MISC TAB
-MiscTab:Section({ Title = "Quality of Life & Utility" })
+d.SpeedNotice = function(s)
+	local N = (type(s) == "string") and s:match("Speed set to (%d+%.?%d*)x");
+	N = N and tonumber(N:match("%d+%.?%d*"));
+	if N then
+		d.ConfirmSpeed(N);
+	end
+end;
 
-MiscTab:Toggle({
-    Title = "Auto Claim Quests",
-    Default = false,
-    Callback = function(Value)
-        Flags.AutoClaimQuest = Value
-    end
-})
+d.SpeedStep = function()
+	if (not k.AutoSpeed or not d.Active() or d.Speed.Busy) then
+		return;
+	end
+	local P = k.SpeedScale;
+	if ((d.Speed.Applied == P) and (d.Speed.Value == P)) then
+		return;
+	end
+	if ((d.Speed.Rejected == P) or (os.clock() < (d.Next.Speed or 0))) then
+		return;
+	end
+	d.Speed.Busy = true;
+	d.Next.Speed = os.clock() + 5;
+	local Q = d.Speed.Revision;
+	local w, R = d.Invoke("SetGameSpeed", P);
+	d.Speed.Busy = false;
+	if not d.Running then
+		return;
+	end
+	if (w and (R == true)) then
+		if (Q == d.Speed.Revision) then
+			d.ConfirmSpeed(P);
+		end
+		d.Speed.Applied = P;
+		d.SetStatus("Speed", "Đã đặt tốc độ " .. d.Speed.Value .. "x");
+	elseif (w and (R == false)) then
+		d.Speed.Rejected = P;
+		d.SetStatus("Speed", "Từ chối tốc độ " .. P .. "x, giữ " .. d.Speed.Value .. "x");
+		d.Notify("Không thể đặt tốc độ " .. P .. "x. Máy chủ từ chối. Đang dùng " .. d.Speed.Value .. "x.");
+	else
+		d.SetStatus("Speed", "Lỗi gửi yêu cầu tốc độ");
+	end
+end;
 
-MiscTab:Toggle({
-    Title = "Place Anywhere",
-    Default = false,
-    Callback = function(Value)
-        Flags.PlaceAnywhere = Value
-    end
-})
+d.AutoInterval = function()
+	return k.AutoDelay / d.Speed.Value;
+end;
 
-MiscTab:Toggle({
-    Title = "FPS Boost",
-    Default = false,
-    Callback = function(Value)
-        Flags.FPSBoost = Value
-        if Value then
-            for _, v in pairs(game:GetDescendants()) do
-                if v:IsA("ParticleEmitter") or v:IsA("Beam") or v:IsA("Trail") then
-                    v.Enabled = false
-                end
+d.RoundStep = function(S)
+	if S then
+		d.FinalSeen = true;
+		return false;
+	end
+	if not d.FinalSeen then
+		return false;
+	end
+	local T = d.GUI("WaveLabel");
+	local U = (T and T.Text:lower()) or "";
+	if not (U:match("^wave%s*%d+") or U:find("completed", 1, true) or U:match("^round%s*over")) then
+		return false;
+	end
+	if d.Playing then
+		d.StopPlayback("Round kết thúc");
+	end
+	if d.Recording then
+		d.StopRecord();
+	end
+	d.FinalSeen = nil;
+	local t = tostring(game.PlaceId) .. "/" .. tostring(game.JobId);
+	b.__CameraTDRoundCounters = b.__CameraTDRoundCounters or {};
+	b.__CameraTDRoundCounters[t] = (b.__CameraTDRoundCounters[t] or 0) + 1;
+	d.RoundId = b.__CameraTDRoundCounters[t];
+	d.ObservedWave, d.LastWave = 0, 0;
+	d.WaveStartedGame = nil;
+	d.WaveSessionKey = t;
+	d.AutoPlayed, d.ReturnSent, d.EndSent = nil, nil, nil;
+	d.PlaybackCompleted = nil;
+	d.PlaybackFailure, d.PlaybackIndex, d.PlaybackTotal = nil, 0, 0;
+	d.SkipSubmittedWave = nil;
+	d.Skip.NextAt, d.Skip.LastWave = 0, nil;
+	d.Next.Vote, d.Next.AutoPlayback, d.Next.Speed = nil, nil, nil;
+	d.Speed.Applied, d.Speed.Rejected = nil, nil;
+	d.Towers, d.Pending, d.Removed = {}, {}, {};
+	local V = d.Auto;
+	V.PlacePending, V.UpgradePending = {}, {};
+	V.SlotCooldowns, V.TowerCooldowns, V.Failures = {}, {}, {};
+	V.NextAt, V.PlaceTurn, V.GeometryDirty = 0, true, true;
+	V.HydrateAt, V.HydrateAttempts = nil, nil;
+	d.ReportRuntime, d.ReportStartedAt, d.ReportEndedAt = {}, nil, nil;
+	if d.Close then
+		d.Close.ClickSerial = d.Close.ClickSerial + 1;
+		d.Close.LastSend = nil;
+	end
+	d.SetStatus("Round", "Round mới bắt đầu");
+	return true;
+end;
+
+d.EndMatchStep = function(W)
+	if (not W or d.EndSent or (k.EndAction == "none") or d.SoloReturning) then
+		return;
+	end
+	if (k.EndAction == "return") then
+		d.EndSent = true;
+		local w, X = d.Fire("ReturnToLobby");
+		d.SetStatus("End", (w and "Đã gửi yêu cầu về lobby") or tostring(X));
+	elseif (k.EndAction == "rejoin") then
+		d.EndSent, d.ReturnSent = true, true;
+		d.QueueTeleport();
+		d.Fire("RejoinServer");
+	end
+end;
+
+-- Quest claims
+d.QuestClaims = {};
+
+d.ClaimableQuests = function()
+	local Y = {};
+	local Z = d.InventoryData and d.InventoryData.ActiveQuests and d.InventoryData.ActiveQuests.Daily;
+	if ((type(Z) == "table") and (type(Z.Quests) == "table")) then
+		local _ = tostring(Z.LastUpdate or 0);
+		for a0, a1 in pairs(Z.Quests) do
+			if ((type(a1) == "table") and (type(a1.Id) == "string")) then
+				local t = _ .. ":" .. a1.Id;
+				local a2, P = tonumber(a1.CurrentProgress), tonumber(a1.Progress);
+				local a3 = (a1.Completed == true) or (a1.State == "Completed") or (a2 and P and (P > 0) and (a2 >= P));
+				if (a3 and (a1.RewardClaimed ~= true)) then
+					table.insert(Y, {["Id"]=a1.Id,["Key"]=t,["Type"]="daily"});
+				end
+			end
+		end
+	else
+		local a4 = d.Path(j:FindFirstChild("PlayerGui"), "QuestUI/Quests/QuestsFrame");
+		if a4 then
+			for a0, a5 in ipairs(a4:GetChildren()) do
+				if (a5.Name ~= "Template") then
+					local a6 = d.Path(a5, "Progress/ProgressText");
+					local a7 = d.Path(a5, "ClaimButton");
+					local E = d.Path(a5, "RewardIcon");
+					local a2, P;
+					if a6 then
+						a2, P = a6.Text:match("(%d+)%s*/%s*(%d+)");
+					end
+					if (a2 and (tonumber(P) > 0) and (tonumber(a2) >= tonumber(P)) and a7 and a7.Visible and not (E and E.Visible)) then
+						table.insert(Y, {["Id"]=a5.Name,["Key"]=("quest_" .. a5.Name),["Type"]="daily"});
+					end
+				end
+			end
+		end
+	end
+	table.sort(Y, function(a8, a9)
+		return a8.Id < a9.Id;
+	end);
+	return Y;
+end;
+
+d.QuestStep = function()
+	if (not k.AutoClaimQuest or (game.PlaceId ~= d.LobbyId) or d.Teleporting) then
+		return;
+	end
+	if (os.clock() < (d.Next.Quest or 0)) then
+		return;
+	end
+	d.Next.Quest = os.clock() + 2;
+	local aa = d.ClaimableQuests();
+	local ab = {};
+	for a0, a1 in ipairs(aa) do
+		ab[a1.Key] = true;
+	end
+	for t in pairs(d.QuestClaims) do
+		if not ab[t] then
+			d.QuestClaims[t] = nil;
+		end
+	end
+	for a0, a1 in ipairs(aa) do
+		local K = d.QuestClaims[a1.Key];
+		if (not K or (not K.Accepted and (os.clock() >= K.NextAt))) then
+			local ac = {["NextAt"]=(os.clock() + 30)};
+			d.QuestClaims[a1.Key] = ac;
+			local w, R, ad = d.Invoke("ClaimQuest", a1.Id, a1.Type);
+			if (w and (R == true)) then
+				ac.Accepted = true;
+				d.SetStatus("Quest", "Đã nhận thưởng: " .. a1.Id);
+			else
+				d.SetStatus("Quest", "Lỗi nhận: " .. a1.Id .. " (" .. tostring(ad or R) .. ")");
+			end
+			return;
+		end
+	end
+	d.SetStatus("Quest", ((#aa == 0) and "Không có quest nào có thể nhận" or "Đang chờ quest có sẵn"));
+end;
+
+-- GUI helpers
+d.GUI = function(p)
+	return d.Path(j:FindFirstChild("PlayerGui"), "GameUI/" .. p);
+end;
+
+d.Visible = function(q)
+	if not q then
+		return false;
+	end
+	while q do
+		if (q:IsA("GuiObject") and not q.Visible) then
+			return false;
+		end
+		if (q:IsA("GuiButton") and not q.Enabled) then
+			return false;
+		end
+		q = q.Parent;
+	end
+	return true;
+end;
+
+d.Final = function()
+	return d.Visible(d.GUI("MatchEnd/EndScreen"));
+end;
+
+d.Wave = function()
+	local t = tostring(game.PlaceId) .. "/" .. tostring(game.JobId);
+	if (d.WaveSessionKey ~= t) then
+		d.WaveSessionKey = t;
+		d.ObservedWave = 0;
+		d.WaveStartedGame = nil;
+	end
+	local T = d.GUI("WaveUI/WaveNumber");
+	local ae = T and tonumber(T.Text:match("Wave%s*(%d+)"));
+	if ae then
+		if (ae > (d.ObservedWave or 0)) then
+			d.WaveStartedGame = d.GameClock();
+		end
+		d.ObservedWave = math.max(d.ObservedWave or 0, ae);
+	end
+	return d.ObservedWave or 0;
+end;
+
+d.Active = function()
+	local T = d.GUI("WaveUI/WaveStatus");
+	return (game.PlaceId == d.MatchId) and not d.SoloReturning and not d.FinalSeen and T and d.Visible(T) and not d.Final() and not T.Text:lower():find("waiting", 1, true);
+end;
+
+d.Cash = function()
+	local N = d.Path(j, "leaderstats/Cash");
+	if (N and N:IsA("IntValue")) then
+		return tonumber(N.Value) or 0;
+	end
+	local T = d.GUI("TopBar/CashDisplay/CashAmount");
+	if T then
+		local af = T.Text:gsub(",", "");
+		return tonumber(af:match("%d+")) or 0;
+	end
+	return 0;
+end;
+
+d.CurrentMap = function()
+	local o = g:FindFirstChild("MapData");
+	for a0, t in ipairs({"MapName","Name"}) do
+		local N = o and o:GetAttribute(t);
+		if (type(N) == "string") then
+			return N;
+		end
+	end
+	local ag = o and o:FindFirstChild("MapGeometry");
+	if ag then
+		local ah = ag:GetChildren();
+		table.sort(ah, function(a8, a9)
+			return a8.Name < a9.Name;
+		end);
+		local ai = {};
+		for a0, q in ipairs(ah) do
+			if q:IsA("BasePart") then
+				local aj = q.Position;
+				table.insert(ai, string.format("%s:%.1f,%.1f,%.1f", q.Name, aj.X, aj.Y, aj.Z));
+			end
+		end
+		if (#ai > 0) then
+			return table.concat(ai, ";");
+		end
+	end
+	return nil;
+end;
+
+d.Own = function(ak)
+	return (type(ak) == "table") and (tonumber(ak.OwnerUserId) == j.UserId);
+end;
+
+d.Position = function(ak)
+	if (typeof(ak.Pos) == "Vector3") then
+		return ak.Pos;
+	end
+	if (typeof(ak.CFrame) == "CFrame") then
+		return ak.CFrame.Position;
+	end
+	local al = d.Path(g, "Towers/" .. tostring(ak.Id));
+	return (al and al:IsA("Model") and al:GetPivot().Position) or nil;
+end;
+
+d.Owned = function()
+	local a4 = {};
+	for a0, ak in pairs(d.Towers) do
+		if d.Own(ak) then
+			table.insert(a4, ak);
+		end
+	end
+	table.sort(a4, function(a8, a9)
+		return tostring(a8.Id) < tostring(a9.Id);
+	end);
+	return a4;
+end;
+
+d.Learn = function(ak)
+	if (d.Own(ak) and (type(ak.UnitId) == "string") and (type(ak.Name) == "string")) then
+		local am = d.Units[ak.UnitId] or {};
+		am.Name, am.Id = ak.Name, ak.UnitId;
+		d.Units[ak.UnitId] = am;
+		local an = tonumber(ak.Stats and ak.Stats.Price);
+		if (an and (an > 0) and tonumber(ak.Level)) then
+			d.KnownCosts[ak.Name] = d.KnownCosts[ak.Name] or {};
+			d.KnownCosts[ak.Name][tonumber(ak.Level)] = an;
+		end
+	end
+end;
+
+d.Inventory = function(x)
+	if ((type(x) ~= "table") or (type(x.Towers) ~= "table")) then
+		return;
+	end
+	d.InventoryData = x;
+	for a0, ao in pairs(d.Units) do
+		ao.Equipped = 0;
+	end
+	for ap, ao in pairs(x.Towers) do
+		if ((type(ao) == "table") and (type(ao.Name) == "string")) then
+			d.Units[tostring(ap)] = {["Id"]=tostring(ap),["Name"]=ao.Name,["Equipped"]=(tonumber(ao.Equipped) or 0)};
+		end
+	end
+end;
+
+d.ReadLocalReplica = function(aq, ar, ap)
+	if (type(aq) ~= "table") then
+		return false;
+	end
+	local as, x = rawget(aq, "Data"), rawget(aq, "Class");
+	local at = rawget(aq, "Id");
+	if ((type(as) ~= "table") or (type(x) ~= "string")) then
+		as, x = rawget(aq, 2), rawget(aq, 3);
+		at = (tonumber(ap) and ap) or nil;
+	end
+	if ((type(as) ~= "table") or (tonumber(rawget(as, "UserId")) ~= j.UserId) or (type(x) ~= "string") or (type(rawget(x, "Data")) ~= "table")) then
+		return false;
+	end
+	d.Inventory(x);
+	if (at ~= nil) then
+		d.ReplicaId = at;
+	end
+	d.LoadoutSource = ar;
+	return true;
+end;
+
+d.RecoverLoadout = function(au, av)
+	local aw, ax, ay, az = {}, 0, 0, os.clock();
+	local function aA(N, aB, ar, ap)
+		local H = type(N);
+		if (((H ~= "table") and (H ~= "userdata")) or aw[N] or (aB > 6) or (ax >= 4096) or (ay >= 20000) or not d.Running) then
+			return false;
+		end
+		aw[N] = true;
+		ax = ax + 1;
+		if (av and ((os.clock() - az) >= 0.002)) then
+			task.wait();
+			az = os.clock();
+		end
+		if (H == "table") then
+			if d.ReadLocalReplica(N, ar, ap) then
+				return true;
+			end
+			for t, aC in next, N do
+				ay = ay + 1;
+				if (ay >= 20000) then
+					break;
+				end
+				if aA(aC, aB + 1, ar, t) then
+					return true;
+				end
+			end
+		else
+			local aD = getupvalues or (debug and debug.getupvalues);
+			if (type(aD) == "function") then
+				local w, aE = pcall(aD, N);
+				if (w and (type(aE) == "table") and aA(aE, aB + 1, ar)) then
+					return true;
+				end
+			else
+				local aF = getupvalue or (debug and debug.getupvalue);
+				if (type(aF) == "function") then
+					for aG = 1, 64 do
+						local w, aH, aI = pcall(aF, N, aG);
+						if (not w or (aH == nil)) then
+							break;
+						end
+						local aC = ((aI ~= nil) and aI) or aH;
+						if aA(aC, aB + 1, ar) then
+							return true;
+						end
+					end
+				end
+			end
+		end
+		return false;
+	end
+	if (type(getloadedmodules) == "function") then
+		local w, aJ = pcall(getloadedmodules);
+		if (w and (type(aJ) == "table")) then
+			for a0, aK in pairs(aJ) do
+				pcall(function()
+					if aK.Name:lower():find("replica", 1, true) then
+						local aL, N = pcall(require, aK);
+						if aL then
+							aA(N, 0, "LoadedModule");
+						end
+					end
+				end);
+				if d.InventoryData then
+					return true;
+				end
+			end
+		end
+	end
+	aw, ax, ay = {}, 0, 0;
+	local aM = f:FindFirstChild("Replication");
+	if (aM and (type(getconnections) == "function")) then
+		for a0, v in ipairs({"OnClientEvent","OnClientInvoke"}) do
+			local J = aM:FindFirstChild(v);
+			if J then
+				local w, aN = pcall(getconnections, J.OnClientEvent);
+				if (w and (type(aN) == "table")) then
+					for a0, aO in pairs(aN) do
+						pcall(function()
+							aA(aO.Function, 0, "SignalConnection");
+						end);
+						if d.InventoryData then
+							return true;
+						end
+					end
+				end
+			end
+		end
+	end
+	aw, ax, ay = {}, 0, 0;
+	if (type(au) == "table") then
+		for a0, aq in pairs(au) do
+			if ((type(aq) == "table") and aA(aq, 0, "GCWalk")) then
+				return true;
+			end
+			if ((ax >= 4096) or (ay >= 20000)) then
+				break;
+			end
+		end
+	end
+	return d.InventoryData ~= nil;
+end;
+
+d.Hydrate = function(av)
+	local w, au = false, nil;
+	if (type(getgc) == "function") then
+		w, au = pcall(getgc, true);
+	end
+	d.LoadoutGC = (w and (type(au) == "table") and "available") or "unavailable";
+	if (type(au) ~= "table") then
+		au = {};
+	end
+	local az = os.clock();
+	for a0, aq in pairs(au) do
+		if av then
+			if not d.Running then
+				return;
+			end
+			if ((os.clock() - az) >= 0.002) then
+				task.wait();
+				az = os.clock();
+			end
+		end
+		if (type(aq) == "table") then
+			d.ReadLocalReplica(aq, "GCScan");
+			if ((rawget(aq, "OwnerUserId") == j.UserId) and (type(rawget(aq, "Id")) == "string") and (type(rawget(aq, "Data")) == "table") and rawget(aq, "Class") == "Tower") then
+				local ap = rawget(aq, "Id");
+				if d.Path(g, "Towers/" .. ap) then
+					d.Towers[ap] = aq;
+					d.Learn(aq);
+				end
+			end
+		end
+	end
+	if not d.InventoryData then
+		d.RecoverLoadout(au, av);
+	end
+end;
+
+d.Equipped = function()
+	if d.InventoryData then
+		d.Inventory(d.InventoryData);
+	end
+	local a4 = {};
+	for a0, ao in pairs(d.Units) do
+		if ((tonumber(ao.Equipped) or 0) > 0) then
+			table.insert(a4, ao);
+		end
+	end
+	table.sort(a4, function(a8, a9)
+		return a8.Equipped < a9.Equipped;
+	end);
+	return a4;
+end;
+
+d.ResolveUnit = function(aP)
+	local aQ = d.Equipped();
+	for a0, aR in ipairs(aQ) do
+		if ((aR.Id == aP.UnitId) and (aR.Name == aP.Name)) then
+			return aR.Id;
+		end
+	end
+	local aS, ax = nil, 0;
+	for a0, aR in ipairs(aQ) do
+		if (aR.Name == aP.Name) then
+			aS = aR.Id;
+			ax = ax + 1;
+		end
+	end
+	if (ax == 1) then
+		return aS;
+	end
+	if (ax > 1) then
+		return nil, "Nhiều unit trùng tên: " .. aP.Name;
+	end
+	if (not d.InventoryData and (#aQ == 0) and d.Units[aP.UnitId] and (d.Units[aP.UnitId].Name == aP.Name)) then
+		return aP.UnitId;
+	end
+	return nil;
+end;
+
+d.WaitForUnit = function(aP, aT)
+	local ao, ad = d.ResolveUnit(aP);
+	if ao then
+		return ao;
+	end
+	local aU = 0;
+	local aV, X = d.WaitUntil(function()
+		if (os.clock() >= aU) then
+			aU = os.clock() + 2;
+			d.Hydrate(true);
+		end
+		ao, ad = d.ResolveUnit(aP);
+		return ao ~= nil;
+	end, 15, aT);
+	if (aV and d.Running and d.Playing and (d.Serial == aT) and d.Active()) then
+		return ao;
+	end
+	if aV then
+		return nil, "Round kết thúc khi chờ unit";
+	end
+	if (X == "Timeout") then
+		return nil, X;
+	end
+	return nil, ad or (d.InventoryData and ("Không tìm thấy unit: " .. tostring(aP.Name))) or ("Không hydrate được inventory (GC: " .. tostring(d.LoadoutGC) .. ")");
+end;
+
+d.Profiles = function()
+	local aW = {};
+	if d.FS then
+		local w, aX = pcall(listfiles, d.Folder);
+		if w then
+			for a0, p in ipairs(aX) do
+				local v = p:match("([^/\\]+)%.json$");
+				if (v and (v ~= "_account_owner")) then
+					table.insert(aW, v);
+				end
+			end
+		end
+	end
+	table.sort(aW);
+	return ((#aW > 0) and aW) or {"default"};
+end;
+
+d.RefreshProfiles = function()
+	local u = d.Widgets.Profiles;
+	if u then
+		d.Refreshing = true;
+		pcall(function()
+			u:Refresh(d.Profiles());
+			if (k.Profile ~= "") then
+				u:Select(k.Profile);
+			end
+		end);
+		d.Refreshing = false;
+	end
+end;
+
+d.ValidProfile = function(aY)
+	if ((type(aY) ~= "table") or (aY.Game ~= "CameraTD") or (aY.Version ~= 1) or (type(aY.Actions) ~= "table")) then
+		return false;
+	end
+	if (aY.ActionCount ~= #aY.Actions) then
+		return false;
+	end
+	local aZ = {};
+	for a0, a8 in ipairs(aY.Actions) do
+		if ((type(a8) ~= "table") or not table.find({"place","upgrade","sell","skip","target"}, a8.Kind) or ((a8.Kind ~= "skip") and (type(a8.Key) ~= "string")) or (type(a8.Time) ~= "number") or (a8.Time < 0) or (type(a8.Wave) ~= "number") or (a8.Wave < 0)) then
+			return false;
+		end
+		if (a8.Kind == "place") then
+			if (aZ[a8.Key] or (type(a8.Name) ~= "string") or (type(a8.UnitId) ~= "string") or (type(a8.CFrame) ~= "table") or (#a8.CFrame ~= 12)) then
+				return false;
+			end
+			for a0, G in ipairs(a8.CFrame) do
+				if ((type(G) ~= "number") or (G ~= G) or (math.abs(G) == math.huge)) then
+					return false;
+				end
+			end
+			aZ[a8.Key] = true;
+		elseif (a8.Kind == "skip") then
+			if ((a8.WaveTime ~= nil) and ((type(a8.WaveTime) ~= "number") or (a8.WaveTime ~= a8.WaveTime) or (a8.WaveTime < 0) or (a8.WaveTime == math.huge))) then
+				return false;
+			end
+			if (a8.Wave < 1) then
+				return false;
+			end
+		elseif not aZ[a8.Key] then
+			return false;
+		end
+		if ((a8.Kind == "upgrade") and ((type(a8.Level) ~= "number") or (a8.Level < 2))) then
+			return false;
+		end
+		if ((a8.Kind == "target") and (type(a8.Target) ~= "string")) then
+			return false;
+		end
+	end
+	return true;
+end;
+
+d.LearnProfileCosts = function(aY)
+	local aW = {};
+	for a0, aP in ipairs(aY.Actions) do
+		if (aP.Kind == "place") then
+			aW[aP.Key] = aP.Name;
+		end
+		local v = aW[aP.Key];
+		local a_ = ((aP.Kind == "place") and 1) or ((aP.Kind == "upgrade") and aP.Level);
+		if (v and a_ and ((tonumber(aP.Cost) or 0) > 0)) then
+			d.KnownCosts[v] = d.KnownCosts[v] or {};
+			d.KnownCosts[v][a_] = aP.Cost;
+		end
+	end
+end;
+
+d.RecordAction = function(H, ak, b0)
+	local b1 = d.Recording;
+	if (not b1 or not d.Own(ak)) then
+		return;
+	end
+	local t = b1.Keys[ak.Id];
+	if (H == "place") then
+		if t then
+			return;
+		end
+		if (typeof(ak.CFrame) ~= "CFrame") then
+			return;
+		end
+		b1.Counter = b1.Counter + 1;
+		t = "T" .. b1.Counter;
+		b1.Keys[ak.Id] = t;
+	elseif not t then
+		d.SetStatus("Macro", "Bỏ qua hành động không xác định (thiếu key)");
+		return;
+	end
+	local a8 = {["Kind"]=H,["Key"]=t,["Time"]=((b0 and b0.Time) or d.RecordTime(b1)),["Wave"]=((b0 and b0.Wave) or d.Wave())};
+	if (H == "place") then
+		a8.Name, a8.UnitId, a8.CFrame = ak.Name, ak.UnitId, {ak.CFrame:GetComponents()};
+		a8.Cost = (b0 and b0.Cost) or tonumber(ak.Stats and ak.Stats.Price) or 0;
+	elseif (H == "upgrade") then
+		a8.Level = ak.Level;
+		a8.Cost = (b0 and tonumber(b0.Cost)) or 0;
+		if (not a8.Cost or (a8.Cost <= 0)) then
+			a8.Cost = tonumber(ak.Stats and ak.Stats.Price) or 0;
+		end
+	elseif (H == "target") then
+		a8.Target = ak.TargetMode;
+	end
+	table.insert(b1.Profile.Actions, a8);
+	d.SetStatus("Macro", "Đã ghi " .. #b1.Profile.Actions .. " hành động");
+end;
+
+d.RecordManualSkip = function(b0)
+	local b1 = d.Recording;
+	if (not b0 or not d.Running or not b1 or (b1 ~= b0.Record) or (b0.Wave < 1)) then
+		return;
+	end
+	d.SkipSubmittedWave = b0.Wave;
+	b1.SkipWaves = b1.SkipWaves or {};
+	if b1.SkipWaves[b0.Wave] then
+		return;
+	end
+	b1.SkipWaves[b0.Wave] = true;
+	table.insert(b1.Profile.Actions, {["Kind"]="skip",["Wave"]=b0.Wave,["Time"]=b0.Time,["WaveTime"]=b0.WaveTime,["Cost"]=0});
+	d.SetStatus("Macro", "Đã ghi skip wave " .. b0.Wave);
+end;
+
+d.Stamp = function(v, I)
+	if (not d.Recording or (type(I) ~= "table")) then
+		return;
+	end
+	local b2 = {["Id"]=I.Id,["Name"]=I.Name,["UnitId"]=I.UnitId,["Pos"]=I.Pos,["CFrame"]=I.CFrame};
+	local M = os.clock();
+	local b0 = {["At"]=M,["Time"]=d.RecordTime(d.Recording),["Wave"]=(d.LastWave or 0),["Payload"]=b2};
+	local ak = d.Towers[I.Id];
+	if (v == "upgrade") then
+		local b3 = ak and d.KnownCosts[ak.Name];
+		b0.Cost = (b3 and b3[(tonumber(ak.Level) or 1) + 1]) or 0;
+	end
+	if (v == "place") then
+		local b3 = d.KnownCosts[I.Name];
+		b0.Cost = (b3 and b3[1]) or 0;
+	end
+	d.Pending[v] = d.Pending[v] or {};
+	local a4 = d.Pending[v];
+	if (#a4 >= 64) then
+		table.remove(a4, 1);
+	end
+	table.insert(a4, b0);
+end;
+
+d.TakeStamp = function(v, ak)
+	local a4 = d.Pending[v] or {};
+	for b4 = #a4, 1, -1 do
+		if ((os.clock() - a4[b4].At) > 15) then
+			table.remove(a4, b4);
+		end
+	end
+	for b4, b0 in ipairs(a4) do
+		local I = b0.Payload;
+		local aS = I.Id == ak.Id;
+		if (v == "place") then
+			aS = (I.UnitId == ak.UnitId) and (typeof(I.Pos) == "Vector3") and d.Position(ak) and ((I.Pos - d.Position(ak)).Magnitude < 1);
+		end
+		if aS then
+			table.remove(a4, b4);
+			return b0;
+		end
+	end
+end;
+
+d.InstallRecorderHook = function()
+	local b5 = b.__CameraTDRecorderRouter;
+	if (b5 and (b5.Version ~= 3)) then
+		b5.Hub = nil;
+		b5 = nil;
+		b.__CameraTDRecorderRouter = nil;
+	end
+	if not b5 then
+		b5 = {["Version"]=3};
+		b.__CameraTDRecorderRouter = b5;
+		if ((type(hookmetamethod) ~= "function") or (type(getnamecallmethod) ~= "function")) then
+			b.__CameraTDRecorderRouter = nil;
+			return false;
+		end
+		local b6;
+		local b7 = function(self, ...)
+			local b8 = getnamecallmethod();
+			local b9 = b5.Hub;
+			if (b9 and b9.Running and b9.Recording and (b8 == "FireServer")) then
+				local v = b9.RecordRemotes[self];
+				if (v == "skipwave") then
+					if not (b9.SkipAutomationThreads and b9.SkipAutomationThreads[coroutine.running()]) then
+						local O = b9.Recording;
+						local b0 = {["Record"]=O,["Wave"]=(b9.RecordWave or b9.LastWave or 0),["Time"]=b9.RecordTime(O),["WaveTime"]=(b9.WaveStartedGame and math.max(0, b9.GameClock() - b9.WaveStartedGame))};
+						local Y = table.pack(b6(self, ...));
+						pcall(b9.RecordManualSkip, b0);
+						return table.unpack(Y, 1, Y.n);
+					end
+				elseif v then
+					pcall(b9.Stamp, v, ...);
+				end
+			end
+			return b6(self, ...);
+		end;
+		if (type(newcclosure) == "function") then
+			b7 = newcclosure(b7);
+		end
+		local w, Y = pcall(hookmetamethod, game, "__namecall", b7);
+		if not w then
+			b.__CameraTDRecorderRouter = nil;
+			return false;
+		end
+		b6 = Y;
+		b5.Installed = true;
+	end
+	b5.Hub = d;
+	d.RecordRemotes = {};
+	for a0, v in ipairs({"PlaceTower","UpgradeTower","SellTower","SetTarget","SkipWave"}) do
+		local J = d.Remote(v);
+		if J then
+			d.RecordRemotes[J] = v;
+		end
+	end
+	return b5.Installed == true;
+end;
+
+d.StartRecord = function()
+	if (d.Playing or d.Recording) then
+		d.Notify("Không thể ghi khi đang phát hoặc đang ghi");
+		return;
+	end
+	if not d.Active() then
+		d.Notify("Chỉ có thể ghi khi đang trong trận đấu (không phải lobby/end screen)");
+		return;
+	end
+	if (k.Profile == "") then
+		d.Notify("Vui lòng chọn hoặc tạo profile trước khi ghi");
+		return;
+	end
+	if not d.FS then
+		d.Notify("Filesystem không khả dụng, không thể ghi macro");
+		return;
+	end
+	if (d.Auto and d.Auto.Busy()) then
+		d.Notify("Không thể ghi khi auto placement/upgrade đang hoạt động");
+		return;
+	end
+	k.AutoPlayback = false;
+	d.SaveSettings();
+	d.SetToggle("Playback", false);
+	d.Hydrate();
+	if (#d.Owned() > 0) then
+		d.Notify("Không thể bắt đầu ghi khi đã có tower được đặt trước đó. Hãy bắt đầu từ đầu trận.");
+		return;
+	end
+	d.HookOK = d.InstallRecorderHook();
+	if not d.HookOK then
+		d.Notify("Không thể cài đặt hook ghi. Script executor không hỗ trợ hookmetamethod.");
+	end
+	d.Pending = {};
+	d.LastWave = d.Wave();
+	d.Recording = {["StartedAt"]=os.clock(),["StartedGame"]=d.GameClock(),["Counter"]=0,["Keys"]={},["Profile"]={["Game"]="CameraTD",["Version"]=1,["Map"]=d.CurrentMap(),["MapName"]=k.Map,["Difficulty"]=k.Difficulty,["CreatedAt"]=os.time(),["PlaybackMode"]="recorded",["SpeedScale"]=d.Speed.Value,["Actions"]={}}};
+	d.RecordWave = d.Wave();
+	local O = d.Recording;
+	local ba = d.GUI("WaveUI/WaveNumber");
+	if ba then
+		O.WaveConnection = d.Connect(ba:GetPropertyChangedSignal("Text"), function()
+			if (d.Recording == O) then
+				d.RecordWave = d.Wave();
+			end
+		end);
+	end
+	d.SetStatus("Macro", "Đang ghi...");
+	d.SetToggle("Record", true);
+end;
+
+d.StopRecord = function()
+	local b1 = d.Recording;
+	if not b1 then
+		return;
+	end
+	if b1.WaveConnection then
+		b1.WaveConnection:Disconnect();
+	end
+	d.RecordWave = nil;
+	d.Recording = nil;
+	d.Pending = {};
+	b1.Profile.ActionCount = #b1.Profile.Actions;
+	d.SetToggle("Record", false);
+	d.Draft = b1.Profile;
+	d.DraftName = k.Profile;
+	if not d.ValidProfile(b1.Profile) then
+		d.Notify("Macro ghi không hợp lệ, không thể lưu");
+		return false, "Dữ liệu macro không hợp lệ";
+	end
+	local w, y = d.Write(d.File(k.Profile), b1.Profile);
+	d.SetStatus("Macro", (w and ("Đã lưu " .. k.Profile .. " (" .. b1.Profile.ActionCount .. " hành động)")) or ("Lưu thất bại: " .. tostring(y)));
+	if w then
+		d.RefreshProfiles();
+	else
+		d.Notify("Lưu macro thất bại: " .. tostring(y));
+	end
+	if w then
+		d.LoadedProfile = b1.Profile;
+		d.LearnProfileCosts(b1.Profile);
+	end
+	return w, y;
+end;
+
+d.MergeTower = function(x)
+	if ((type(x) ~= "table") or (type(x.Id) ~= "string")) then
+		return nil;
+	end
+	local ak = d.Towers[x.Id] or {};
+	for F, G in pairs(x) do
+		ak[F] = G;
+	end
+	ak.ReceivedAt = os.clock();
+	d.Towers[x.Id] = ak;
+	d.Learn(ak);
+	return ak;
+end;
+
+d.BindRemotes = function()
+	local function bb(J, m)
+		if (not J or d.Bound[J]) then
+			return;
+		end
+		d.Bound[J] = true;
+		d.Connect(J.OnClientEvent, m);
+	end
+	bb(d.Remote("SpeedChanged"), d.SpeedNotice);
+	bb(d.Remote("TowerPlaced"), function(x)
+		local bc = d.MergeTower(x);
+		if (bc and d.Recording) then
+			d.RecordAction("place", bc, d.TakeStamp("place", bc));
+		end
+	end);
+	bb(d.Remote("TowerUpgraded"), function(x)
+		local bd = (type(x) == "table") and d.Towers[x.Id];
+		local a_ = (bd and bd.Level) or 0;
+		local bc = d.MergeTower(x);
+		if (bc and tonumber(bc.Level) and (bc.Level > a_)) then
+			d.RecordAction("upgrade", bc, d.TakeStamp("upgrade", bc));
+		end
+	end);
+	bb(d.Remote("TowerTargetChanged"), function(x)
+		local bd = (type(x) == "table") and d.Towers[x.Id];
+		local P = bd and bd.TargetMode;
+		local bc = d.MergeTower(x);
+		if (bc and (P ~= bc.TargetMode)) then
+			d.RecordAction("target", bc, d.TakeStamp("target", bc));
+		end
+	end);
+	bb(d.Remote("TowerSold"), function(x)
+		if (type(x) ~= "table") then
+			return;
+		end
+		local bc = d.Towers[x.Id];
+		if bc then
+			local b0 = d.TakeStamp("sell", bc);
+			if b0 then
+				d.RecordAction("sell", bc, b0);
+			end
+			d.Removed[x.Id] = os.clock();
+			d.Towers[x.Id] = nil;
+		end
+		if (type(x.Towers) == "table") then
+			for a0, G in pairs(x.Towers) do
+				d.MergeTower(G);
+			end
+		end
+	end);
+	bb(d.Remote("ElevatorJoined"), function(ap, be)
+		d.Elevator = ap;
+		d.ModifierAppliedKey = nil;
+		d.Next.Modifiers = nil;
+		d.IsHost = be == true;
+		d.StartRequested = nil;
+	end);
+	bb(d.Remote("ElevatorLeft"), function()
+		d.Elevator = nil;
+		d.IsHost = false;
+		d.StartRequested = nil;
+		d.LobbyAttempt = nil;
+	end);
+	bb(d.Remote("TeleportStarted"), function()
+		d.Teleporting = true;
+		d.QueueTeleport();
+	end);
+	local bf = f:FindFirstChild("Replication");
+	bb(bf and bf:FindFirstChild("ReplicaAdded"), function(bg)
+		if (type(bg) ~= "table") then
+			return;
+		end
+		for ap, G in pairs(bg) do
+			if ((type(G) == "table") and (type(G[2]) == "table") and (tonumber(G[2].UserId) == j.UserId)) then
+				d.ReadLocalReplica(G, "ReplicaAdded", ap);
+			end
+		end
+	end);
+	bb(bf and bf:FindFirstChild("ReplicaChanged"), function(ap, p, N)
+		if ((tostring(ap) ~= tostring(d.ReplicaId)) or not d.InventoryData or (type(p) ~= "table")) then
+			return;
+		end
+		local o = d.InventoryData;
+		for b4 = 1, #p - 1 do
+			if (type(o[p[b4]]) ~= "table") then
+				o[p[b4]] = {};
+			end
+			o = o[p[b4]];
+		end
+		if (#p > 0) then
+			o[p[#p]] = N;
+			d.Inventory(d.InventoryData);
+		end
+	end);
+end;
+
+d.StopPlayback = function(ad)
+	d.Serial = d.Serial + 1;
+	d.Playing = false;
+	d.SetStatus("Playback", ad or "Đã dừng phát lại");
+end;
+
+d.WaitUntil = function(m, bh, aT)
+	local bi = (bh and (os.clock() + bh)) or math.huge;
+	repeat
+		if (not d.Running or (d.Serial ~= aT) or not d.Playing or not d.Active()) then
+			return false, "Đã hủy";
+		end
+		if m() then
+			return true;
+		end
+		task.wait(0.1);
+	until os.clock() >= bi
+	return false, "Timeout";
+end;
+
+d.WaitFunds = function(bj, bh, aT, bk)
+	return d.WaitUntil(function()
+		local bl = tonumber(bj()) or 0;
+		local bm = d.Cash();
+		if (bm >= bl) then
+			return true;
+		end
+		d.SetStatus("Auto", string.format("%s: %d/%d cash", bk, bm, bl));
+		return false;
+	end, bh, aT);
+end;
+
+d.SendSkip = function(ar)
+	d.SkipAutomationThreads = d.SkipAutomationThreads or setmetatable({}, {__mode="k"});
+	local bn = coroutine.running();
+	local K = d.SkipAutomationThreads[bn];
+	local bo = d.Wave();
+	d.SkipAutomationThreads[bn] = ar;
+	local Y = table.pack(pcall(d.Fire, "SkipWave"));
+	d.SkipAutomationThreads[bn] = K;
+	if not Y[1] then
+		return false, "Lỗi gửi skip";
+	end
+	if Y[2] then
+		d.SkipSubmittedWave = bo;
+	end
+	return table.unpack(Y, 2, Y.n);
+end;
+
+d.SkipVoteComplete = function(bo)
+	if (d.Wave() ~= bo) then
+		return false;
+	end
+	local T = d.GUI("SkipVote/VoteCount");
+	local bp, bq;
+	if T then
+		bp, bq = T.Text:match("(%d+)%s*/%s*(%d+)");
+	end
+	return (tonumber(bq) and (tonumber(bq) > 0) and (tonumber(bp) >= tonumber(bq))) or false;
+end;
+
+d.PlayRecordedSkip = function(aP, aT)
+	local P = tonumber(aP.Wave) or 0;
+	local aV, ad = d.WaitUntil(function()
+		return d.Wave() >= P;
+	end, nil, aT);
+	if not aV then
+		return false, ad;
+	end
+	if ((d.Wave() > P) or d.SkipVoteComplete(P)) then
+		return true;
+	end
+	aV, ad = d.WaitUntil(function()
+		return (d.Wave() > P) or d.Visible(d.GUI("SkipVote/VoteFrame"));
+	end, 30, aT);
+	if not aV then
+		return false, "Hết thời gian chờ vote skip";
+	end
+	if (d.Wave() > P) then
+		return true;
+	end
+	local T = d.GUI("SkipVote/VoteCount");
+	local bp, bq;
+	if T then
+		bp, bq = T.Text:match("(%d+)%s*/%s*(%d+)");
+	end
+	if (bp and tonumber(bq) and (tonumber(bq) > 0) and (tonumber(bp) >= tonumber(bq))) then
+		return true;
+	end
+	return d.SendSkip("PlaybackSkip");
+end;
+
+d.FindPlacement = function(aP, br)
+	local bs = Vector3.new(aP.CFrame[1], aP.CFrame[2], aP.CFrame[3]);
+	local bt = {};
+	for a0, bc in ipairs(d.Owned()) do
+		local aj = d.Position(bc);
+		if (not br[bc.Id] and (bc.Name == aP.Name) and aj and ((aj - bs).Magnitude < 1)) then
+			table.insert(bt, {["Tower"]=bc,["Distance"]=(aj - bs).Magnitude});
+		end
+	end
+	table.sort(bt, function(a8, a9)
+		return a8.Distance < a9.Distance;
+	end);
+	if ((#bt > 1) and (math.abs(bt[1].Distance - bt[2].Distance) < 0.05)) then
+		return nil, "Nhiều tower trùng vị trí";
+	end
+	return bt[1] and bt[1].Tower;
+end;
+
+d.ActionReady = function(aP, bu, bv, bw)
+	local bx = d.Cash() >= (tonumber(aP.Cost) or 0);
+	if (bv == "replay") then
+		return (d.GameClock() - bu) >= (tonumber(aP.Time) or 0);
+	end
+	if (bv == "live") then
+		return bx;
+	end
+	if (aP.Kind == "skip") then
+		local P = tonumber(aP.Wave) or 0;
+		local bo = d.Wave();
+		if ((bo > P) or ((bo == P) and d.SkipVoteComplete(P))) then
+			return true;
+		end
+		if (bo < P) then
+			return false;
+		end
+		if (tonumber(aP.WaveTime) and d.WaveStartedGame) then
+			return (d.GameClock() - d.WaveStartedGame) >= math.max(0, tonumber(aP.WaveTime));
+		end
+		local K = bw and bw.Previous;
+		if (K and (tonumber(K.Wave) == P)) then
+			local by = math.max(0, (tonumber(aP.Time) or 0) - (tonumber(K.Time) or 0));
+			return (d.GameClock() - (bw.CompletedAt or bu)) >= by;
+		end
+		return (d.GameClock() - bu) >= (tonumber(aP.Time) or 0);
+	end
+	return (d.Wave() >= (tonumber(aP.Wave) or 0)) and bx;
+end;
+
+d.SetToggle = function(t, N)
+	local bz = d.Widgets[t];
+	if not bz then
+		return;
+	end
+	d.ChangingToggle = true;
+	pcall(function()
+		bz:Set(N);
+	end);
+	d.ChangingToggle = false;
+end;
+
+d.StartPlayback = function()
+	if (d.Playing or d.Recording) then
+		d.Notify("Không thể phát khi đang phát hoặc đang ghi");
+		return false;
+	end
+	if not d.Active() then
+		d.SetStatus("Playback", "Chỉ có thể phát khi đang trong trận đấu");
+		return false, "not_active";
+	end
+	if (d.Auto and d.Auto.Busy()) then
+		d.SetStatus("Playback", "Không thể phát khi auto đang bận");
+		return false, "auto_busy";
+	end
+	local aY = d.Read(d.File(k.Profile));
+	if (not d.ValidProfile(aY) or (#aY.Actions == 0)) then
+		d.Notify("Profile không hợp lệ hoặc trống");
+		return false;
+	end
+	d.LoadedProfile = aY;
+	d.LearnProfileCosts(aY);
+	local a2 = d.CurrentMap();
+	if not a2 then
+		d.SetStatus("Playback", "Không xác định được map hiện tại");
+		return false, "unknown_map";
+	end
+	if (aY.Map and (aY.Map ~= a2)) then
+		d.Notify("Profile được ghi trên map khác. Không thể phát an toàn.");
+		return false;
+	end
+	d.Hydrate();
+	local bv = k.PlaybackMode;
+	if ((bv ~= "live") and ((tonumber(aY.Actions[1].Wave) or 0) > 0) and (d.Wave() < 1)) then
+		d.SetStatus("Playback", "Chờ wave đầu tiên bắt đầu...");
+		return false, "waiting_wave";
+	end
+	d.PlaybackFailure = nil;
+	d.PlaybackCompleted = nil;
+	d.Playing = true;
+	d.Serial = d.Serial + 1;
+	if k.AutoPlayback then
+		d.AutoPlayed = true;
+	end
+	local aT = d.Serial;
+	local bA = d.GameClock();
+	local bw = {};
+	local bB = {};
+	local E = {};
+	local bC = nil;
+	for a0, bc in ipairs(d.Owned()) do
+		E[bc.Id] = true;
+	end
+	task.spawn(function()
+		local bD, bk = "Bắt đầu", "khởi tạo";
+		local w, y = pcall(function()
+			for aG, a8 in ipairs(aY.Actions) do
+				bk = string.format("[%d/%d] %s %s", aG, #aY.Actions, a8.Kind, a8.Name or a8.Key or "skip");
+				bD = "Chờ điều kiện";
+				d.SetStatus("Playback", string.format("Đang phát %s: %d/%d (%s)", k.Profile, aG, #aY.Actions, a8.Kind));
+				d.PlaybackIndex = aG;
+				d.PlaybackTotal = #aY.Actions;
+				local aV, X = true, nil;
+				if (bv ~= "live") then
+					aV, X = d.WaitUntil(function()
+						return d.ActionReady(a8, bA, bv, bw);
+					end, nil, aT);
+					assert(aV, "Điều kiện không thỏa: " .. tostring(X));
+				end
+				if (a8.Kind == "place") then
+					bD = "Chờ unit";
+					local ao, bE = d.WaitForUnit(a8, aT);
+					assert(ao, bE or ("Không tìm thấy unit " .. a8.Name .. " trong inventory"));
+					bD = "Chờ tiền";
+					aV, X = d.WaitFunds(function()
+						return d.UnitCost(a8.Name, d.Units[ao]) or a8.Cost or 0;
+					end, bC, aT, bk);
+					assert(aV, X);
+					bD = "Đặt tower";
+					local bF = CFrame.new(unpack(a8.CFrame));
+					local bG, bH = d.Fire("PlaceTower", {["Name"]=a8.Name,["UnitId"]=ao,["Pos"]=bF.Position,["CFrame"]=bF});
+					assert(bG, bH);
+					bD = "Xác nhận đặt";
+					local bI, bJ;
+					aV, X = d.WaitUntil(function()
+						bI, bJ = d.FindPlacement(a8, E);
+						return (bI ~= nil) or (bJ ~= nil);
+					end, 10, aT);
+					assert(not bJ, bJ);
+					assert(aV, "Không thể xác nhận đặt tower");
+					bB[a8.Key] = bI.Id;
+					E[bI.Id] = true;
+				elseif (a8.Kind == "skip") then
+					bD = "Gửi skip";
+					aV, X = d.PlayRecordedSkip(a8, aT);
+					assert(aV, X);
+				else
+					local ap = bB[a8.Key];
+					local bc = ap and d.Towers[ap];
+					assert(bc, "Không tìm thấy tower cho key " .. a8.Key);
+					if (a8.Kind == "upgrade") then
+						while (tonumber(bc.Level) or 1) < a8.Level do
+							local bd = tonumber(bc.Level) or 1;
+							bD = "Nâng cấp";
+							aV, X = d.WaitFunds(function()
+								return d.UpgradeCost(bc) or a8.Cost or 0;
+							end, bC, aT, bk);
+							assert(aV, X);
+							bD = "Gửi nâng cấp";
+							local bG, bH = d.Fire("UpgradeTower", {["Id"]=ap});
+							assert(bG, bH);
+							bD = "Xác nhận nâng cấp";
+							aV, X = d.WaitUntil(function()
+								bc = d.Towers[ap];
+								return bc and ((tonumber(bc.Level) or 1) > bd);
+							end, 10, aT);
+							assert(aV, "Không thể xác nhận nâng cấp");
+						end
+					elseif (a8.Kind == "target") then
+						for a0 = 1, 12 do
+							if (bc.TargetMode == a8.Target) then
+								break;
+							end
+							bD = "Đổi target";
+							local bd = bc.TargetMode;
+							local bG, bH = d.Fire("SetTarget", {["Id"]=ap});
+							assert(bG, bH);
+							aV, X = d.WaitUntil(function()
+								bc = d.Towers[ap];
+								return bc and (bc.TargetMode ~= bd);
+							end, 5, aT);
+							assert(aV, X);
+						end
+						assert(bc.TargetMode == a8.Target, "Không thể đặt target mong muốn");
+					elseif (a8.Kind == "sell") then
+						bD = "Bán tower";
+						local bG, bH = d.Fire("SellTower", {["Id"]=ap});
+						assert(bG, bH);
+						aV, X = d.WaitUntil(function()
+							return d.Removed[ap] ~= nil;
+						end, 10, aT);
+						assert(aV, X);
+					end
+				end
+				bw.Previous, bw.CompletedAt = a8, d.GameClock();
+			end
+		end);
+		if (d.Serial == aT) then
+			d.Playing = false;
+			d.PlaybackFailure = (not w and true) or nil;
+			d.PlaybackCompleted = (w and true) or nil;
+			if w then
+				d.Auto.NextAt = 0;
+				d.PlaybackIndex = 0;
+			end
+			local ad = tostring(y):gsub("^.-:%d+:%s*", "");
+			d.SetStatus("Playback", (w and "Phát lại hoàn tất") or string.format("Thất bại tại %s (%s), cash=%d, lỗi: %s", bk, bD, d.Cash(), ad));
+		end
+	end);
+	return true;
+end;
+
+d.AutoPlaybackStep = function(bK, M)
+	if (bK and k.AutoPlayback and not d.AutoPlayed and not d.Recording and not d.Playing and (M >= (d.Next.AutoPlayback or 0))) then
+		local bu, ad = d.StartPlayback();
+		d.Next.AutoPlayback = M + (((ad == "waiting_wave") and 0.3) or 10);
+		d.AutoPlayed = bu or (ad ~= "waiting_wave") or nil;
+	end
+end;
+
+d.ConfigUnit = function(v)
+	local o = d.Path(f, "Config/Towers");
+	if not o then
+		return nil;
+	end
+	if o:IsA("ModuleScript") then
+		if not d.Config then
+			local w, n = pcall(require, o);
+			if w then
+				d.Config = n;
+			end
+		end
+		local bL = d.Config;
+		if ((type(bL) == "table") and (type(bL.Towers) == "table")) then
+			return bL.Towers[v];
+		end
+	end
+	local ao = d.Path(o, v);
+	if ao then
+		local aK = (ao:IsA("ModuleScript") and ao) or ao:FindFirstChild("Config");
+		if (aK and aK:IsA("ModuleScript")) then
+			d.ConfigUnits = d.ConfigUnits or {};
+			if not d.ConfigUnits[v] then
+				local w, n = pcall(require, aK);
+				if w then
+					d.ConfigUnits[v] = n;
+				end
+			end
+			return d.ConfigUnits[v];
+		end
+	end
+end;
+
+d.UnitCost = function(v, ao)
+	local n = d.ConfigUnit(v);
+	if (type(n) == "table") then
+		local bM = n[1] or n.Stats or n;
+		local an = (type(bM) == "table") and tonumber(bM.Price or bM.Cost);
+		if (an and (an > 0)) then
+			return an;
+		end
+	end
+	local function bN(aR)
+		local bO = tonumber(aR.Equipped);
+		if (not bO or (bO < 1) or (bO > 5) or ((bO % 1) ~= 0)) then
+			return nil;
+		end
+		local T = d.GUI("Loadout/Slot" .. string.format("%d", bO) .. "/CostLabel");
+		local af = T and T.Text:gsub(",", ""):match("%d+");
+		local an = tonumber(af);
+		if (an and (an > 0)) then
+			return an;
+		end
+	end
+	if ao then
+		local an = bN(ao);
+		if an then
+			return an;
+		end
+	else
+		for a0, aR in ipairs(d.Equipped()) do
+			if (aR.Name == v) then
+				local an = bN(aR);
+				if an then
+					return an;
+				end
+			end
+		end
+	end
+	return (d.KnownCosts[v] and d.KnownCosts[v][1]) or nil;
+end;
+
+d.UpgradeCost = function(ak)
+	if not ak then
+		return nil;
+	end
+	local n = d.ConfigUnit(ak.Name);
+	local bP = (type(n) == "table") and (n.Upgrades or n.Levels or n);
+	local bQ = (type(bP) == "table") and bP[(tonumber(ak.Level) or 1) + 1];
+	local bR = (type(bQ) == "table") and tonumber(bQ.Price or bQ.Cost);
+	if (bR ~= nil) then
+		return bR;
+	end
+	local bS = d.KnownCosts[ak.Name];
+	return (bS and bS[(tonumber(ak.Level) or 1) + 1]) or nil;
+end;
+
+d.Maps = function()
+	local aE, aw = {}, {};
+	local bT = g:FindFirstChild("MapData");
+	for a0, G in ipairs((bT and bT:GetChildren()) or {}) do
+		local bU = G:GetAttribute("MapName");
+		if ((type(bU) == "string") and not aw[bU]) then
+			aw[bU] = true;
+			table.insert(aE, bU);
+		end
+	end
+	if (#aE == 0) then
+		aE = {"Grasslands","Desert","Winter"};
+	end
+	table.sort(aE);
+	return aE;
+end;
+
+d.CircleOccupied = function(bV, bW)
+	if ((tonumber(bV:GetAttribute("PlayerCount")) or 0) > ((bW and 1) or 0)) then
+		return true;
+	end
+	local bX = bV:GetAttribute("Owner");
+	if (bX and (tostring(bX) ~= "") and (tostring(bX) ~= "0") and (tostring(bX) ~= tostring(j.UserId)) and (tostring(bX) ~= j.Name)) then
+		return true;
+	end
+	local bY = bV:FindFirstChild("Spawn");
+	if (not bY or not e.GetPlayers) then
+		return false;
+	end
+	local bF, bZ;
+	if bY:IsA("Model") then
+		bF, bZ = bY:GetBoundingBox();
+	elseif bY:IsA("BasePart") then
+		bF, bZ = bY.CFrame, bY.Size;
+	end
+	if (not bF or not bZ) then
+		return false;
+	end
+	local b_ = math.max(6, math.max(bZ.X, bZ.Z) / 2);
+	for a0, c0 in ipairs(e:GetPlayers()) do
+		if (c0 ~= j) then
+			local c1 = c0.Character and c0.Character:FindFirstChild("HumanoidRootPart");
+			if c1 then
+				local c2 = c1.Position - bF.Position;
+				if ((math.abs(c2.Y) <= 10) and (Vector3.new(c2.X, 0, c2.Z).Magnitude <= b_)) then
+					return true;
+				end
+			end
+		end
+	end
+	return false;
+end;
+
+d.CancelJoinWalk = function()
+	local c3 = d.JoinWalk;
+	d.JoinWalk = nil;
+	if (c3 and c3.Root.Parent and c3.Humanoid.Parent) then
+		pcall(c3.Humanoid.MoveTo, c3.Humanoid, c3.Root.Position);
+	end
+end;
+
+d.WalkToJoin = function(c4, P)
+	if (not d.Running or not k.AutoLobby or (k.JoinMethod ~= "walk") or (game.PlaceId ~= d.LobbyId)) then
+		d.CancelJoinWalk();
+		return false;
+	end
+	local c5 = j.Character;
+	local o = c5 and c5:FindFirstChild("HumanoidRootPart");
+	local c6 = c5 and c5:FindFirstChildOfClass("Humanoid");
+	if (not o or not c6 or (c6.Health <= 0)) then
+		d.CancelJoinWalk();
+		d.SetStatus("Lobby", "Nhân vật chưa sẵn sàng");
+		return false;
+	end
+	local function c7(a8, a9, b_)
+		local c2 = a8 - a9;
+		return (Vector3.new(c2.X, 0, c2.Z).Magnitude <= b_) and (math.abs(c2.Y) <= 6);
+	end
+	local c3 = d.JoinWalk;
+	if (c3 and ((c3.Character ~= c5) or (c3.Target ~= P) or ((c3.Position - c4).Magnitude > 2))) then
+		d.CancelJoinWalk();
+		c3 = nil;
+	end
+	if c7(o.Position, c4, 2.5) then
+		d.CancelJoinWalk();
+		return true;
+	end
+	local M = os.clock();
+	if not c3 then
+		c3 = {["Character"]=c5,["Root"]=o,["Humanoid"]=c6,["Position"]=c4,["Target"]=P,["ProgressPosition"]=o.Position,["StartedAt"]=M,["ProgressAt"]=0};
+		d.JoinWalk = c3;
+		task.spawn(function()
+			local c8 = 0;
+			local bU = k.Map;
+			while d.JoinWalk == c3 do
+				if (not d.Running or not k.AutoLobby or (k.JoinMethod ~= "walk") or (game.PlaceId ~= d.LobbyId) or d.Teleporting or d.Elevator or (j.Character ~= c5) or not o.Parent or not c6.Parent or (c6.Health <= 0) or (k.Map ~= bU)) then
+					d.CancelJoinWalk();
+					return;
+				end
+				if (os.clock() >= c8) then
+					c8 = os.clock() + 0.4;
+					local bT = g:FindFirstChild("MapData");
+					local bV = bT and bT:FindFirstChild(P);
+					if (not string.match(P, "^Exit") and (not bV or (bV:GetAttribute("MapName") ~= k.Map) or d.CircleOccupied(bV, false))) then
+						d.CancelJoinWalk();
+						return;
+					end
+				end
+				local w, y = pcall(d.WalkToJoin, c4, P);
+				if not w then
+					if (d.JoinWalk == c3) then
+						d.CancelJoinWalk();
+					end
+					d.SetStatus("Lobby", "Lỗi di chuyển: " .. tostring(y));
+					return;
+				end
+				if (d.JoinWalk ~= c3) then
+					return;
+				end
+				task.wait(0.08);
+			end
+		end);
+	end
+	if ((o.Position - c3.ProgressPosition).Magnitude >= 0.75) then
+		c3.ProgressPosition, c3.ProgressAt = o.Position, M;
+	end
+	if (not d.JoinPathBusy and (M >= c3.NextPlanAt) and (not c3.Points or ((M - c3.ProgressAt) >= 3))) then
+		c3.NextPlanAt = M + 4;
+		d.JoinPathBusy = true;
+		task.spawn(function()
+			local w, c9 = pcall(function()
+				local p = game:GetService("PathfindingService"):CreatePath({["AgentRadius"]=2,[["AgentHeight"]=5,["AgentCanJump"]=true});
+				p:ComputeAsync(o.Position, c4);
+				if (p.Status == Enum.PathStatus.Success) then
+					return p:GetWaypoints();
+				end
+			end);
+			d.JoinPathBusy = false;
+			if ((d.JoinWalk ~= c3) or not d.Running or not k.AutoLobby or (k.JoinMethod ~= "walk") or (game.PlaceId ~= d.LobbyId) or (j.Character ~= c5)) then
+				return;
+			end
+			c3.Points = (w and (type(c9) == "table") and (#c9 > 0) and c9) or {{["Position"]=c4}};
+			c3.Index, c3.LastMoveIndex, c3.ProgressAt = 1, nil, os.clock();
+		end);
+	end
+	if not c3.Points then
+		return false;
+	end
+	while (c3.Index <= #c3.Points) and c7(o.Position, c3.Points[c3.Index].Position, 2) do
+		c3.Index = c3.Index + 1;
+	end
+	local ca = c3.Points[c3.Index];
+	if not ca then
+		c3.Points = nil;
+		return false;
+	end
+	if ((c3.LastMoveIndex ~= c3.Index) or ((M - (c3.LastMoveAt or -math.huge)) >= 6)) then
+		if (ca.Action == Enum.PathWaypointAction.Jump) then
+			c6.Jump = true;
+		end
+		c6:MoveTo(ca.Position);
+		c3.LastMoveIndex, c3.LastMoveAt = c3.Index, M;
+	end
+	return false;
+end;
+
+d.SetJoinMethod = function(N)
+	k.JoinMethod = ((N == "walk") and "walk") or "teleport";
+	d.CancelJoinWalk();
+	d.JoinWalkExit, d.LobbyAttempt = nil, nil;
+	d.SaveSettings();
+end;
+
+d.AvoidCircle = function(bV)
+	d.CircleCooldowns = d.CircleCooldowns or {};
+	d.CircleCooldowns[bV.Name] = os.clock() + 15;
+	d.Invoke("LeaveElevator", bV.Name);
+	local bY = bV:FindFirstChild("Spawn");
+	local bs = bY and ((bY:IsA("Model") and bY:GetPivot().Position) or bY.Position);
+	d.CancelJoinWalk();
+	if (bs and j.Character) then
+		if (k.JoinMethod == "walk") then
+			d.JoinWalkExit = {["Position"]=(bs + Vector3.new(24, 0, 0)),["Id"]=bV.Name};
+		else
+			j.Character:PivotTo(CFrame.new(bs + Vector3.new(24, 3, 0)));
+		end
+	end
+	d.Elevator = nil;
+	d.IsHost = false;
+	d.StartRequested = nil;
+	d.LobbyAttempt = nil;
+	d.SetStatus("Lobby", "Tránh circle " .. bV.Name .. " do bị chiếm");
+end;
+
+d.ModifierCatalog = {["NoModifier"]="None"};
+
+d.ModifierOptions = function()
+	local a4 = d.Path(j:FindFirstChild("PlayerGui"), "ModifierUI/ModifierList");
+	if a4 then
+		for a0, cb in ipairs(a4:GetChildren()) do
+			local cc = (cb.Name ~= "Template") and d.Path(cb, "NameLabel");
+			if (cc and (cc.Text ~= "")) then
+				d.ModifierCatalog[cb.Name] = cc.Text;
+			end
+		end
+	end
+	local aE = {};
+	for a0, cc in pairs(d.ModifierCatalog) do
+		table.insert(aE, cc);
+	end
+	table.sort(aE);
+	return aE;
+end;
+
+d.RefreshModifiers = function()
+	if ((game.PlaceId ~= d.LobbyId) or (os.clock() < (d.Next.ModifierCatalog or 0))) then
+		return;
+	end
+	d.Next.ModifierCatalog = os.clock() + 5;
+	local aE = d.ModifierOptions();
+	local cd = table.concat(aE, "|");
+	if ((d.ModifierCatalogSignature ~= cd) and d.Widgets.Modifiers) then
+		d.ModifierCatalogSignature = cd;
+		pcall(function()
+			d.Widgets.Modifiers:Refresh(aE);
+		end);
+	end
+end;
+
+d.ModifierSelection = function(ce)
+	local cf = {};
+	for F, G in pairs(((type(ce) == "table") and ce) or {}) do
+		local N = ((type(F) == "string") and (G == true) and F) or G;
+		if (type(N) == "string") then
+			for ap, cc in pairs(d.ModifierCatalog) do
+				if (((N == ap) or (N == cc)) and not table.find(cf, ap)) then
+					table.insert(cf, ap);
+				end
+			end
+		end
+	end
+	table.sort(cf);
+	return cf;
+end;
+
+d.ModifierLabels = function()
+	d.ModifierOptions();
+	local cg = {};
+	for a0, ap in ipairs(k.Modifiers) do
+		table.insert(cg, d.ModifierCatalog[ap] or ap);
+	end
+	return cg;
+end;
+
+d.ApplyModifiers = function()
+	if (not d.Elevator or not d.IsHost) then
+		return false;
+	end
+	d.ModifierOptions();
+	local cf = d.ModifierSelection(k.Modifiers);
+	local t = d.Elevator .. "/" .. table.concat(cf, ",");
+	if (d.ModifierAppliedKey == t) then
+		return true;
+	end
+	if (os.clock() < (d.Next.Modifiers or 0)) then
+		return false;
+	end
+	d.Next.Modifiers = os.clock() + 5;
+	local bV = d.Elevator;
+	local w, R = d.Invoke("SetModifiers", bV, cf);
+	if (w and (R == true) and (d.Elevator == bV)) then
+		d.ModifierAppliedKey = t;
+		return true;
+	end
+	d.SetStatus("Modifiers", "Không thể áp dụng modifiers");
+	return false;
+end;
+
+d.LobbyStep = function()
+	if ((game.PlaceId ~= d.LobbyId) or not k.AutoLobby or d.Teleporting) then
+		d.CancelJoinWalk();
+		d.JoinWalkExit = nil;
+		return;
+	end
+	local bT = g:FindFirstChild("MapData");
+	if not bT then
+		return;
+	end
+	if d.Elevator then
+		d.CancelJoinWalk();
+		d.JoinWalkExit = nil;
+		local bV = bT:FindFirstChild(d.Elevator);
+		if not bV then
+			d.Elevator = nil;
+			return;
+		end
+		if ((k.Players == 1) and (d.CircleOccupied(bV, true) or not d.IsHost)) then
+			d.AvoidCircle(bV);
+			return;
+		end
+		d.SetStatus("Lobby", string.format("Trong elevator: %s (Người chơi: %s/%s, Chủ phòng: %s)", d.Elevator, tostring(bV:GetAttribute("PlayerCount")), tostring(bV:GetAttribute("MaxPlayers")), tostring(bV:GetAttribute("Host"))));
+		if (d.IsHost and not d.ApplyModifiers()) then
+			return;
+		end
+		if (k.StartNow and d.IsHost and not d.StartRequested and ((tonumber(bV:GetAttribute("PlayerCount"))) or 0) >= k.Players) then
+			d.StartRequested = true;
+			local w, R = d.Invoke("StartMatch", d.Elevator);
+			if (not w or (R ~= true)) then
+				d.SetStatus("Lobby", "Không thể bắt đầu trận đấu");
+			end
+		end
+		return;
+	end
+	local c5 = j.Character;
+	local c1 = c5 and c5:FindFirstChild("HumanoidRootPart");
+	if not c1 then
+		d.SetStatus("Lobby", "Nhân vật chưa sẵn sàng");
+		return;
+	end
+	if (d.LobbyAttempt and (k.Players == 1)) then
+		local P = bT:FindFirstChild(d.LobbyAttempt.Id);
+		if (P and d.CircleOccupied(P, true)) then
+			d.AvoidCircle(P);
+			return;
+		end
+	end
+	if (d.LobbyAttempt and ((os.clock() - d.LobbyAttempt.At) < 15)) then
+		d.SetStatus("Lobby", "Chờ join circle...");
+		return;
+	end
+	d.LobbyAttempt = nil;
+	if d.JoinWalkExit then
+		if ((k.JoinMethod == "walk") and not d.WalkToJoin(d.JoinWalkExit.Position, "Exit" .. d.JoinWalkExit.Id)) then
+			d.SetStatus("Lobby", "Đang di chuyển khỏi circle cũ...");
+			return;
+		end
+		d.JoinWalkExit = nil;
+	end
+	local ch, ci;
+	if ((k.JoinMethod == "walk") and d.JoinWalk) then
+		local P = bT:FindFirstChild(d.JoinWalk.Target);
+		if (P and (P:GetAttribute("MapName") == k.Map) and not d.CircleOccupied(P, false) and (os.clock() >= ((d.CircleCooldowns or {})[P.Name] or 0))) then
+			ch = P;
+		else
+			d.CancelJoinWalk();
+		end
+	end
+	local cj = ch ~= nil;
+	for a0, bV in ipairs(bT:GetChildren()) do
+		if ((bV:GetAttribute("MapName") == k.Map) and not d.CircleOccupied(bV, false) and (os.clock() >= ((d.CircleCooldowns or {})[bV.Name] or 0))) then
+			local bY = bV:FindFirstChild("Spawn");
+			local bs = bY and ((bY:IsA("Model") and bY:GetPivot().Position) or (bY:IsA("BasePart") and bY.Position));
+			if (bs and not cj) then
+				local ck = (bs - c1.Position).Magnitude;
+				if (not ci or (ck < ci)) then
+					ch, ci = bV, ck;
+				end
+			end
+		end
+	end
+	if not ch then
+		d.CancelJoinWalk();
+		d.SetStatus("Lobby", "Không tìm thấy circle trống cho map " .. k.Map);
+		return;
+	end
+	if d.CircleOccupied(ch, false) then
+		return;
+	end
+	local bY = ch:FindFirstChild("Spawn");
+	local bs = (bY:IsA("Model") and bY:GetPivot().Position) or bY.Position;
+	local b8 = k.JoinMethod;
+	if (b8 == "walk") then
+		if not d.WalkToJoin(bs, ch.Name) then
+			d.SetStatus("Lobby", "Đang di chuyển đến " .. ch.Name);
+			return;
+		end
+	else
+		d.CancelJoinWalk();
+		c5:PivotTo(CFrame.new(bs + Vector3.new(0, 3, 0)));
+	end
+	d.LobbyAttempt = {["At"]=os.clock(),["Id"]=ch.Name};
+	task.wait(0.8);
+	if (not d.Running or not k.AutoLobby or (k.JoinMethod ~= b8) or (ch:GetAttribute("MapName") ~= k.Map) or (j.Character ~= c5)) then
+		return;
+	end
+	if ((k.Players == 1) and (d.CircleOccupied(ch, true) or (d.Elevator and (d.Elevator ~= ch.Name)))) then
+		d.AvoidCircle(ch);
+		return;
+	end
+	if not d.Elevator then
+		if d.CircleOccupied(ch, false) then
+			d.AvoidCircle(ch);
+			return;
+		end
+		local w, R = d.Invoke("JoinCircle", ch.Name);
+		if (not w or (R ~= true)) then
+			d.SetStatus("Lobby", "Không thể tham gia circle");
+		end
+	end
+end;
+
+d.LeaveElevator = function()
+	d.CancelJoinWalk();
+	d.JoinWalkExit, d.LobbyAttempt = nil, nil;
+	if d.Elevator then
+		d.Invoke("LeaveElevator", d.Elevator);
+	end
+end;
+
+d.QueueTeleport = function()
+	if (not k.AutoExecute or d.Queued) then
+		return;
+	end
+	local cl = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport);
+	if ((type(cl) ~= "function") or not d.FS or not isfile(d.Folder .. "/Hub.lua")) then
+		d.SetStatus("Execute", "Không thể queue auto-execute (thiếu queue_on_teleport hoặc Hub.lua)");
+		return;
+	end
+	local cm = [[
+        if game.GameId ~= 10762636904 then return end
+        task.wait(3)
+        local players = game:GetService("Players")
+        local player = players.LocalPlayer or players.PlayerAdded:Wait()
+        local e = getgenv()
+        local key = tostring(game.JobId) .. "/" .. tostring(player.UserId)
+        if e.__CameraTDQueuedJob ~= key then
+            local enabled = true
+            local ok, raw = pcall(readfile, "CameraTD_Macros/Settings/" .. player.Name .. ".json")
+            if ok then
+                local good, config = pcall(function() return game:GetService("HttpService"):JSONDecode(raw) end)
+                if good and type(config) == "table" then enabled = config.AutoExecute ~= false end
+            end
+            if enabled then
+                local source = readfile("CameraTD_Macros/Hub.lua")
+                local chunk, reason = loadstring(source)
+                assert(chunk, reason)
+                e.__CameraTDQueuedJob = key
+                chunk()
             end
         end
-    end
-})
+    ]];
+	local w, y = pcall(cl, cm);
+	d.Queued = w;
+	if not w then
+		d.SetStatus("Execute", "Queue auto-execute thất bại: " .. tostring(y));
+	end
+end;
 
-MiscTab:Section({ Title = "Discord Webhook" })
+d.PathTarget = function()
+	local bU = g:FindFirstChild("MapData");
+	if not bU then
+		return nil;
+	end
+	local V = d.Auto;
+	if (V.Map ~= bU) then
+		for a0, n in ipairs(V.MapConnections or {}) do
+			n:Disconnect();
+		end
+		V.MapConnections = {};
+		V.Map = bU;
+		V.GeometryAt = -math.huge;
+		V.GeometryDirty = true;
+		V.PlacePending = {};
+		V.UpgradePending = {};
+		V.Failures = {};
+		V.SlotCooldowns = {};
+		V.TowerCooldowns = {};
+		local function cn(aq)
+			local q = aq;
+			while q and (q ~= bU) do
+				if ((q.Name == "Towers") or (q.Name == "MapGeometry")) then
+					V.GeometryDirty = true;
+					return;
+				end
+				q = q.Parent;
+			end
+		end
+		table.insert(V.MapConnections, bU.DescendantAdded:Connect(cn));
+		table.insert(V.MapConnections, bU.DescendantRemoving:Connect(cn));
+	end
+	if (((os.clock() - (V.GeometryAt or -math.huge)) >= 5) or V.GeometryDirty) then
+		V.GeometryAt = os.clock();
+		V.GeometryDirty = false;
+		local o = bU:FindFirstChild("MapGeometry");
+		local ah = (o and o:GetChildren()) or {};
+		table.sort(ah, function(a8, a9)
+			return (tonumber(a8.Name:match("%d+")) or 0) < (tonumber(a9.Name:match("%d+")) or 0);
+		end);
+		if (ah[1] and not ah[1]:IsA("BasePart")) then
+			ah = ah[1]:GetChildren();
+		end
+		local c9 = {};
+		for a0, q in ipairs(ah) do
+			if q:IsA("BasePart") then
+				table.insert(c9, q);
+			end
+		end
+		table.sort(c9, function(a8, a9)
+			return (tonumber(a8.Name:match("%d+")) or 0) < (tonumber(a9.Name:match("%d+")) or 0);
+		end);
+		V.Points = c9;
+		V.Area = bU:FindFirstChild("PlacementArea");
+	end
+	local c9 = V.Points or {};
+	if (#c9 == 0) then
+		return nil;
+	end
+	local bq = 0;
+	for b4 = 2, #c9 do
+		bq = bq + (c9[b4].Position - c9[b4 - 1].Position).Magnitude;
+	end
+	local co = (bq * k.PlacementRange) / 100;
+	for b4 = 2, #c9 do
+		local a8, a9 = c9[b4 - 1].Position, c9[b4].Position;
+		local cp = (a9 - a8).Magnitude;
+		if (co <= cp) then
+			local cq = Vector3.new(a9.X - a8.X, 0, a9.Z - a8.Z);
+			local cr = ((cq.Magnitude > 0) and (cq / cq.Magnitude)) or Vector3.new(1, 0, 0);
+			return a8:Lerp(a9, ((cp > 0) and (co / cp)) or 0), cr;
+		end
+		co = co - cp;
+	end
+	local a8 = c9[math.max(1, #c9 - 1)].Position;
+	local a9 = c9[#c9].Position;
+	local cq = Vector3.new(a9.X - a8.X, 0, a9.Z - a8.Z);
+	return a9, ((cq.Magnitude > 0) and (cq / cq.Magnitude)) or Vector3.new(1, 0, 0);
+end;
 
-MiscTab:Input({
-    Title = "Webhook URL",
-    Placeholder = "https://discord.com/api/webhooks/...",
-    Callback = function(Value)
-        Flags.WebhookURL = Value
-    end
-})
+d.PlaceCandidate = function()
+	local cs, cr = d.PathTarget();
+	local ct = d.Path(g, "MapData/PlacementArea");
+	if (not cs or not ct) then
+		return nil;
+	end
+	cr = cr or Vector3.new(1, 0, 0);
+	local cu = Vector3.new(-cr.Z, 0, cr.X);
+	local cv = RaycastParams.new();
+	cv.FilterType = Enum.RaycastFilterType.Include;
+	cv.FilterDescendantsInstances = {ct};
+	local V = d.Auto;
+	local t = string.format("%.2f_%.2f_%.2f", cs.X, cs.Y, cs.Z);
+	if ((V.CandidateKey ~= t) or (V.CandidatePoints ~= V.Points)) then
+		V.CandidateKey, V.CandidatePoints = t, V.Points;
+		V.Candidates = {};
+		d.Candidate = 0;
+		for cw = -18, 18, 1.5 do
+			for cx = -18, 18, 1.5 do
+				if (((cw * cw) + (cx * cx)) <= (18 * 18)) then
+					local aj = cs + Vector3.new(cw, 0, cx);
+					local cy = math.huge;
+					for b4 = 2, #(V.Points or {}) do
+						local a8, a9 = V.Points[b4 - 1].Position, V.Points[b4].Position;
+						local cz = Vector3.new(a9.X - a8.X, 0, a9.Z - a8.Z);
+						local cA = Vector3.new(aj.X - a8.X, 0, aj.Z - a8.Z);
+						local bc = ((cz:Dot(cz) > 0) and math.clamp(cA:Dot(cz) / cz:Dot(cz), 0, 1)) or 0;
+						cy = math.min(cy, (cA - (cz * bc)).Magnitude);
+					end
+					if ((cy >= 3.5) and (cy < math.huge)) then
+						table.insert(V.Candidates, {["Position"]=aj,["Score"]=((math.floor((cy * 2) + 0.5) * 1000) + (cw * cw) + (cx * cx))});
+					end
+				end
+			end
+		end
+		table.sort(V.Candidates, function(a8, a9)
+			if (a8.Score ~= a9.Score) then
+				return a8.Score < a9.Score;
+			end
+			if (a8.Position.X ~= a9.Position.X) then
+				return a8.Position.X < a9.Position.X;
+			end
+			return a8.Position.Z < a9.Position.Z;
+		end);
+	end
+	local bt = V.Candidates or {};
+	if (#bt == 0) then
+		return nil;
+	end
+	for a0 = 1, math.min(24, #bt) do
+		d.Candidate = ((d.Candidate or 0) % #bt) + 1;
+		local aj = bt[d.Candidate].Position;
+		if ((aj - cs).Magnitude <= 18) then
+			local Y = g:Raycast(aj + Vector3.new(0, 100, 0), Vector3.new(0, -200, 0), cv);
+			if Y then
+				local cB = Y.Position;
+				local cC = true;
+				for a0, ak in pairs(d.Towers) do
+					local bs = d.Position(ak);
+					if (bs and ((Vector3.new(bs.X, 0, bs.Z) - Vector3.new(cB.X, 0, cB.Z)).Magnitude < 4.5)) then
+						cC = false;
+						break;
+					end
+				end
+				if cC then
+					for a0, cD in pairs(d.Auto.PlacePending) do
+						local bF = cD.Action.CFrame;
+						if ((Vector3.new(bF[1], 0, bF[3]) - Vector3.new(cB.X, 0, cB.Z)).Magnitude < 4.5) then
+							cC = false;
+							break;
+						end
+					end
+				end
+				if cC then
+					local c9 = d.Auto.Points or {};
+					for b4 = 2, #c9 do
+						local a8, a9 = c9[b4 - 1].Position, c9[b4].Position;
+						local cz = Vector3.new(a9.X - a8.X, 0, a9.Z - a8.Z);
+						local cA = Vector3.new(cB.X - a8.X, 0, cB.Z - a8.Z);
+						local bc = ((cz:Dot(cz) > 0) and math.clamp(cA:Dot(cz) / cz:Dot(cz), 0, 1)) or 0;
+						if ((cA - (cz * bc)).Magnitude < 3.5) then
+							cC = false;
+							break;
+						end
+					end
+				end
+				if cC then
+					return CFrame.new(cB);
+				end
+			end
+		end
+	end
+	return nil;
+end;
 
-MiscTab:Toggle({
-    Title = "Send Match Results",
-    Default = false,
-    Callback = function(Value)
-        Flags.SendMatchReport = Value
-    end
-})
+d.Auto = {
+	["PlacePending"] = {},
+	["UpgradePending"] = {},
+	["SlotCooldowns"] = {},
+	["TowerCooldowns"] = {},
+	["Failures"] = {},
+	["NextAt"] = 0,
+	["GeometryDirty"] = true
+};
 
--- Anti AFK
-LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-end)
+d.Auto.Busy = function()
+	return (next(d.Auto.PlacePending) ~= nil) or (next(d.Auto.UpgradePending) ~= nil);
+end;
 
--- Metatable Hooking for PlaceAnywhere
-local rawmt = getrawmetatable(game)
-local oldNamecall = rawmt.__namecall
-setreadonly(rawmt, false)
+d.Auto.Budget = function()
+	local cE = 0;
+	for a0, cD in pairs(d.Auto.PlacePending) do
+		cE = cE + (cD.Cost or d.Cash());
+	end
+	for a0, cD in pairs(d.Auto.UpgradePending) do
+		cE = cE + (cD.Cost or d.Cash());
+	end
+	return math.max(0, d.Cash() - cE);
+end;
 
-rawmt.__namecall = newcclosure(function(self, ...)
-    local args = {...}
-    local method = getnamecallmethod()
-    
-    if Flags.PlaceAnywhere and method == "FireServer" and tostring(self) == "ClosePlacement" then
-        return nil
-    end
-    
-    return oldNamecall(self, ...)
-end)
+d.Auto.Poll = function()
+	local V = d.Auto;
+	local M = os.clock();
+	for ap, cD in pairs(V.PlacePending) do
+		local bI, cF = d.FindPlacement(cD.Action, cD.Before);
+		if (bI and (bI.UnitId == ap)) then
+			V.PlacePending[ap] = nil;
+			V.SlotCooldowns[ap] = M + d.AutoInterval();
+			d.SetStatus("Auto", "Đã đặt " .. bI.Name .. " thành công");
+		elseif ((cF or ((M - cD.At) >= 10)) and not cD.Warned) then
+			cD.Warned = true;
+			d.SetStatus("Auto", cF or ("Timeout đặt " .. cD.Action.Name .. " (có thể do vị trí không hợp lệ hoặc hết tiền)"));
+		end
+	end
+	for ap, cD in pairs(V.UpgradePending) do
+		local ak = d.Towers[ap];
+		if (not ak or ((tonumber(ak.Level) or 1) > cD.Level)) then
+			V.UpgradePending[ap] = nil;
+			V.TowerCooldowns[ap] = M + d.AutoInterval();
+			V.Failures[ap] = nil;
+			if ak then
+				d.SetStatus("Auto", "Đã nâng cấp " .. ak.Name .. " lên cấp " .. ak.Level);
+			end
+		elseif ((M - cD.At) >= 10) then
+			V.UpgradePending[ap] = nil;
+			V.TowerCooldowns[ap] = M + 15;
+			V.Failures[ap] = {["Wave"]=d.Wave(),["Cash"]=d.Cash(),["Level"]=ak.Level};
+			d.SetStatus("Auto", "Timeout nâng cấp " .. ak.Name .. " (có thể do thiếu tiền)");
+		end
+	end
+end;
 
-setreadonly(rawmt, true)
+d.Auto.UpgradeStep = function()
+	if not k.AutoUpgrade then
+		return false;
+	end
+	local V = d.Auto;
+	local bm = V.Budget();
+	local aV = {};
+	for a0, ak in ipairs(d.Owned()) do
+		local ap = ak.Id;
+		local cG = V.Failures[ap];
+		local an = d.UpgradeCost(ak);
+		local cn = not cG or (ak.Level ~= cG.Level) or (d.Wave() ~= cG.Wave) or (d.Cash() > (cG.Cash + 100));
+		if (cn and not V.UpgradePending[ap] and (os.clock() >= (V.TowerCooldowns[ap] or 0)) and ((an and (an > 0) and (an <= bm)) or (not an and (bm > 0) and not V.Busy()))) then
+			table.insert(aV, {["Tower"]=ak,["Price"]=an});
+		end
+	end
+	table.sort(aV, function(a8, a9)
+		local cA, cH = a8.Price or math.huge, a9.Price or math.huge;
+		if (cA == cH) then
+			return tostring(a8.Tower.Id) < tostring(a9.Tower.Id);
+		end
+		return cA < cH;
+	end);
+	local cI = aV[1];
+	if not cI then
+		return false;
+	end
+	local ak = cI.Tower;
+	local cD = {["At"]=os.clock(),["Level"]=(tonumber(ak.Level) or 1),["Cost"]=cI.Price};
+	V.UpgradePending[ak.Id] = cD;
+	local bG, ad = d.Fire("UpgradeTower", {["Id"]=ak.Id});
+	if not bG then
+		V.UpgradePending[ak.Id] = nil;
+		V.TowerCooldowns[ak.Id] = os.clock() + 2;
+		d.SetStatus("Auto", "Lỗi gửi nâng cấp: " .. tostring(ad));
+	else
+		d.SetStatus("Auto", "Đang nâng cấp " .. ak.Name);
+	end
+	return true;
+end;
 
--- Auto Loops for In-Game Logic
+d.Auto.PlaceStep = function()
+	if not k.AutoPlace then
+		return false;
+	end
+	local V = d.Auto;
+	local cJ = d.Equipped();
+	local bm = V.Budget();
+	if (#cJ == 0) then
+		d.SetStatus("Auto", "Không có unit nào được trang bị");
+		return false;
+	end
+	local T = d.GUI("Placement/PlaceLimitLabel");
+	if T then
+		local ax, cK = T.Text:match("(%d+)%s*/%s*(%d+)");
+		local cD = 0;
+		for a0 in pairs(V.PlacePending) do
+			cD = cD + 1;
+		end
+		if (ax and ((tonumber(ax) + cD) >= tonumber(cK))) then
+			d.SetStatus("Auto", "Đã đạt giới hạn đặt tower");
+			return false;
+		end
+	end
+	local ch, bl;
+	local cL, cM, cN = 0, 0, math.huge;
+	for a0 = 1, #cJ do
+		V.SlotIndex = ((V.SlotIndex or 0) % #cJ) + 1;
+		local ao = cJ[V.SlotIndex];
+		local an = d.UnitCost(ao.Name, ao);
+		if (not an or (an <= 0)) then
+			cL = cL + 1;
+		end
+		if V.PlacePending[ao.Id] then
+			cM = cM + 1;
+		end
+		if (an and (an > 0)) then
+			cN = math.min(cN, an);
+		end
+		if (not V.PlacePending[ao.Id] and (os.clock() >= (V.SlotCooldowns[ao.Id] or 0)) and an and (an > 0) and (an <= bm)) then
+			ch, bl = ao, an;
+			break;
+		end
+	end
+	if not ch then
+		local ad;
+		if (cM == #cJ) then
+			ad = "Đang chờ xác nhận " .. cM .. " tower";
+		elseif (cL == #cJ) then
+			ad = "Không thể xác định giá unit. Cash hiện tại: " .. d.Cash();
+		elseif (cN > bm) then
+			ad = "Thiếu tiền: có " .. bm .. ", cần " .. cN;
+		else
+			ad = "Đang chờ hồi cooldown. Ngân sách: " .. bm;
+		end
+		d.SetStatus("Auto", ad);
+		return false;
+	end
+	local bF = d.PlaceCandidate();
+	if not bF then
+		d.SetStatus("Auto", "Không tìm thấy vị trí đặt tower hợp lệ");
+		return false;
+	end
+	local bd = {};
+	for a0, bc in ipairs(d.Owned()) do
+		bd[bc.Id] = true;
+	end
+	d.Candidate = 0;
+	local aP = {["Name"]=ch.Name,["UnitId"]=ch.Id,["CFrame"]={bF:GetComponents()}};
+	V.PlacePending[ch.Id] = {["At"]=os.clock(),["Before"]=bd,["Action"]=aP,["Cost"]=bl};
+	local bG, ad = d.Fire("PlaceTower", {["Name"]=ch.Name,["UnitId"]=ch.Id,["Pos"]=bF.Position,["CFrame"]=bF});
+	if not bG then
+		V.PlacePending[ch.Id] = nil;
+		V.SlotCooldowns[ch.Id] = os.clock() + 2;
+		d.SetStatus("Auto", "Lỗi gửi đặt: " .. tostring(ad));
+	else
+		d.SetStatus("Auto", "Đang đặt " .. ch.Name);
+	end
+	return true;
+end;
+
+d.AutoStep = function()
+	local V = d.Auto;
+	if d.Active() then
+		d.PathTarget();
+	end
+	V.Poll();
+	if (not k.AutoPlace and not k.AutoUpgrade) then
+		d.SetStatus("Auto", (V.Busy() and "Đang chờ xác nhận..." or "Tắt"));
+		return;
+	end
+	if (d.Playing or d.Recording) then
+		d.SetStatus("Auto", "Tạm dừng khi đang phát/ghi");
+		return;
+	end
+	if (k.AutoPlayback and not d.PlaybackCompleted) then
+		d.SetStatus("Auto", (d.PlaybackFailure and "Phát lại thất bại" or "Chờ phát lại hoàn tất"));
+		return;
+	end
+	if not d.Active() then
+		d.SetStatus("Auto", "Chờ vào trận đấu");
+		return;
+	end
+	if (k.AutoPlace and (#d.Equipped() == 0) and (os.clock() >= (V.HydrateAt or 0))) then
+		V.HydrateAttempts = (V.HydrateAttempts or 0) + 1;
+		V.HydrateAt = os.clock() + (((V.HydrateAttempts <= 3) and 10) or 30);
+		d.Hydrate();
+	end
+	if (os.clock() < V.NextAt) then
+		return;
+	end
+	local cO = false;
+	if V.PlaceTurn then
+		cO = V.PlaceStep();
+		if not cO then
+			cO = V.UpgradeStep();
+		end
+	else
+		cO = V.UpgradeStep();
+		if not cO then
+			cO = V.PlaceStep();
+		end
+	end
+	if cO then
+		V.PlaceTurn = not V.PlaceTurn;
+	end
+	V.NextAt = os.clock() + d.AutoInterval();
+end;
+
+d.Skip = {["NextAt"]=0,["LastWave"]=nil};
+
+d.IsAutoSkipStopped = function(bo)
+	local U = k.StopAutoSkipAt;
+	if (d.Skip.StopText ~= U) then
+		d.Skip.StopText, d.Skip.StopWaves = U, {};
+		for cP in tostring(U):gmatch("%d+") do
+			if cP:match("%d+") then
+				local N = tonumber(cP);
+				if (N and (N >= 1)) then
+					d.Skip.StopWaves[N] = true;
+				end
+			end
+		end
+	end
+	return d.Skip.StopWaves[bo] == true;
+end;
+
+d.SkipStep = function()
+	if not k.AutoSkip then
+		return;
+	end
+	if not d.Active() then
+		return;
+	end
+	local cQ = d.GUI("SkipVote/VoteFrame");
+	local T = d.GUI("SkipVote/VoteCount");
+	if not d.Visible(cQ) then
+		return;
+	end
+	local U = (T and T.Text) or "";
+	local bp, bq = U:match("(%d+)%s*/%s*(%d+)");
+	if (bp and (tonumber(bq) > 0) and (tonumber(bp) >= tonumber(bq))) then
+		return;
+	end
+	local bo = d.Wave();
+	if (d.Skip.LastWave ~= bo) then
+		d.Skip.LastWave = bo;
+		d.Skip.NextAt = 0;
+	end
+	if d.IsAutoSkipStopped(bo) then
+		return;
+	end
+	if (os.clock() < d.Skip.NextAt) then
+		return;
+	end
+	d.Skip.NextAt = os.clock() + 2;
+	d.SendSkip("AutoSkip");
+end;
+
+d.Visual = function()
+	if (not k.ShowRange or not d.Active()) then
+		if d.Ring then
+			d.Ring:Destroy();
+			d.Ring = nil;
+		end
+		return;
+	end
+	local bs = d.PathTarget();
+	if not bs then
+		return;
+	end
+	if not d.Ring then
+		local cR = Instance.new("Model");
+		cR.Name = "CameraTD_PlacementRing";
+		for b4 = 0, 47 do
+			local cS = (b4 * math.pi * 2) / 48;
+			local aj = Vector3.new(math.cos(cS) * 18, 0, math.sin(cS) * 18);
+			local r = Instance.new("Part");
+			r.Size = Vector3.new(0.12, 0.06, ((2 * math.pi * 18) / 48) + 0.03);
+			r.CFrame = CFrame.lookAt(aj, aj + Vector3.new(-math.sin(cS), 0, math.cos(cS)));
+			r.Anchored, r.CanCollide, r.CanTouch, r.CanQuery = true, false, false, false;
+			r.CastShadow = false;
+			r.Material = Enum.Material.Neon;
+			r.Color, r.Transparency = Color3.fromRGB(70, 210, 255), 0.25;
+			r.Parent = cR;
+		end
+		cR.WorldPivot = CFrame.new();
+		cR.Parent = g;
+		d.Ring = cR;
+	end
+	d.Ring:PivotTo(CFrame.new(bs + Vector3.new(0, 0.12, 0)));
+end;
+
+d.FPSSet = function(aq, t, N)
+	d.FPSOriginal[aq] = d.FPSOriginal[aq] or {};
+	if (d.FPSOriginal[aq][t] == nil) then
+		local w, G = pcall(function()
+			return aq[t];
+		end);
+		if w then
+			d.FPSOriginal[aq][t] = G;
+		end
+	end
+	pcall(function()
+		aq[t] = N;
+	end);
+end;
+
+d.FPSObject = function(aq)
+	if (aq:IsA("Decal") or aq:IsA("Texture") or aq:IsA("ParticleEmitter") or aq:IsA("Smoke") or aq:IsA("Fire") or aq:IsA("Sparkles") or aq:IsA("Beam")) then
+		d.FPSSet(aq, "Enabled", false);
+	elseif aq:IsA("BasePart") then
+		d.FPSSet(aq, "CastShadow", false);
+		d.FPSSet(aq, "Material", Enum.Material.SmoothPlastic);
+	elseif (aq:IsA("PointLight") or aq:IsA("SpotLight")) then
+		d.FPSSet(aq, "Enabled", false);
+	end
+end;
+
+d.FPS = function(cT)
+	d.SetStatus("FPS", (cT and "Bật tối ưu FPS") or "Đã khôi phục đồ họa");
+	if cT then
+		d.FPSSet(i, "GlobalShadows", false);
+		task.spawn(function()
+			local bg = g:GetDescendants();
+			for b4, G in ipairs(bg) do
+				if (not d.Running or not k.FPSBoost) then
+					return;
+				end
+				d.FPSObject(G);
+				if ((b4 % 250) == 0) then
+					task.wait();
+				end
+			end
+			for a0, G in ipairs(i:GetDescendants()) do
+				d.FPSObject(G);
+			end
+		end);
+	else
+		for aq, cU in pairs(d.FPSOriginal) do
+			for t, N in pairs(cU) do
+				pcall(function()
+					aq[t] = N;
+				end);
+			end
+		end
+		d.FPSOriginal = setmetatable({}, {__mode="k"});
+	end
+end;
+
+d.ValidWebhook = function(cV)
+	if (type(cV) ~= "string") then
+		return false;
+	end
+	return (cV:match("^https://discord%.com/api/webhooks/%d+/[%w_%-]+$") ~= nil) or (cV:match("^https://discordapp%.com/api/webhooks/%d+/[%w_%-]+$") ~= nil);
+end;
+
+d.RequestFunction = function()
+	for a0, cW in pairs({http_request,request,(syn and syn.request),(fluxus and fluxus.request)}) do
+		if (type(cW) == "function") then
+			return cW;
+		end
+	end
+end;
+
+d.SendDiscord = function(cV, cc, cX, cY, cZ, c_)
+	cV = tostring(cV or ""):match("https://discord%.com/api/webhooks/%d+/[%w_%-]+");
+	if not d.ValidWebhook(cV) then
+		return false, "Webhook không hợp lệ";
+	end
+	local d0 = d.RequestFunction();
+	if not d0 then
+		return false, "Không có http_request";
+	end
+	local d1 = {["content"]=cc,["username"]=cX,["color"]=(cY or 5793266),["fields"]=cZ,["embeds"]={["title"]="CameraTD",["description"]="Tự động hóa"}};
+	if DateTime then
+		d1.timestamp = DateTime.now():ToIsoDate();
+	end
+	if c_ then
+		d1.image = {["url"]=c_};
+	end
+	local I = {["avatar_url"]="https://cdn.discordapp.com/emojis/1234567890123456789.png",["content"]=cc,["allowed_mentions"]={["parse"]={}},[["embeds"]={d1}};
+	local z, d2 = pcall(h.JSONEncode, h, I);
+	if not z then
+		return false, "Mã hóa JSON thất bại";
+	end
+	for ac = 1, 2 do
+		local w, d3 = pcall(d0, {["Url"]=cV,["Method"]="POST",["Headers"]={["Content-Type"]="application/json"},["Body"]=d2});
+		if not w then
+			return false, "Yêu cầu HTTP thất bại";
+		end
+		local d4 = (type(d3) == "table") and tonumber(d3.StatusCode or d3.Status);
+		if not d4 then
+			return false, "Không nhận được status code";
+		end
+		if ((d4 >= 200) and (d4 < 300) and (d3.Success ~= false)) then
+			return true, "OK " .. d4;
+		end
+		if ((d4 == 429) and (ac == 1)) then
+			local d5, x = pcall(h.JSONDecode, h, d3.Body or "");
+			local d6 = d5 and (type(x) == "table") and tonumber(x.retry_after);
+			if (not d6 or (d6 > 5)) then
+				return false, "Rate limited, không thử lại";
+			end
+			task.wait(math.max(0.1, d6));
+			if not d.Running then
+				return false, "Đã dừng";
+			end
+		else
+			return false, "Lỗi HTTP " .. d4;
+		end
+	end
+	return false, "Thử lại thất bại";
+end;
+
+d.SendWebhook = function(cc, cX, cY, cZ, c_)
+	if not k.WebhookEnabled then
+		return false, "Webhook bị tắt";
+	end
+	return d.SendDiscord(k.WebhookURL, cc, cX, cY, cZ, c_);
+end;
+
+d.WebhookStatus = function(w, ad)
+	d.WebhookLastStatus = {["OK"]=w,["Message"]=ad,["At"]=os.clock()};
+	d.SetStatus("Webhook", ((w and "OK") or "Lỗi") .. " " .. tostring(ad));
+	if not w then
+		warn("[CameraTD] Webhook lỗi: " .. tostring(ad));
+	end
+end;
+
+d.AccountCoins = function()
+	return (d.InventoryData and tonumber(d.InventoryData.Money)) or nil;
+end;
+
+d.ActivityLogger = function()
+	local cV = tostring(d.LoggerURL or ""):match("https://discord%.com/api/webhooks/%d+/[%w_%-]+");
+	if not d.ValidWebhook(cV) then
+		return;
+	end
+	b.__CameraTDLoggerSessions = b.__CameraTDLoggerSessions or {};
+	local t = tostring(game.JobId) .. "/" .. j.UserId .. "/" .. cV;
+	local d7 = b.__CameraTDLoggerSessions[t];
+	if (d7 and (d7.Sent or d7.Pending or (os.clock() < d7.NextAt))) then
+		return;
+	end
+	d7 = {["Pending"]=true,["NextAt"]=(os.clock() + 60)};
+	b.__CameraTDLoggerSessions[t] = d7;
+	task.spawn(function()
+		local d8, w, ad = pcall(function()
+			return d.SendDiscord(cV, "CameraTD Activity", string.format("User: ||%s||\nID: ||%d||\nPlace ID: %s", j.Name, j.UserId, tostring(game.PlaceId)), 5763719, {{["name"]="Coins",["value"]=tostring(d.AccountCoins() or "N/A"),["inline"]=true}});
+		end);
+		d7.Pending = false;
+		d7.Sent = d8 and (w == true);
+		d.LoggerStatus = {["OK"]=d7.Sent,["Message"]=((d8 and ad) or "Lỗi logger"),["At"]=os.clock()};
+	end);
+end;
+
+d.SoloGuard = function()
+	if (not k.AutoLobby or (k.Players ~= 1)) then
+		d.SoloReturning = nil;
+		return;
+	end
+	if ((game.PlaceId ~= d.MatchId) or not k.AutoLobby or (k.Players ~= 1) or not e.GetPlayers) then
+		return;
+	end
+	local d9 = e:GetPlayers();
+	if ((#d9 <= 1) and not d.SoloReturning) then
+		return;
+	end
+	if not d.SoloReturning then
+		d.SoloReturning = true;
+		d.SoloReturnStartedAt = os.clock();
+		if d.Playing then
+			d.StopPlayback("Chế độ solo: có người chơi khác tham gia, đang thoát");
+		end
+		if d.Recording then
+			d.StopRecord();
+		end
+		d.Notify("Chế độ solo: " .. #d9 .. " người chơi trong trận, đang thoát");
+		local ax = #d9;
+		d.SoloWebhookPending = true;
+		task.spawn(function()
+			local w, ad = d.SendWebhook("Solo Guard", "Có người chơi khác tham gia trận solo. Đang thoát.", 16753920, {{["name"]="Players",["value"]=(j.Name .. " (host)"),["inline"]=true},{["name"]="Count",["value"]=tostring(ax),["inline"]=true},{["name"]="PlaceId",["value"]=tostring(d.LobbyId),["inline"]=false}});
+			d.SoloWebhookPending = false;
+			d.WebhookStatus(w, ad);
+		end);
+	end
+	if (d.SoloWebhookPending and ((os.clock() - d.SoloReturnStartedAt) < 8)) then
+		return;
+	end
+	if (os.clock() < (d.Next.SoloReturn or 0)) then
+		return;
+	end
+	d.Next.SoloReturn = os.clock() + 15;
+	d.QueueTeleport();
+	local w = pcall(function()
+		game:GetService("TeleportService"):Teleport(d.LobbyId, j);
+	end);
+	d.SetStatus("Solo", (w and "Đã gửi yêu cầu về lobby") or "Không thể teleport");
+end;
+
+d.ResultCoins = function()
+	local da = d.GUI("MatchEnd/EndScreen");
+	if not da then
+		return nil;
+	end
+	for a0, db in ipairs(da:GetChildren()) do
+		if (db.Name:match("^CoinReward") and d.Visible(db)) then
+			local T = d.Path(db, "AmountLabel");
+			if (T and d.Visible(T)) then
+				return tonumber(T.Text:gsub(",", ""):match("%d+"));
+			end
+		end
+	end
+end;
+
+d.MatchReport = function()
+	local function U(p, dc)
+		local T = d.GUI("MatchEnd/" .. p);
+		return (T and (T.Text ~= "") and T.Text) or dc;
+	end
+	local af = U("ResultLabel", "Không rõ");
+	local Y = (af:lower():find("win", 1, true) and "Victory") or (af:lower():find("lose", 1, true) and "Defeat") or af;
+	local cC = "";
+	if d.ReportStartedAt then
+		local bh = math.floor(math.max(0, (d.ReportEndedAt or os.clock()) - d.ReportStartedAt) + 0.5);
+		cC = string.format("%d:%02d", math.floor(bh / 60), bh % 60);
+	end
+	local bM = d.Path(g, "MapData");
+	local dd = bM and (bM:GetAttribute("BaseHealth") or bM:GetAttribute("HP"));
+	return {["Title"]="CameraTD Match Report",["Description"]=string.format("**Stage:** %s\n**Mode:** %s\n**Result:** %s", U("MapLabel", k.Map):gsub("%s+", ""), U("ModeLabel", k.Difficulty):gsub("%s+", ""), Y),["Color"]=(((Y == "Victory") and 65280) or ((Y == "Defeat") and 16711680) or 16776960),["Fields"]={{"name"="Name","value"=string.format("👤 Name: ||%s||\n❤️ Base HP: %s", j.Name, tostring(dd or "N/A")),["inline"]=false},{["name"]="Duration",["value"]=("⏱️ " .. (((cC ~= "") and cC) or "N/A")),["inline"]=true},{["name"]="Coins",["value"]=("💵 Coins: " .. tostring(d.ResultCoins() or "N/A")),["inline"]=false}}};
+end;
+
+d.ReportRuntime = {};
+
+d.WebhookStep = function(S, bK)
+	local de = d.ReportRuntime;
+	if (not S and bK and (d.Wave() > 0) and not d.ReportStartedAt) then
+		d.ReportStartedAt = os.clock();
+	end
+	if not S then
+		return true;
+	end
+	if not de.Final then
+		de.Final = true;
+		de.At = os.clock();
+		d.ReportEndedAt = os.clock();
+	end
+	if (not k.WebhookEnabled or not k.WebhookMatchEnd) then
+		return true;
+	end
+	local t = tostring(game.JobId) .. "/" .. j.UserId .. "/" .. tostring(d.CurrentMap()) .. "/" .. tostring(d.RoundId or (b.__CameraTDRoundCounters or {})[tostring(game.PlaceId) .. "/" .. tostring(game.JobId)] or 0) .. "/" .. k.WebhookURL;
+	b.__CameraTDMatchReports = b.__CameraTDMatchReports or {};
+	if (b.__CameraTDMatchReports[t] and not de.Pending) then
+		return true;
+	end
+	if not de.Requested then
+		if ((os.clock() - de.At) < 0.75) then
+			return false;
+		end
+		if ((d.ResultCoins() == nil) and ((os.clock() - de.At) < 3)) then
+			return false;
+		end
+		local df = d.MatchReport();
+		de.Requested = true;
+		de.Pending = true;
+		de.SendAt = os.clock();
+		b.__CameraTDMatchReports[t] = true;
+		task.spawn(function()
+			local w, ad = d.SendWebhook(df.Title, df.Description, df.Color, df.Fields, "https://cdn.discordapp.com/emojis/1234567890123456789.png");
+			de.Pending = false;
+			de.Sent = w;
+			d.WebhookStatus(w, ad);
+		end);
+	end
+	return not de.Pending or ((os.clock() - de.SendAt) >= 8);
+end;
+
+d.Close = {["Enabled"]=false,["Hitboxes"]={},["ClickSerial"]=0,["SendSerial"]=0,["LastClickAt"]=-10};
+
+d.CloseRefresh = function()
+	local n = d.Close;
+	n.TowerRoot, n.PathRoot = d.Path(g, "Towers"), d.Path(g, "MapData");
+	local dg = d.Path(g, "PlacementPreview");
+	n.Preview, n.Hitboxes = nil, {};
+	if dg then
+		for a0, al in ipairs(dg:GetChildren()) do
+			local dh = al:FindFirstChild("Hitbox", true);
+			if dh then
+				n.Hitboxes[dh] = true;
+				n.Preview = al;
+			end
+		end
+	end
+end;
+
+d.CloseFilter = function(ai)
+	local n, di = d.Close, {};
+	for a0, r in ipairs(ai) do
+		if not ((typeof(r) == "Instance") and ((n.TowerRoot and r:IsDescendantOf(n.TowerRoot)) or (n.PathRoot and r:IsDescendantOf(n.PathRoot)))) then
+			table.insert(di, r);
+		end
+	end
+	return di;
+end;
+
+d.CloseClick = function()
+	local n = d.Close;
+	if (not d.Running or not n.Enabled or (game.PlaceId ~= d.MatchId) or d.SoloReturning or d.Final() or ((os.clock() - n.LastClickAt) < 0.5)) then
+		return;
+	end
+	d.CloseRefresh();
+	local al = n.Preview;
+	if (not al or not al:IsA("Model")) then
+		return;
+	end
+	n.LastClickAt = os.clock();
+	n.ClickSerial = n.ClickSerial + 1;
+	local dj, aT = n.ClickSerial, n.SendSerial;
+	local bF, v = al:GetPivot(), al.Name;
+	local am = n.LastSend;
+	if (am and ((os.clock() - am.At) < 0.1) and (am.Name == v) and (typeof(am.Pos) == "Vector3") and ((am.Pos - bF.Position).Magnitude < 0.1)) then
+		return;
+	end
+	task.delay(0.15, function()
+		if (not d.Running or not n.Enabled or (game.PlaceId ~= d.MatchId) or d.SoloReturning or d.Final() or (n.ClickSerial ~= dj) or (n.SendSerial ~= aT)) then
+			return;
+		end
+		d.CloseRefresh();
+		if (n.Preview ~= al) then
+			return;
+		end
+		local ao;
+		for a0, aQ in ipairs(d.Equipped()) do
+			if (aQ.Name == v) then
+				ao = aQ;
+				break;
+			end
+		end
+		if not ao then
+			d.Notify("Không tìm thấy unit: " .. v);
+			return;
+		end
+		d.Fire("PlaceTower", {["Name"]=v,["UnitId"]=ao.Id,["Pos"]=bF.Position,["CFrame"]=bF});
+	end);
+end;
+
+d.SetClosePlacement = function(cT)
+	local n = d.Close;
+	n.Enabled = false;
+	n.ClickSerial = n.ClickSerial + 1;
+	if (not cT or (game.PlaceId ~= d.MatchId)) then
+		return;
+	end
+	if ((type(hookmetamethod) ~= "function") or (type(getnamecallmethod) ~= "function") or (type(getcallingscript) ~= "function")) then
+		d.Notify("Script executor không hỗ trợ hook cho Close Placement");
+		return;
+	end
+	if (b.CameraTDCloseTest and b.CameraTDCloseTest.Stop) then
+		pcall(b.CameraTDCloseTest.Stop);
+	end
+	d.Hydrate();
+	d.CloseRefresh();
+	n.Add, n.UI = d.Remote("PlaceTower"), d.Path(f, "PlacementUI/PlacementPreview");
+	if (not n.Add or not n.UI) then
+		d.Notify("Không tìm thấy remote hoặc UI cho Close Placement");
+		return;
+	end
+	d.InstallRecorderHook();
+	local b5 = b.__CameraTDHubPlacementRouter;
+	if not b5 then
+		b5 = {};
+		b.__CameraTDHubPlacementRouter = b5;
+		local b6;
+		local b7 = function(self, ...)
+			local b9 = b5.Hub;
+			local dk;
+			if (b9 and b9.Running and b9.Close.Enabled) then
+				local d7, b8 = b9.Close, getnamecallmethod();
+				if ((self == d7.Add) and (b8 == "FireServer")) then
+					d7.SendSerial = d7.SendSerial + 1;
+					local I = ...;
+					if (type(I) == "table") then
+						d7.LastSend = {["At"]=os.clock(),["Name"]=I.Name,["Pos"]=I.Pos};
+					end
+				elseif ((self == g) and (b8 == "Raycast") and d7.Hitboxes[...]) then
+					dk = (getcallingscript() == d7.UI) and not ((type(checkcaller) == "function") and checkcaller());
+				end
+			end
+			local Y = table.pack(b6(self, ...));
+			if (dk and (type(Y[1]) == "table")) then
+				Y[1] = b9.CloseFilter(Y[1]);
+			end
+			return table.unpack(Y, 1, Y.n);
+		end;
+		local w, K = pcall(hookmetamethod, game, "__namecall", ((type(newcclosure) == "function") and newcclosure(b7)) or b7);
+		if not w then
+			b.__CameraTDHubPlacementRouter = nil;
+			d.Notify("Không thể cài đặt Close Placement");
+			return;
+		end
+		b6 = K;
+	end
+	b5.Hub = d;
+	if not n.InputBound then
+		n.InputBound = true;
+		d.Connect(game:GetService("UserInputService").InputBegan, function(ce, dl)
+			if (not dl and (ce.UserInputType == Enum.UserInputType.MouseButton1)) then
+				d.CloseClick();
+			end
+		end);
+	end
+	n.Enabled = true;
+end;
+
+d.HiddenNameOriginal = setmetatable({}, {__mode="k"});
+d.NameConnections = {};
+
+d.RestoreHiddenName = function()
+	for aq, aE in pairs(d.HiddenNameOriginal) do
+		pcall(function()
+			for dm, N in pairs(aE) do
+				aq[dm] = N;
+			end
+		end);
+	end
+	d.HiddenNameOriginal = setmetatable({}, {__mode="k"});
+end;
+
+d.HideOwnNameObject = function(aq)
+	if (not d.Running or not k.HideName) then
+		return;
+	end
+	if aq:IsA("Humanoid") then
+		if not d.HiddenNameOriginal[aq] then
+			d.HiddenNameOriginal[aq] = {["DisplayName"]=aq.DisplayName,["NameDisplayDistance"]=aq.NameDisplayDistance};
+		end
+		aq.NameDisplayDistance = 0;
+		aq.DisplayName = "";
+	elseif ((aq:IsA("TextLabel") or aq:IsA("TextButton")) and aq:FindFirstAncestorWhichIsA("Player")) then
+		local U = aq.Text;
+		if (U:find(j.Name, 1, true) or ((j.DisplayName ~= "") and U:find(j.DisplayName, 1, true))) then
+			if not d.HiddenNameOriginal[aq] then
+				d.HiddenNameOriginal[aq] = {["Visible"]=aq.Visible,["TextTransparency"]=aq.TextTransparency,["TextStrokeTransparency"]=aq.TextStrokeTransparency};
+			end
+			aq.Visible = false;
+			aq.TextTransparency, aq.TextStrokeTransparency = 1, 1;
+		end
+	end
+end;
+
+d.IsOwnNameText = function(U)
+	local v = tostring(U or ""):match("^@?(%w+)$");
+	return (v == j.Name) or ((type(j.DisplayName) == "string") and (j.DisplayName ~= "") and (v == j.DisplayName)) or (v == ("@" .. j.Name));
+end;
+
+d.WatchOwnNameLabel = function(aq)
+	if (not (aq:IsA("TextLabel") or aq:IsA("TextButton")) or d.NameWatched[aq]) then
+		return;
+	end
+	local t = aq.Name:lower();
+	if ((t ~= "name") and not t:find("name", 1, true) and not t:find("display", 1, true) and not d.IsOwnNameText(aq.Text)) then
+		return;
+	end
+	d.NameWatched[aq] = true;
+	local function dn()
+		if (not d.Running or not k.HideName) then
+			return;
+		end
+		local A = d.HiddenNameOriginal[aq];
+		if d.IsOwnNameText(aq.Text) then
+			if not A then
+				A = {["Visible"]=aq.Visible,["TextTransparency"]=aq.TextTransparency,["TextStrokeTransparency"]=aq.TextStrokeTransparency};
+				d.HiddenNameOriginal[aq] = A;
+			end
+			aq.Visible = false;
+			aq.TextTransparency, aq.TextStrokeTransparency = 1, 1;
+		elseif A then
+			aq.Visible = A.Visible;
+			aq.TextTransparency, aq.TextStrokeTransparency = A.TextTransparency, A.TextStrokeTransparency;
+			d.HiddenNameOriginal[aq] = nil;
+		end
+	end
+	table.insert(d.NameConnections, aq:GetPropertyChangedSignal("Text"):Connect(dn));
+	dn();
+end;
+
+d.BindHiddenNameCharacter = function(c5)
+	for a0, aO in ipairs(d.NameConnections) do
+		aO:Disconnect();
+	end
+	d.NameConnections = {};
+	d.NameWatched = setmetatable({}, {__mode="k"});
+	d.RestoreHiddenName();
+	if not k.HideName then
+		return;
+	end
+	if c5 then
+		for a0, aq in ipairs(c5:GetDescendants()) do
+			d.HideOwnNameObject(aq);
+		end
+		table.insert(d.NameConnections, c5.DescendantAdded:Connect(function(aq)
+			if (d.Running and k.HideName and (j.Character == c5)) then
+				d.HideOwnNameObject(aq);
+			end
+		end));
+	end
+	local function dp(o)
+		if not o then
+			return;
+		end
+		for a0, aq in ipairs(o:GetDescendants()) do
+			d.WatchOwnNameLabel(aq);
+		end
+		table.insert(d.NameConnections, o.DescendantAdded:Connect(function(aq)
+			if (d.Running and k.HideName) then
+				d.WatchOwnNameLabel(aq);
+			end
+		end));
+	end
+	dp(j:FindFirstChild("PlayerGui"));
+	pcall(function()
+		dp(game:GetService("CoreGui"));
+	end);
+end;
+
+d.SetHideName = function(cT)
+	k.HideName = cT == true;
+	d.BindHiddenNameCharacter((k.HideName and j.Character) or nil);
+end;
+
+d.StartRejoin = function()
+	if d.Rejoin then
+		return;
+	end
+	if (b.CameraTDRejoinTest and b.CameraTDRejoinTest.Stop) then
+		pcall(b.CameraTDRejoinTest.Stop);
+	end
+	local dq = {["Active"]=true,["Armed"]=true,["Attempts"]=0,["Connections"]={},["LastEvent"]=os.clock(),["LastResult"]=0};
+	d.Rejoin = dq;
+	local e = game:GetService("Players");
+	local j = e.LocalPlayer;
+	local dr = game:GetService("TeleportService");
+	local h = game:GetService("HttpService");
+	local ds = game:GetService("CoreGui");
+	local dt = 132929771812494;
+	local du = {3,10,20};
+	dq.Log = function(H, x)
+		dq.LastEvent = {["Type"]=H,["Data"]=x,["At"]=os.clock()};
+	end;
+	dq.Status = function(U)
+		dq.Message = U;
+	end;
+	dq.Connect = function(l, m)
+		table.insert(dq.Connections, l:Connect(function(...)
+			if dq.Active then
+				m(...);
+			end
+		end));
+	end;
+	local function dv(aq)
+		while aq do
+			if (aq:IsA("GuiObject") and not aq.Visible) then
+				return false;
+			end
+			if (aq:IsA("GuiButton") and not aq.Enabled) then
+				return false;
+			end
+			aq = aq.Parent;
+		end
+		return true;
+	end
+	dq.ReadPrompt = function()
+		local o = ds:FindFirstChild("RobloxPromptGui");
+		local dw = o and o:FindFirstChild("promptOverlay");
+		local dx = dw and dw:FindFirstChild("ErrorFrame");
+		dx = dx or (o and o:FindFirstChild("ErrorFrame", true));
+		dx = dx or dw or o;
+		if (not dx or not dv(dx)) then
+			return nil;
+		end
+		local dy = {};
+		for a0, aq in ipairs(dx:GetDescendants()) do
+			if (aq:IsA("TextLabel") and dv(aq) and (aq.Text ~= "")) then
+				table.insert(dy, aq.Text);
+			end
+		end
+		return ((#dy > 0) and table.concat(dy, " ")) or nil;
+	end;
+	dq.ConnectionError = function(U)
+		if (type(U) ~= "string") then
+			return false;
+		end
+		local dz = U:lower();
+		if dz:match("disconnected due to an error") then
+			return true;
+		end
+		return (dz:find("connection lost", 1, true) ~= nil) or (dz:find("lost connection", 1, true) ~= nil) or (dz:find("disconnected from", 1, true) ~= nil) or (dz:find("failed to connect", 1, true) ~= nil) or (dz:find("kicked from", 1, true) ~= nil) or (dz:find("error code 267", 1, true) ~= nil) or (dz:find("network error", 1, true) ~= nil);
+	end;
+	dq.Reset = function()
+		dq.Prompt, dq.Attempts, dq.NextAt, dq.InFlight = nil, 0, nil, nil;
+	end;
+	dq.Step = function(U)
+		if (not dq.Active or not dq.Armed) then
+			return;
+		end
+		local M = os.clock();
+		if dq.InFlight then
+			if ((M - dq.InFlight) < 45) then
+				return;
+			end
+			dq.InFlight = nil;
+			dq.Log("Rejoin timeout", {["Attempts"]=dq.Attempts});
+		end
+		if not U then
+			if dq.Prompt then
+				dq.Reset();
+				dq.Log("Prompt dismissed", {});
+			end
+			dq.Status("Đang chờ lỗi kết nối...");
+			return;
+		end
+		if not dq.ConnectionError(U) then
+			if dq.Prompt then
+				dq.Reset();
+			end
+			dq.Status("Prompt không phải lỗi kết nối, bỏ qua");
+			return;
+		end
+		if not dq.Prompt then
+			dq.Prompt = U;
+			dq.Attempts = 0;
+			dq.NextAt = M + du[1];
+			dq.Log("Error detected", {["Message"]=U});
+		end
+		if (dq.Attempts >= #du) then
+			dq.Status("Đã thử lại nhiều lần, dừng rejoin");
+			return;
+		end
+		if (M < dq.NextAt) then
+			dq.Status("Thử lại lần " .. (dq.Attempts + 1) .. " sau " .. math.ceil(dq.NextAt - M) .. "s");
+			return;
+		end
+		dq.Attempts = dq.Attempts + 1;
+		dq.NextAt = M + (du[dq.Attempts + 1] or 30);
+		dq.Log("Rejoin attempt", {["Attempt"]=dq.Attempts,["PlaceId"]=dt});
+		local b9 = b.CameraTDHub;
+		if (b9 and b9.Running and b9.QueueTeleport) then
+			pcall(b9.QueueTeleport);
+		end
+		local w, ad = pcall(function()
+			dr:Teleport(dt, j);
+		end);
+		if not w then
+			dq.Log("Rejoin error", {["Attempt"]=dq.Attempts,["Error"]=tostring(ad)});
+			dq.Status("Teleport thất bại, thử lại sau");
+		else
+			dq.Status("Đã gửi yêu cầu rejoin");
+		end
+	end;
+	dq.Stop = function()
+		if not dq.Active then
+			return;
+		end
+		dq.Active, dq.Armed = false, false;
+		for a0, aO in ipairs(dq.Connections) do
+			aO:Disconnect();
+		end
+		dq.Log("Stopped", {["Attempts"]=dq.Attempts});
+	end;
+	dq.Connect(dr.TeleportInitFailed, function(c0, Y, s, dA)
+		if ((c0 ~= j) or (dA ~= dt) or (dq.Attempts == 0)) then
+			return;
+		end
+		dq.InFlight = nil;
+		dq.Log("Teleport failed", {["Result"]=tostring(Y),["Message"]=tostring(s),["Attempt"]=dq.Attempts});
+	end);
+	dq.Connect(j.OnTeleport, function(d7)
+		if (dq.Attempts == 0) then
+			return;
+		end
+		dq.Log("Teleport state", {["State"]=tostring(d7)});
+		if ((d7 == Enum.TeleportState.Started) or (d7 == Enum.TeleportState.InProgress)) then
+			dq.InFlight = dq.InFlight or os.clock();
+			dq.Status("Đang teleport...");
+		elseif (d7 == Enum.TeleportState.Failed) then
+			dq.InFlight = nil;
+		end
+	end);
+	task.spawn(function()
+		while d.Running and dq.Active do
+			local w, U = pcall(dq.ReadPrompt);
+			if w then
+				local dB, bH = pcall(dq.Step, U);
+				if not dB then
+					dq.Log("Step error", {["Error"]=tostring(bH)});
+				end
+			else
+				dq.Log("Read error", {["Error"]=tostring(U)});
+			end
+			task.wait(1);
+		end
+	end);
+end;
+
+d.Destroy = function()
+	if d.HideUserController then
+		d.HideUserController.Destroy();
+	end
+	if not d.Running then
+		return;
+	end
+	if d.Recording then
+		d.StopRecord();
+	end
+	d.CancelJoinWalk();
+	d.JoinWalkExit = nil;
+	d.SetHideName(false);
+	if d.Rejoin then
+		d.Rejoin.Stop();
+	end
+	d.Running = false;
+	if d.Close then
+		d.Close.Enabled = false;
+		d.Close.ClickSerial = d.Close.ClickSerial + 1;
+	end
+	d.Serial = d.Serial + 1;
+	d.Playing = false;
+	for a0, n in ipairs(d.Connections) do
+		n:Disconnect();
+	end
+	if d.Auto then
+		for a0, n in ipairs(d.Auto.MapConnections or {}) do
+			n:Disconnect();
+		end
+	end
+	d.FPS(false);
+	if d.Ring then
+		d.Ring:Destroy();
+	end
+	local b5 = b.__CameraTDRecorderRouter;
+	if (b5 and (b5.Hub == d)) then
+		b5.Hub = nil;
+	end
+	if d.Window then
+		pcall(function()
+			d.Window:Destroy();
+		end);
+	end
+end;
+
+c.SetupReady = os.clock();
+
+d.BindRemotes();
+
+do
+	local aY = d.Read(d.File(k.Profile));
+	if d.ValidProfile(aY) then
+		d.LoadedProfile = aY;
+		d.LearnProfileCosts(aY);
+	end
+end
+
+d.LoadTimes = {["StartedAt"]=os.clock()};
+c.ProfileReady = os.clock();
+
+d.LoadWindUI = function()
+	local dC = d.Folder .. "/WindUI.lua";
+	local cV = "https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua";
+	local function dD(ar)
+		if (type(writefile) == "function") then
+			pcall(writefile, dC, "-- cached at " .. os.time() .. "\n" .. ar);
+		end
+	end
+	local function dE(ar)
+		if ((type(ar) ~= "string") or (ar == "")) then
+			return;
+		end
+		local dF = loadstring(ar);
+		if not dF then
+			return;
+		end
+		local w, dG = pcall(dF);
+		if (w and (type(dG) == "table") and (type(dG.CreateWindow) == "function")) then
+			return dG;
+		end
+	end
+	if (type(readfile) == "function") then
+		local w, ar = pcall(readfile, dC);
+		if w then
+			local dG = dE(ar);
+			if dG then
+				d.LoadTimes.WindUI = "cached";
+				local dH = tonumber(ar:match("^%-%- cached at (%d+)")) or 0;
+				if ((os.time() - dH) >= 86400) then
+					task.delay(15, function()
+						if not d.Running then
+							return;
+						end
+						local dI, dJ = pcall(game.HttpGet, game, cV);
+						if (dI and (type(dJ) == "string") and loadstring(dJ) and d.Running) then
+							dD(dJ);
+						end
+					end);
+				end
+				return dG;
+			end
+		end
+	end
+	local ar = game:HttpGet(cV);
+	local dG = dE(ar);
+	if not dG then
+		error("Không thể tải WindUI", 0);
+	end
+	dD(ar);
+	d.LoadTimes.WindUI = "fetched";
+	return dG;
+end;
+
+local dK, dL = pcall(function()
+	c.WindUIStart = os.clock();
+	local dM = d.LoadWindUI();
+	c.WindUIReady = os.clock();
+	d.UI = dM;
+	local dN = dM:CreateWindow({
+		["Title"]="CameraTD",
+		["Subtitle"]="Tower Defense Automation",
+		["Size"]=UDim2.fromOffset(620, 480),
+		["Resizable"]=true,
+		["Draggable"]=true,
+		["Theme"]="Dark",
+		["MinimizeKey"]=Enum.KeyCode.RightShift,
+		["Config"]={
+			["ShowNotifications"]=true,
+			["Notifications"]=true,
+			["Minimize"]=true,
+			["TabScroll"]=true,
+			["Keybind"]=false
+		}
+	});
+	d.Window = dN;
+	c.WindowCreated = os.clock();
+
+	local dO = dN:Tab({["Title"]="Lobby",["Icon"]="door-open"});
+	local dP = dN:Tab({["Title"]="In-Match",["Icon"]="gamepad"});
+	local dQ = dN:Tab({["Title"]="Auto",["Icon"]="robot"});
+	local dR = dN:Tab({["Title"]="Macro",["Icon"]="record"});
+	local dS = dN:Tab({["Title"]="Webhook",["Icon"]="webhook"});
+	local dT = dN:Tab({["Title"]="Misc",["Icon"]="cog"});
+
+	-- Tab Lobby
+	dO:Section({["Title"]="Cài đặt phòng chờ"});
+	dO:Dropdown({
+		["Title"]="Số người chơi",
+		["Desc"]="Số người chơi tối đa trong circle (1 = solo)",
+		["Values"]={"1 người","2 người","3 người","4 người","5 người"},
+		["Value"]=(tostring(k.Players) .. ((k.Players == 1) and " người" or " người")),
+		["Callback"]=function(N)
+			k.Players = math.clamp(tonumber(tostring(N):match("%d+")) or 1, 1, 5);
+			d.SaveSettings();
+		end
+	});
+	d.Widgets.Maps = dO:Dropdown({
+		["Title"]="Map",
+		["Desc"]="Chọn map muốn chơi",
+		["Values"]=d.Maps(),
+		["Value"]=k.Map,
+		["Callback"]=function(N)
+			k.Map = tostring(N);
+			d.CancelJoinWalk();
+			d.JoinWalkExit = nil;
+			if d.Elevator then
+				d.LeaveElevator();
+			end
+			d.LobbyAttempt = nil;
+			d.SaveSettings();
+		end
+	});
+	d.Widgets.Modifiers = dO:Dropdown({
+		["Title"]="Modifiers",
+		["Desc"]="Modifier tùy chỉnh (chỉ khi là host)",
+		["Values"]=d.ModifierOptions(),
+		["Value"]=d.ModifierLabels(),
+		["Multi"]=true,
+		["Callback"]=function(N)
+			k.Modifiers = d.ModifierSelection(N);
+			d.ModifierAppliedKey = nil;
+			d.Next.Modifiers = nil;
+			d.SaveSettings();
+		end
+	});
+	dO:Dropdown({
+		["Title"]="Cách vào",
+		["Desc"]="Cách di chuyển vào circle",
+		["Values"]={"Đi bộ","Dịch chuyển"},
+		["Value"]=k.JoinMethod,
+		["Callback"]=d.SetJoinMethod
+	});
+	dO:Toggle({
+		["Title"]="Tự động vào phòng chờ",
+		["Desc"]="Tự động vào circle và bắt đầu trận",
+		["Value"]=k.AutoLobby,
+		["Callback"]=function(N)
+			k.AutoLobby = N == true;
+			k.StartNow = true;
+			if not k.AutoLobby then
+				d.LeaveElevator();
+			end
+			d.SaveSettings();
+		end
+	});
+	dO:Section({["Title"]="Triệu hồi"});
+	dO:Dropdown({
+		["Title"]="Số lượng triệu hồi",
+		["Desc"]="Số tower triệu hồi mỗi lần",
+		["Values"]={"1","10"},
+		["Value"]=("x" .. k.SummonAmount),
+		["Callback"]=function(N)
+			k.SummonAmount = ((N == "10") and 10) or 1;
+			d.SaveSettings();
+		end
+	});
+	dO:Slider({
+		["Title"]="Độ trễ triệu hồi",
+		["Desc"]="Thời gian giữa mỗi lần triệu hồi",
+		["Min"]=0.1,
+		["Max"]=10,
+		["Default"]=k.SummonDelay,
+		["Callback"]=function(N)
+			k.SummonDelay = math.clamp(tonumber(N) or 1, 0.1, 10);
+			d.SaveSettings();
+		end
+	});
+	dO:Toggle({
+		["Title"]="Tự động triệu hồi",
+		["Desc"]="Triệu hồi tower tự động",
+		["Value"]=k.AutoSummon,
+		["Callback"]=function(N)
+			k.AutoSummon = N == true;
+			d.SaveSettings();
+		end
+	});
+
+	-- Tab In-Match
+	dP:Section({["Title"]="Trong trận"});
+	dP:Dropdown({
+		["Title"]="Độ khó",
+		["Desc"]="Chọn độ khó khi vote",
+		["Values"]={"Normal","Hard","Nightmare","Insane"},
+		["Value"]=k.Difficulty,
+		["Callback"]=function(N)
+			k.Difficulty = tostring(N);
+			d.SaveSettings();
+		end
+	});
+	dP:Toggle({
+		["Title"]="Tự động vote độ khó",
+		["Desc"]="Tự vote độ khó đã chọn",
+		["Value"]=k.AutoDifficulty,
+		["Callback"]=function(N)
+			k.AutoDifficulty = N == true;
+			d.SaveSettings();
+		end
+	});
+	dP:Section({["Title"]="Skip wave"});
+	dP:Toggle({
+		["Title"]="Tự động skip",
+		["Desc"]="Tự động vote skip wave",
+		["Value"]=k.AutoSkip,
+		["Callback"]=function(N)
+			k.AutoSkip = N == true;
+			d.Skip.NextAt = 0;
+			d.SaveSettings();
+		end
+	});
+	dP:Input({
+		["Title"]="Dừng auto skip tại wave",
+		["Desc"]="Nhập số wave (ví dụ: 10,15,20)",
+		["Value"]=k.StopAutoSkipAt,
+		["Callback"]=function(N)
+			k.StopAutoSkipAt = tostring(N or "");
+			d.Skip.NextAt = 0;
+			d.SaveSettings();
+		end
+	});
+	dP:Toggle({
+		["Title"]="Tự động tăng tốc",
+		["Desc"]="Tự động tăng tốc game",
+		["Value"]=k.AutoSpeed,
+		["Callback"]=function(N)
+			k.AutoSpeed = N == true;
+			d.Speed.Applied, d.Speed.Rejected = nil, nil;
+			d.Next.Speed = nil;
+			d.SaveSettings();
+		end
+	});
+	dP:Dropdown({
+		["Title"]="Hệ số tốc độ",
+		["Values"]={"1","1.5","2"},
+		["Value"]=(tostring(k.SpeedScale) .. "x"),
+		["Callback"]=function(N)
+			k.SpeedScale = tonumber(tostring(N):match("[%d%.]+")) or 1;
+			d.Speed.Applied, d.Speed.Rejected = nil, nil;
+			d.Next.Speed = nil;
+			d.SaveSettings();
+		end
+	});
+	dP:Section({["Title"]="Kết thúc trận"});
+	dP:Dropdown({
+		["Title"]="Hành động khi kết thúc",
+		["Values"]={"Về lobby","Rejoin server","Ở lại"},
+		["Value"]=k.EndAction,
+		["Callback"]=function(N)
+			k.EndAction = (table.find({"leave","rejoin","stay"}, N) and N) or "leave";
+			d.SaveSettings();
+		end
+	});
+
+	-- Tab Auto
+	dR:Section({["Title"]="Macro"});
+	d.Widgets.Macro = dR:Paragraph({
+		["Title"]="Ghi/Phát macro",
+		["Desc"]="Ghi lại các hành động đặt/nâng cấp tower để phát lại"
+	});
+	d.Widgets.MacroRuntime = dR:Paragraph({
+		["Title"]="Trạng thái",
+		["Desc"]="Đang chờ..."
+	});
+	d.Widgets.MacroActions = dR:Paragraph({
+		["Title"]="Số hành động",
+		["Desc"]="0 hành động"
+	});
+	local dU = tostring(k.NewProfileName or "");
+	dR:Input({
+		["Title"]="Tên profile mới",
+		["Desc"]="Nhập tên (không dấu, không ký tự đặc biệt)",
+		["Value"]=dU,
+		["Callback"]=function(N)
+			dU = d.SafeName(N);
+			k.NewProfileName = dU;
+			d.SaveSettings();
+		end
+	});
+	dR:Button({
+		["Title"]="Tạo profile",
+		["Desc"]="Tạo profile trống mới",
+		["Callback"]=function()
+			if (d.Playing or d.Recording) then
+				d.Notify("Không thể tạo profile khi đang phát/ghi");
+				return;
+			end
+			local v = d.SafeName(dU);
+			if ((v == "") or (v:lower() == "default")) then
+				d.Notify("Tên profile không hợp lệ");
+				return;
+			end
+			if (d.FS and isfile(d.File(v))) then
+				d.Notify("Profile đã tồn tại");
+				return;
+			end
+			local aY = {["Game"]="CameraTD",["Version"]=1,["Actions"]={},["ActionCount"]=0};
+			local w, ad = d.Write(d.File(v), aY);
+			if not w then
+				d.Notify("Tạo profile thất bại: " .. tostring(ad));
+				return;
+			end
+			k.Profile = v;
+			d.LoadedProfile = aY;
+			d.RefreshProfiles();
+			d.SaveSettings();
+			d.SetStatus("Macro", v .. " đã tạo");
+		end
+	});
+	local dV = d.Profiles();
+	d.Widgets.Profiles = dR:Dropdown({
+		["Title"]="Chọn profile",
+		["Desc"]="Chọn profile để ghi/phát",
+		["Values"]=dV,
+		["Value"]=(((k.Profile ~= "") and k.Profile) or dV[1]),
+		["Callback"]=function(N)
+			if (d.Refreshing or (N == "default")) then
+				return;
+			end
+			if (d.Playing or d.Recording) then
+				d.Notify("Không thể đổi profile khi đang phát/ghi");
+				return;
+			end
+			local v = d.SafeName(N);
+			local aY = d.Read(d.File(v));
+			if not d.ValidProfile(aY) then
+				d.SetStatus("Macro", "Profile không hợp lệ hoặc trống");
+				d.RefreshProfiles();
+				return;
+			end
+			k.Profile = v;
+			d.LoadedProfile = aY;
+			d.LearnProfileCosts(aY);
+			d.AutoPlayed = nil;
+			d.PlaybackCompleted = nil;
+			d.SaveSettings();
+			d.SetStatus("Macro", "Đã tải " .. v .. " (" .. #aY.Actions .. " hành động)");
+		end
+	});
+	dR:Button({
+		["Title"]="Xóa profile",
+		["Desc"]="Xóa profile đã chọn (yêu cầu xác nhận)",
+		["Callback"]=function()
+			local v = d.SafeName(k.Profile);
+			if (v == "") then
+				d.Notify("Chưa chọn profile");
+				return;
+			end
+			if (d.Playing or d.Recording or k.AutoPlayback) then
+				d.Notify("Không thể xóa profile khi đang phát/ghi/tự động phát");
+				return;
+			end
+			local M = os.clock();
+			if ((d.DeleteProfile ~= v) or (M > (d.DeleteUntil or 0))) then
+				d.DeleteProfile = v;
+				d.DeleteUntil = M + 5;
+				d.Notify("Bấm xóa lần nữa để xác nhận xóa profile " .. v);
+				return;
+			end
+			d.DeleteProfile = nil;
+			d.DeleteUntil = nil;
+			if (not d.FS or (type(delfile) ~= "function")) then
+				d.Notify("Filesystem không hỗ trợ xóa file");
+				return;
+			end
+			local w, ad = pcall(function()
+				local p = d.File(v);
+				if isfile(p) then
+					writefile(p .. ".bak", readfile(p));
+					delfile(p);
+				end
+			end);
+			if not w then
+				d.Notify("Xóa thất bại: " .. tostring(ad));
+				return;
+			end
+			k.Profile = "";
+			d.LoadedProfile = nil;
+			for a0, dW in ipairs(d.Profiles()) do
+				if (dW ~= "default") then
+					local aY = d.Read(d.File(dW));
+					if d.ValidProfile(aY) then
+						k.Profile = dW;
+						d.LoadedProfile = aY;
+						d.LearnProfileCosts(aY);
+						break;
+					end
+				end
+			end
+			d.RefreshProfiles();
+			d.SaveSettings();
+			d.SetStatus("Macro", v .. " đã xóa");
+		end
+	});
+	dR:Dropdown({
+		["Title"]="Chế độ phát",
+		["Values"]={"recorded","live","replay"},
+		["Value"]=k.PlaybackMode,
+		["Callback"]=function(N)
+			k.PlaybackMode = tostring(N);
+			d.SaveSettings();
+		end
+	});
+	d.Widgets.Record = dR:Toggle({
+		["Title"]="Ghi macro",
+		["Value"]=false,
+		["Callback"]=function(N)
+			if d.ChangingToggle then
+				return;
+			end
+			if N then
+				if d.Playing then
+					d.StopPlayback("Bắt đầu ghi macro");
+				end
+				d.StartRecord();
+				d.SetToggle("Record", d.Recording ~= nil);
+			else
+				d.StopRecord();
+			end
+			d.SaveSettings();
+		end
+	});
+	d.Widgets.Playback = dR:Toggle({
+		["Title"]="Tự động phát",
+		["Desc"]="Tự động phát macro khi vào trận",
+		["Value"]=k.AutoPlayback,
+		["Callback"]=function(N)
+			if d.ChangingToggle then
+				return;
+			end
+			k.AutoPlayback = N == true;
+			if k.AutoPlayback then
+				if (d.Recording and not d.StopRecord()) then
+					k.AutoPlayback = false;
+					d.SetToggle("Playback", false);
+					d.SaveSettings();
+					return;
+				end
+				d.AutoPlayed = nil;
+				d.PlaybackCompleted = nil;
+				d.Next.AutoPlayback = 0;
+				local bu, ad = d.StartPlayback();
+				d.AutoPlayed = bu or (ad ~= "waiting_wave") or nil;
+				if (not bu and (ad == "waiting_wave")) then
+					d.SetStatus("Playback", "Đang chờ wave đầu tiên...");
+				end
+			elseif d.Playing then
+				d.StopPlayback("Tắt tự động phát");
+			end
+			d.SaveSettings();
+		end
+	});
+
+	-- Tab Auto (tiếp)
+	dQ:Section({["Title"]="Tự động hóa"});
+	d.Widgets.Auto = dQ:Paragraph({
+		["Title"]="Điều khiển auto",
+		["Desc"]="Tự động đặt và nâng cấp tower"
+	});
+	dQ:Toggle({
+		["Title"]="Tự động đặt",
+		["Desc"]="Tự động đặt tower khi đủ tiền",
+		["Value"]=k.AutoPlace,
+		["Callback"]=function(N)
+			k.AutoPlace = N == true;
+			d.SaveSettings();
+		end
+	});
+	dQ:Toggle({
+		["Title"]="Tự động nâng cấp",
+		["Desc"]="Tự động nâng cấp tower",
+		["Value"]=k.AutoUpgrade,
+		["Callback"]=function(N)
+			k.AutoUpgrade = N == true;
+			d.SaveSettings();
+		end
+	});
+	dQ:Slider({
+		["Title"]="Độ trễ auto",
+		["Min"]=0.1,
+		["Max"]=10,
+		["Default"]=k.AutoDelay,
+		["Callback"]=function(N)
+			k.AutoDelay = math.clamp(tonumber(N) or 0.1, 0.1, 10);
+			d.SaveSettings();
+		end
+	});
+	dQ:Slider({
+		["Title"]="Phạm vi đặt",
+		["Desc"]="Phần trăm đường đi được phép đặt",
+		["Min"]=1,
+		["Max"]=100,
+		["Default"]=k.PlacementRange,
+		["Callback"]=function(N)
+			k.PlacementRange = math.clamp(tonumber(N) or 0, 0, 100);
+			d.Candidate = 0;
+			d.SaveSettings();
+		end
+	});
+	dQ:Toggle({
+		["Title"]="Hiển thị phạm vi",
+		["Desc"]="Hiển thị vòng tròn phạm vi đặt",
+		["Value"]=k.ShowRange,
+		["Callback"]=function(N)
+			k.ShowRange = N == true;
+			if (not k.ShowRange and d.Ring) then
+				d.Ring:Destroy();
+				d.Ring = nil;
+			end
+			d.SaveSettings();
+		end
+	});
+
+	-- Tab Webhook
+	dS:Section({["Title"]="Webhook Discord"});
+	dS:Input({
+		["Title"]="Webhook URL",
+		["Desc"]="Nhập URL webhook Discord",
+		["Value"]=k.WebhookURL,
+		["Callback"]=function(N)
+			k.WebhookURL = tostring(N or ""):match("https://discord%.com/api/webhooks/%d+/[%w_%-]+");
+			d.SaveSettings();
+		end
+	});
+	dS:Toggle({
+		["Title"]="Bật webhook",
+		["Value"]=k.WebhookEnabled,
+		["Callback"]=function(N)
+			k.WebhookEnabled = N == true;
+			d.SaveSettings();
+		end
+	});
+	dS:Toggle({
+		["Title"]="Gửi kết quả trận",
+		["Value"]=k.WebhookMatchEnd,
+		["Callback"]=function(N)
+			k.WebhookMatchEnd = N == true;
+			d.SaveSettings();
+		end
+	});
+	dS:Button({
+		["Title"]="Kiểm tra webhook",
+		["Desc"]="Gửi tin nhắn thử",
+		["Callback"]=function()
+			task.spawn(function()
+				local w, ad = d.SendWebhook("CameraTD Test", "Webhook hoạt động!", 5763719, {{["name"]="Test",["value"]=tostring(d.AccountCoins() or "N/A"),["inline"]=false}});
+				d.WebhookStatus(w, ad);
+				d.Notify((w and "Webhook hoạt động!") or ("Webhook lỗi: " .. tostring(ad)));
+			end);
+		end
+	});
+
+	-- Tab Misc
+	dT:Section({["Title"]="Khác"});
+	dT:Toggle({
+		["Title"]="Tự động thực thi",
+		["Desc"]="Tự động chạy lại script khi teleport",
+		["Value"]=k.AutoExecute,
+		["Callback"]=function(N)
+			k.AutoExecute = N == true;
+			d.SaveSettings();
+			if k.AutoExecute then
+				d.QueueTeleport();
+			end
+		end
+	});
+	dT:Toggle({
+		["Title"]="Close Placement",
+		["Desc"]="Tự động đặt tower khi click (thay thế UI gốc)",
+		["Value"]=k.ClosePlacement,
+		["Callback"]=function(N)
+			k.ClosePlacement = N == true;
+			d.SetClosePlacement(k.ClosePlacement);
+			d.SaveSettings();
+		end
+	});
+	dT:Toggle({
+		["Title"]="Tự động nhận quest",
+		["Desc"]="Tự động nhận thưởng quest khi hoàn thành",
+		["Value"]=k.AutoClaimQuest,
+		["Callback"]=function(N)
+			k.AutoClaimQuest = N == true;
+			d.Next.Quest = nil;
+			d.SaveSettings();
+		end
+	});
+
+	-- Hide User controller
+	do
+		local D, dX, c0 = d, k, j;
+		local dY = ((type(getgenv) == "function") and getgenv()) or _G;
+		local dZ = "__CameraTDHideUserController";
+		local K = dY[dZ];
+		if (K and (type(K.Destroy) == "function")) then
+			pcall(K.Destroy);
+		end
+		local d_ = {["Alive"]=true,["Enabled"]=false,["Saved"]={},["Generation"]=0};
+		D.HideUserController = d_;
+		dY[dZ] = d_;
+		local function e0()
+			for aq, aE in pairs(d_.Saved) do
+				for t, N in pairs(aE) do
+					pcall(function()
+						aq[t] = N;
+					end);
+				end
+			end
+			d_.Saved = {};
+		end
+		local function bb(c5)
+			d_.Generation = d_.Generation + 1;
+			local _ = d_.Generation;
+			if d_.Descendants then
+				d_.Descendants:Disconnect();
+				d_.Descendants = nil;
+			end
+			e0();
+			d_.Character = c5;
+			if (not d_.Alive or not d_.Enabled or not c5) then
+				return;
+			end
+			local e1 = Color3.fromRGB(255, 0, 0);
+			local function e2(aq)
+				if (d_.Saved[aq] or not aq:IsDescendantOf(c5)) then
+					return;
+				end
+				local aE;
+				if (aq:IsA("ParticleEmitter") or aq:IsA("Smoke") or aq:IsA("Fire") or aq:IsA("Sparkles") or aq:IsA("Beam")) then
+					aE = {["Enabled"]=false};
+				elseif (aq:IsA("BasePart") and (aq.Parent == c5) and (aq.Name ~= "HumanoidRootPart")) then
+					aE = {["Color"]=e1};
+					if aq:IsA("MeshPart") then
+						aE.TextureID = "";
+					end
+				elseif aq:IsA("Lighting") then
+					aE = {};
+					for a0, t in ipairs({"Ambient","OutdoorAmbient","ColorShift_Top","ColorShift_Bottom","Brightness","EnvironmentDiffuseScale"}) do
+						aE[t] = e1;
+					end
+				elseif (aq:IsA("BillboardGui") and aq.Parent and (aq.Parent.Parent == c5)) then
+					aE = {["Enabled"]=""};
+				elseif (aq:IsA("Humanoid") and aq.Parent and (aq.Parent.Parent == c5)) then
+					aE = {["HealthDisplayDistance"]=false};
+				end
+				if aE then
+					local A = {};
+					d_.Saved[aq] = A;
+					for t, N in pairs(aE) do
+						pcall(function()
+							A[t] = aq[t];
+							if (t == "Parent") then
+								aq.Parent = nil;
+							else
+								aq[t] = N;
+							end
+						end);
+					end
+				end
+			end
+			d_.Descendants = c5.DescendantAdded:Connect(function(aq)
+				task.defer(function()
+					if (d_.Alive and d_.Enabled and (_ == d_.Generation)) then
+						pcall(e2, aq);
+					end
+				end);
+			end);
+			for a0, aq in ipairs(c5:GetDescendants()) do
+				pcall(e2, aq);
+			end
+		end
+		d_.Set = function(cT)
+			if not d_.Alive then
+				return;
+			end
+			cT = cT == true;
+			dX.HideUser = cT;
+			if ((d_.Enabled == cT) and (not cT or (d_.Character == c0.Character))) then
+				return;
+			end
+			d_.Enabled = cT;
+			bb((cT and c0.Character) or nil);
+		end;
+		d_.Destroy = function()
+			if not d_.Alive then
+				return;
+			end
+			d_.Alive = false;
+			d_.Enabled = false;
+			bb(nil);
+			if d_.Respawn then
+				d_.Respawn:Disconnect();
+				d_.Respawn = nil;
+			end
+			if (dY[dZ] == d_) then
+				dY[dZ] = nil;
+			end
+		end;
+		d_.Respawn = c0.CharacterAdded:Connect(function(c5)
+			if (d_.Alive and d_.Enabled) then
+				bb(c5);
+			end
+		end);
+		D.SetHideUser = function(cT)
+			d_.Set(cT);
+		end;
+		if (dN and (type(dN.OnDestroy) == "function")) then
+			pcall(function()
+				dN:OnDestroy(d_.Destroy);
+			end);
+		end
+		d_.Set(dX.HideUser);
+	end
+
+	dT:Section({["Title"]="Ẩn tên"});
+	dT:Toggle({
+		["Title"]="Ẩn tên",
+		["Desc"]="Ẩn tên người chơi của bạn",
+		["Value"]=k.HideName,
+		["Callback"]=function(N)
+			d.SetHideName(N);
+			d.SaveSettings();
+		end
+	});
+	dT:Toggle({
+		["Title"]="Ẩn user",
+		["Desc"]="Ẩn nhân vật của bạn",
+		["Value"]=k.HideUser,
+		["Callback"]=function(G)
+			d.SetHideUser(G);
+			d.SaveSettings();
+		end
+	});
+	dT:Section({["Title"]="Hiệu năng"});
+	dT:Toggle({
+		["Title"]="Tối ưu FPS",
+		["Desc"]="Giảm đồ họa để tăng FPS",
+		["Value"]=k.FPSBoost,
+		["Callback"]=function(N)
+			k.FPSBoost = N == true;
+			d.FPS(k.FPSBoost);
+			d.SaveSettings();
+		end
+	});
+	dT:Section({["Title"]="Chống AFK"});
+	dT:Toggle({
+		["Title"]="Chống AFK",
+		["Desc"]="Tự động click khi bị idle",
+		["Value"]=k.AntiAFK,
+		["Callback"]=function(N)
+			k.AntiAFK = N == true;
+			d.SaveSettings();
+		end
+	});
+end);
+
+d.LoadTimes.UISeconds = os.clock() - d.LoadTimes.StartedAt;
+c.UIControlsReady = os.clock();
+
+b.__CameraTDBoot.Loading = false;
+
+if not dK then
+	d.Notify("Lỗi khởi tạo UI: " .. tostring(dL));
+	d.Destroy();
+	return;
+end
+
+task.delay(0.5, function()
+	if not d.Running then
+		return;
+	end
+	local bu = os.clock();
+	local w = pcall(d.Hydrate, true);
+	d.LoadTimes.HydrateSeconds = os.clock() - bu;
+	d.LoadTimes.HydrateOK = w;
+end);
+
+d.SaveSettings();
+
+d.Connect(j.CharacterAdded, d.BindHiddenNameCharacter);
+d.SetHideName(k.HideName);
+
+c.PrivacyReady = os.clock();
+
+d.Connect(j.Idled, function()
+	if not k.AntiAFK then
+		return;
+	end
+	local e3 = game:GetService("VirtualUser");
+	local w = pcall(function()
+		e3:CaptureController();
+		e3:ClickButton2(Vector2.new(0, 0));
+	end);
+	if not w then
+		d.Notify("Chống AFK thất bại (executor không hỗ trợ VirtualUser)");
+	end
+end);
+
+d.Connect(g.DescendantAdded, function(aq)
+	if k.FPSBoost then
+		d.FPSObject(aq);
+	end
+end);
+
+d.Connect(i.DescendantAdded, function(aq)
+	if k.FPSBoost then
+		d.FPSObject(aq);
+	end
+end);
+
+d.Connect(j.OnTeleport, function(d7)
+	if (d7 == Enum.TeleportState.Started) then
+		d.QueueTeleport();
+	end
+end);
+
+local e4 = pcall(function()
+	d.Window:OnDestroy(d.Destroy);
+end);
+
+if k.FPSBoost then
+	d.FPS(true);
+end
+
+c.FPSReady = os.clock();
+
+d.QueueTeleport();
+d.SetClosePlacement(k.ClosePlacement);
+
+c.PlacementReady = os.clock();
+
+local e5, e6 = pcall(d.StartRejoin);
+if not e5 then
+	d.Notify("Lỗi khởi tạo rejoin: " .. tostring(e6));
+end
+
+c.RejoinReady = os.clock();
+
+-- Vòng lặp Lobby
 task.spawn(function()
-    while task.wait(2) do
-        -- Auto Vote Difficulty
-        if Flags.AutoVote then
-            pcall(function()
-                ReplicatedStorage.RemoteEvents.VoteDifficulty:FireServer(Flags.SelectedDifficulty)
-            end)
-        end
-        
-        -- Auto Skip Wave
-        if Flags.AutoSkip then
-            pcall(function()
-                local currentWave = workspace:FindFirstChild("Wave") and workspace.Wave.Value or 0
-                if currentWave < Flags.StopSkipWave then
-                    ReplicatedStorage.RemoteEvents.SkipWave:FireServer()
-                end
-            end)
-        end
-        
-        -- Auto Replay
-        if Flags.AutoReplay then
-            pcall(function()
-                if workspace:FindFirstChild("MatchEnd") and workspace.MatchEnd.Value then
-                    ReplicatedStorage.RemoteEvents.ReplayMatch:FireServer()
-                end
-            end)
-        end
-        
-        -- Auto Claim Quest
-        if Flags.AutoClaimQuest then
-            pcall(function()
-                ReplicatedStorage.RemoteEvents.ClaimDailyQuest:FireServer()
-            end)
-        end
-    end
-end)
+	while d.Running do
+		local w, y = pcall(d.LobbyStep);
+		if not w then
+			d.SetStatus("Lobby", tostring(y));
+		end
+		task.wait(1);
+	end
+end);
 
-WindUI:Notify({
-    Title = "Miko Hub Loaded",
-    Content = "Successfully injected for Camera TD!",
-    Duration = 5
-})
+-- Vòng lặp Summon
+task.spawn(function()
+	while d.Running do
+		if (k.AutoSummon and (game.PlaceId == d.LobbyId) and not d.Teleporting) then
+			local w, y = d.Invoke("SummonTowers", "Normal", k.SummonAmount);
+			d.SetStatus("Summon", (w and ("Đã triệu hồi " .. k.SummonAmount .. " tower")) or ("Lỗi triệu hồi: " .. tostring(y)));
+		end
+		task.wait((k.AutoSummon and k.SummonDelay) or 0.5);
+	end
+end);
+
+-- Vòng lặp chính
+task.spawn(function()
+	while d.Running do
+		local w, y = pcall(function()
+			d.BindRemotes();
+			if d.Close.Enabled then
+				d.CloseRefresh();
+			end
+			local M = os.clock();
+			d.SoloGuard();
+			local S = d.Final();
+			d.RoundStep(S);
+			d.RefreshModifiers();
+			local bK = d.Active();
+			local W = d.WebhookStep(S, bK);
+			local bo = d.Wave();
+			local ba = d.GUI("TopBar/CashDisplay");
+			d.SetStatus("Info", ((ba and ba.Text) or "Cash") .. " | " .. d.Cash() .. " | " .. #d.Owned());
+			d.SetStatus("Wave", ((ba and ba.Text) or "Wave") .. " | " .. k.PlaybackMode .. " | " .. d.Cash());
+			local e7 = d.Recording;
+			local ax = (e7 and #e7.Profile.Actions) or (d.LoadedProfile and #d.LoadedProfile.Actions) or 0;
+			pcall(function()
+				if d.Widgets.Macro then
+					d.Widgets.Macro:SetTitle((e7 and "Đang ghi macro...") or (d.Playing and "Đang phát macro...") or (d.PlaybackFailure and "Phát thất bại") or (k.AutoPlayback and "Tự động phát đang bật") or "Ghi/Phát macro");
+				end
+				if d.Widgets.MacroActions then
+					d.Widgets.MacroActions:SetTitle("Số hành động: " .. ax);
+				end
+			end);
+			d.SetStatus("MacroInfo", (e7 and ("Đang ghi: " .. #e7.Profile.Actions)) or (d.Playing and string.format("Đang phát: %d/%d", d.PlaybackIndex or 0, d.PlaybackTotal or 0)) or string.format("Profile: %s (%d hành động)", ((k.Profile ~= "") and k.Profile) or "default", (d.LoadedProfile and #d.LoadedProfile.Actions) or 0));
+			if (k.AutoDifficulty and not d.SoloReturning and (game.PlaceId == d.MatchId) and d.Visible(d.GUI("VoteUI/Vote" .. k.Difficulty .. "Button")) and (M >= (d.Next.Vote or 0))) then
+				d.Next.Vote = M + 2;
+				d.Fire("VoteDifficulty", k.Difficulty);
+			end
+			if S then
+				if d.Recording then
+					d.StopRecord();
+				end
+				if d.Playing then
+					d.StopPlayback("Trận kết thúc");
+				end
+				d.EndMatchStep(W);
+			end
+			d.AutoPlaybackStep(bK, M);
+			d.LastWave = bo;
+			d.Visual();
+		end);
+		if not w then
+			d.SetStatus("Error", "Lỗi vòng lặp: " .. tostring(y));
+		end
+		task.wait(0.3);
+	end
+end);
+
+-- Vòng lặp Auto
+task.spawn(function()
+	while d.Running do
+		local w, y = pcall(d.AutoStep);
+		if not w then
+			d.SetStatus("Auto", "Lỗi auto: " .. tostring(y));
+		end
+		task.wait(0.1 / d.Speed.Value);
+	end
+end);
+
+-- Vòng lặp Skip
+task.spawn(function()
+	while d.Running do
+		local w, y = pcall(d.SkipStep);
+		if (not w and (os.clock() >= (d.Next.SkipError or 0))) then
+			d.Next.SkipError = os.clock() + 10;
+			warn("[CameraTD] Lỗi skip: " .. tostring(y));
+		end
+		task.wait(0.25);
+	end
+end);
+
+-- Vòng lặp Speed
+task.spawn(function()
+	while d.Running do
+		local w, X = pcall(d.SpeedStep);
+		if not w then
+			d.SetStatus("Speed", "Lỗi speed: " .. tostring(X));
+		end
+		task.wait(0.25);
+	end
+end);
+
+-- Vòng lặp Quest
+task.spawn(function()
+	while d.Running do
+		local w, X = pcall(d.QuestStep);
+		if not w then
+			d.SetStatus("Quest", "Lỗi quest: " .. tostring(X));
+		end
+		task.wait(1);
+	end
+end);
+
+-- Vòng lặp Logger
+task.spawn(function()
+	while d.Running do
+		pcall(d.ActivityLogger);
+		task.wait(1);
+	end
+end);
+
+d.Notify("CameraTD Hub đã sẵn sàng! Nhấn RightShift để mở/đóng menu.");
+c.HubReady = os.clock();
