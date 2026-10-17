@@ -1,0 +1,2420 @@
+if not game:IsLoaded() then
+	game.Loaded:Wait();
+end
+if (game.GameId ~= 10393438342) then
+	return;
+end
+local WEBHOOK_URL = "";
+local b = getgenv();
+if (b.__AllianceTDBoot and b.__AllianceTDBoot.Loading and ((os.clock() - b.__AllianceTDBoot.At) < 30)) then
+	return;
+end
+b.__AllianceTDBoot = {Loading = true, At = os.clock()};
+if (b.AllianceTDHub and b.AllianceTDHub.Destroy) then
+	pcall(b.AllianceTDHub.Destroy);
+end
+local Players = game:GetService("Players");
+local ReplicatedStorage = game:GetService("ReplicatedStorage");
+local Workspace = game:GetService("Workspace");
+local HttpService = game:GetService("HttpService");
+local TeleportService = game:GetService("TeleportService");
+local UserInputService = game:GetService("UserInputService");
+local player = Players.LocalPlayer or Players.PlayerAdded:Wait();
+local j = {
+	Running = true,
+	LobbyId = 99703116573266,
+	MatchId = 117654154793149,
+	Folder = "AllianceTD_Macros",
+	Connections = {},
+	Internal = {},
+	Next = {},
+	Handles = {},
+	Bound = {},
+	Hidden = {},
+	Visuals = {},
+	FPS = {},
+	Actions = {},
+	Existing = {},
+	RecordHandles = {},
+	RecordTowerCache = nil,
+	RecordRemotes = {},
+	BlockedVisualCallbacks = {},
+	NameUIConnections = {},
+	VisualConnections = {},
+	ClaimStates = {},
+	ClaimAttempts = {},
+	Recording = false,
+	Playing = false,
+	Ended = false,
+	Serial = 0,
+	Wave = 0,
+	GameTime = 0,
+	WaveTime = 0,
+	Speed = 1,
+	ClockAt = os.clock(),
+	RecordEpoch = 0,
+	HandleCount = 0,
+	LastCash = 0,
+	RecordBusy = false,
+	RecordJobs = {},
+	SaveQueued = false,
+	ChangingToggle = false,
+	RefreshingCrates = false,
+	TeleportQueued = false,
+	AutoPlayed = false,
+	LastSkipWave = nil,
+	MacroDirty = false,
+	SellRound = 0,
+	SellAllDone = {},
+	AutoSelling = false,
+	SellBatch = nil,
+	SellSyncRunning = false,
+	SellRevision = 0,
+	PotionPending = 0,
+	SpinPending = 0,
+	ClaimNext = 0,
+	ClaimNotBefore = 0,
+	ClaimWake = false,
+	DeleteProfile = "",
+	DeleteUntil = 0,
+	LastOpenedCrate = nil,
+	LastPotion = nil,
+	SummonStatus = "",
+	SpeedState = nil,
+	BoostState = nil,
+	SpinState = nil,
+	Crates = {},
+	CratesAuthoritative = false,
+	CrateOptionsKey = "",
+	HideName = false,
+	FPSBoost = false,
+	RemoveVisuals = false,
+	BoostReadAt = 0,
+	BoostReadBusy = false,
+	SpinReadAt = 0,
+};
+local Settings = {
+	PlaybackMode = "Wave+Time",
+	Speed = 1,
+	AutoExecute = false,
+	SummonAmount = 1,
+	AutoJoin = true,
+	AutoSummon = false,
+	AutoBuyCrate = false,
+	SummonAutoSell = {},
+	SelectedPotions = {},
+	OpenCrates = {},
+	BuyCrate = "Basic",
+	BuyCrateAmount = 1,
+	AutoUsePotion = false,
+	PotionDelay = 1,
+	AutoSellAllOnWave = false,
+	SellAllWaves = "",
+	SummonDelay = 2,
+	BuyCrateDelay = 2,
+	OpenCrateDelay = 2,
+	OpenCrateAmount = "1",
+	AbilityDelay = 0.5,
+	ActionTimeout = 120,
+	AutoSpeed = true,
+	AutoSkip = true,
+	AutoPlayback = false,
+	AutoDifficulty = false,
+	AutoReturnAfterMatches = false,
+	MatchLimit = 5,
+	MatchesCompleted = 0,
+	EndAction = "Stay",
+	EndDelay = 5,
+	AutoSpinWheel = false,
+	AutoClaimQuest = false,
+	AutoClaimSeasonQuest = false,
+	AutoClaimPass = false,
+	AutoClaimPlaytime = false,
+	HideName = false,
+	FPSBoost = false,
+	RemoveVisuals = false,
+	AntiAFK = true,
+	WebhookEnabled = false,
+	WebhookURL = "",
+	WebhookMatchEnd = true,
+	Map = "Wave 1",
+	Players = 1,
+	Difficulty = "Normal",
+	StopAtWave = "",
+	Profile = "",
+	NewProfile = "",
+	ToggleKey = "RightShift",
+	AutoSave = true,
+	AutoUseAbility = false,
+	AbilityOnBoss = false,
+	AbilityOnWave = false,
+	AbilityWaves = "",
+};
+j.Settings = Settings;
+j.ConfigPath = j.Folder .. "/Settings/" .. player.Name .. ".json";
+j.FS = (type(isfile) == "function") and (type(isfolder) == "function") and (type(makefolder) == "function") and (type(readfile) == "function") and (type(writefile) == "function");
+if j.FS then
+	for _, folder in ipairs({j.Folder, (j.Folder .. "/Settings")}) do
+		if not isfolder(folder) then
+			pcall(makefolder, folder);
+		end
+	end
+	if isfile(j.ConfigPath) then
+		local ok, data = pcall(function()
+			return HttpService:JSONDecode(readfile(j.ConfigPath));
+		end);
+		if (ok and (type(data) == "table")) then
+			for k, v in pairs(Settings) do
+				if (type(data[k]) == type(v)) then
+					Settings[k] = data[k];
+				end
+			end
+			if ((data.RemoveVisuals == nil) and (data.RemoveEnemies == true)) then
+				Settings.RemoveVisuals = true;
+			end
+		end
+	end
+end
+Settings.Players = math.clamp(math.floor(tonumber(Settings.Players) or 1), 1, 4);
+Settings.MatchLimit = math.clamp(math.floor(tonumber(Settings.MatchLimit) or 5), 1, 100);
+Settings.SummonDelay = math.clamp(tonumber(Settings.SummonDelay) or 2, 0.1, 10);
+Settings.BuyCrateDelay = math.clamp(tonumber(Settings.BuyCrateDelay) or 2, 0.1, 10);
+Settings.OpenCrateDelay = math.clamp(tonumber(Settings.OpenCrateDelay) or 2, 0.1, 10);
+if (Settings.OpenCrateAmount == "All") then
+	Settings.OpenCrateAmount = "1";
+end
+Settings.AbilityDelay = math.clamp(tonumber(Settings.AbilityDelay) or 0.5, 0.1, 10);
+Settings.PotionDelay = math.clamp(tonumber(Settings.PotionDelay) or 1, 0.1, 10);
+Settings.ActionTimeout = math.clamp(tonumber(Settings.ActionTimeout) or 120, 15, 600);
+Settings.AutoSave = true;
+Settings.ToggleKey = "RightShift";
+if (game.PlaceId == j.LobbyId) then
+	Settings.MatchesCompleted = 0;
+end
+j.Connect = function(obj, fn)
+	local conn = obj:Connect(fn);
+	j.Connections[#j.Connections + 1] = conn;
+	return conn;
+end;
+j.Path = function(obj, path)
+	for part in path:gmatch("[^/]+") do
+		obj = obj and obj:FindFirstChild(part);
+	end
+	return obj;
+end;
+j.PG = function(path)
+	return j.Path(player:FindFirstChildOfClass("PlayerGui"), path);
+end;
+j.Text = function(obj)
+	return (obj and (obj:IsA("TextLabel") or obj:IsA("TextButton")) and obj.Text) or "";
+end;
+j.Visible = function(obj)
+	if not obj then return false; end
+	while obj do
+		if (obj:IsA("GuiObject") and not obj.Visible) then return false; end
+		if (obj:IsA("ScreenGui") and not obj.Enabled) then return false; end
+		obj = obj.Parent;
+	end
+	return true;
+end;
+j.Due = function(key, delay)
+	if (os.clock() < (j.Next[key] or 0)) then return false; end
+	j.Next[key] = os.clock() + delay;
+	return true;
+end;
+j.Notify = function(msg)
+	if j.UI then
+		pcall(function()
+			j.UI:Notify({Title = "Miko Hub - Alliance TD", Content = tostring(msg), Duration = 4});
+		end);
+	end
+end;
+j.SaveConfig = function(force)
+	if (not j.FS or (not force and not Settings.AutoSave)) then return; end
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, Settings);
+	if ok then
+		pcall(writefile, j.ConfigPath, encoded);
+	end
+end;
+j.QueueSave = function()
+	if j.SaveQueued then return; end
+	j.SaveQueued = true;
+	task.delay(0.5, function()
+		j.SaveQueued = false;
+		if j.Running then j.SaveConfig(); end
+	end);
+end;
+j.Remote = function(name)
+	local r = j.Path(ReplicatedStorage, "Remotes/" .. name) or j.Path(ReplicatedStorage, "Events/" .. name);
+	if (name == "Summon") then
+		r = j.Path(ReplicatedStorage, "Remotes/SummonUnit");
+	end
+	if (name == "Sell") then
+		r = ReplicatedStorage:FindFirstChild(name);
+	end
+	if ((name == "GetBoostState") or (name == "BuyBoost")) then
+		r = j.Path(ReplicatedStorage, "Remotes/Boost/" .. name);
+	end
+	return r;
+end;
+j.Call = function(name, ...)
+	local r = j.Remote(name);
+	if not r then return false, "Remote not found: " .. name; end
+	local co = coroutine.running();
+	j.Internal[co] = true;
+	local results = table.pack(pcall(function(...)
+		if r:IsA("RemoteFunction") then
+			return r:InvokeServer(...);
+		end
+		r:FireServer(...);
+		return true;
+	end, ...));
+	j.Internal[co] = nil;
+	return table.unpack(results, 1, results.n);
+end;
+j.Number = function(str)
+	local num, suffix = tostring(str or ""):gsub(",", ""):match("([%d%.]+)([KkMmBb]?)");
+	return (num and (tonumber(num) * (({k=1000,m=1000000,b=1000000000})[(suffix or ""):lower()] or 1))) or 0;
+end;
+j.Cash = function()
+	local cashObj = j.Path(player, "leaderstats/Cash");
+	return (cashObj and cashObj.Value) or j.Number(j.Text(j.PG("CashLabel")));
+end;
+j.Map = function()
+	return Workspace:FindFirstChild("Map");
+end;
+j.MapId = function()
+	local map = j.Map();
+	return map and map:GetAttribute("MapId");
+end;
+j.Own = function(obj)
+	return (typeof(obj) == "Instance") and obj:IsA("Model") and (obj:GetAttribute("OwnerId") == player.UserId);
+end;
+j.Towers = function()
+	local folder = Workspace:FindFirstChild("Towers");
+	local list = {};
+	if folder then
+		for _, tower in ipairs(folder:GetChildren()) do
+			if j.Own(tower) then
+				list[#list + 1] = tower;
+			end
+		end
+	end
+	return list;
+end;
+j.TickClock = function()
+	local now = os.clock();
+	local delta = (now - j.ClockAt) * j.Speed;
+	j.ClockAt = now;
+	j.GameTime = j.GameTime + delta;
+	j.WaveTime = j.WaveTime + delta;
+	local waveText = j.Text(j.PG("WaveLabel"));
+	local waveNum = tonumber(waveText:match("Wave (%d+)"));
+	if (waveNum and (waveNum ~= j.Wave)) then
+		j.Wave = waveNum;
+		j.WaveTime = 0;
+	end
+end;
+j.Active = function(serial)
+	return j.Running and j.Playing and (j.Serial == serial) and not j.Ended;
+end;
+j.WaitFor = function(fn, timeout, serial)
+	local deadline = os.clock() + timeout;
+	repeat
+		if (serial and not j.Active(serial)) then return false; end
+		if not j.Running then return false; end
+		local ok, result = pcall(fn);
+		if (ok and result) then return result; end
+		task.wait(0.1);
+	until os.clock() >= deadline;
+	return false;
+end;
+j.CleanName = function(name)
+	return tostring(name or ""):gsub('[%c<>:"/\\|?*]', ""):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", ""):sub(1, 70);
+end;
+j.ProfilePath = function(name)
+	return j.Folder .. "/" .. j.CleanName(name) .. ".json";
+end;
+j.SaveMacro = function()
+	if (not j.FS or (Settings.Profile == "")) then return false; end
+	local payload = {Version = 1, Game = "AllianceTD", Map = j.ProfileMap, Actions = j.Actions, Existing = j.Existing};
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, payload);
+	if ok then
+		return pcall(writefile, j.ProfilePath(Settings.Profile), encoded);
+	end
+	return false;
+end;
+j.ListMacros = function()
+	local list = {};
+	if (j.FS and (type(listfiles) == "function")) then
+		for _, file in ipairs(listfiles(j.Folder)) do
+			local name = file:match("([^/\\]+)%.json$");
+			if name then list[#list + 1] = name; end
+		end
+	end
+	table.sort(list);
+	return list;
+end;
+j.LoadMacro = function(name)
+	if (j.Recording or j.Playing) then
+		j.Notify("Stop recording or playback before loading a macro");
+		return false;
+	end
+	if (not j.FS or not isfile(j.ProfilePath(name))) then return false; end
+	local ok, data = pcall(function()
+		return HttpService:JSONDecode(readfile(j.ProfilePath(name)));
+	end);
+	if (not ok or (type(data) ~= "table") or (data.Game ~= "AllianceTD") or (type(data.Actions) ~= "table")) then
+		j.Notify("Invalid macro file");
+		return false;
+	end
+	j.Actions, j.Existing, j.ProfileMap = data.Actions, data.Existing or {}, data.Map;
+	Settings.Profile = name;
+	j.Status = "Loaded macro: " .. name;
+	j.QueueSave();
+	return true;
+end;
+j.Handle = function(tower)
+	if not j.RecordHandles[tower] then
+		j.HandleCount = (j.HandleCount or 0) + 1;
+		j.RecordHandles[tower] = tostring(j.HandleCount);
+	end
+	return j.RecordHandles[tower];
+end;
+j.Stamp = function()
+	j.TickClock();
+	return {Epoch = j.RecordEpoch, Wave = j.Wave, Time = (j.GameTime - (j.RecordStart or j.GameTime)), WaveTime = j.WaveTime, Cash = j.Cash(), MapId = j.MapId()};
+end;
+j.Append = function(action, stamp)
+	if (not j.Recording or (stamp.Epoch ~= j.RecordEpoch)) then return; end
+	action.Wave, action.Time, action.WaveTime = stamp.Wave, stamp.Time, stamp.WaveTime;
+	action.Source = "Auto";
+	j.Actions[#j.Actions + 1] = action;
+	j.MacroDirty = true;
+	j.Status = "Recorded action #" .. #j.Actions;
+end;
+j.RecordCall = function(remoteName, args, results, pre, stamp)
+	if (not j.Recording or (stamp.Epoch ~= j.RecordEpoch)) then return; end
+	if (remoteName == "PlaceTower") then
+		local tower = args[1];
+		if not j.Own(tower) then return; end
+		j.Append({Kind = "Place", Handle = j.Handle(tower), Unit = (tower:GetAttribute("UnitName") or args[1]), CFrame = {results[2]:GetComponents()}, Level = (tower:GetAttribute("Level") or 1), Cost = (tower:GetAttribute("Cost") or math.max(0, stamp.Cash - j.Cash()))}, stamp);
+	elseif (remoteName == "UpgradeTower") then
+		local tower = args[1];
+		if (not j.Own(tower) or (results[1] ~= true)) then return; end
+		j.WaitFor(function()
+			return not tower.Parent or ((tower:GetAttribute("Level") or 0) > pre.Level);
+		end, 3);
+		local newLevel = tower:GetAttribute("Level");
+		if (newLevel and (newLevel > pre.Level)) then
+			j.Append({Kind = "Upgrade", Handle = pre.Handle, Level = newLevel, Cost = pre.Cost}, stamp);
+		end
+	elseif ((remoteName == "SellTower") and (results[1] == true)) then
+		j.Append({Kind = "Sell", Handle = pre.Handle, Cost = 0}, stamp);
+	elseif ((remoteName == "SetTowerTarget") and (results[1] == true)) then
+		j.Append({Kind = "Target", Handle = pre.Handle, Target = args[2], Cost = 0}, stamp);
+	elseif ((remoteName == "ToggleDrones") and (results[1] == true) and j.Own(args[1])) then
+		j.Append({Kind = "Toggle", Handle = pre.Handle, Cost = 0}, stamp);
+	elseif ((remoteName == "UseAbility") and (results[1] == true) and j.Own(args[2])) then
+		local ability = args[1];
+		if ((ability == "Teleport") and (typeof(args[3]) == "CFrame")) then
+			j.Append({Kind = "Teleport", SubType = "Position", Handle = pre.Handle, CFrame = {args[3]:GetComponents()}, Cost = 0}, stamp);
+		elseif (ability == "Drones") then
+			j.Append({Kind = "Ability", SubType = "Drones", Handle = pre.Handle, Enabled = not pre.DronesActive, Cost = 0}, stamp);
+		elseif (ability == "Spin") then
+			j.Append({Kind = "Ability", SubType = "Spin", Handle = pre.Handle, Cost = 0}, stamp);
+		end
+	elseif (remoteName == "SkipWave") then
+		j.Append({Kind = "Skip", WaveToken = tonumber(args[1]), Cost = 0}, stamp);
+	end
+end;
+j.BindRecordTower = function(tower)
+	if ((typeof(tower) ~= "Instance") or not tower:IsA("Model")) then return; end
+	j.RecordTowerCache = j.RecordTowerCache or setmetatable({}, {__mode = "k"});
+	local function refresh()
+		if j.Own(tower) then
+			j.RecordTowerCache[tower] = {Handle = ((j.Recording and j.Handle(tower)) or nil), Level = (tower:GetAttribute("Level") or 1), Cost = (tower:GetAttribute("Cost") or 0), DronesActive = (tower:GetAttribute("DronesActive") == true)};
+		else
+			j.RecordTowerCache[tower] = nil;
+		end
+	end
+	refresh();
+	if not j.Bound[tower] then
+		j.Bound[tower] = true;
+		for _, attr in ipairs({"Level", "Cost", "DronesActive", "OwnerId"}) do
+			j.Connect(tower:GetAttributeChangedSignal(attr), refresh);
+		end
+	end
+end;
+j.RefreshHookCache = function()
+	j.RecordRemotes = j.RecordRemotes or {};
+	for _, name in ipairs({"PlaceTower", "UpgradeTower", "SellTower", "SetTowerTarget", "ToggleDrones", "UseAbility", "SkipWave"}) do
+		local r = j.Remote(name);
+		if r then j.RecordRemotes[r] = name; end
+	end
+	local folder = Workspace:FindFirstChild("Towers");
+	if (folder and not j.Bound[folder]) then
+		j.Bound[folder] = true;
+		j.Connect(folder.ChildAdded, j.BindRecordTower);
+		for _, tower in ipairs(folder:GetChildren()) do
+			j.BindRecordTower(tower);
+		end
+	end
+end;
+j.HookStamp = function()
+	local delta = (os.clock() - j.ClockAt) * j.Speed;
+	return {Epoch = j.RecordEpoch, Wave = j.Wave, Time = ((j.GameTime + delta) - (j.RecordStart or j.GameTime)), WaveTime = (j.WaveTime + delta), Cash = (j.LastCash or 0)};
+end;
+j.InstallRouter = function()
+	if ((type(hookmetamethod) ~= "function") or (type(getnamecallmethod) ~= "function")) then
+		return false;
+	end
+	local router = b.__AllianceTDRouter;
+	if (router and (router.Version ~= 5)) then
+		router.Hub = nil;
+		router = nil;
+		b.__AllianceTDRouter = nil;
+	end
+	if router then
+		router.Hub = j;
+		return true;
+	end
+	router = {Hub = j, Version = 5};
+	local original;
+	local function hook(self, ...)
+		local hub = router.Hub;
+		if (not hub or not hub.Running) then
+			return original(self, ...);
+		end
+		local method = getnamecallmethod();
+		local isInternal = hub.Internal[coroutine.running()] or ((type(checkcaller) == "function") and checkcaller());
+		local remoteName = hub.RecordRemotes and hub.RecordRemotes[self];
+		local shouldRecord = ((method == "FireServer") and ((remoteName == "PlaceTower") or (remoteName == "UpgradeTower") or (remoteName == "SellTower") or (remoteName == "SetTowerTarget") or (remoteName == "ToggleDrones") or (remoteName == "UseAbility") or (remoteName == "SkipWave"))) or ((method == "InvokeServer") and (remoteName == "SkipWave"));
+		if (not isInternal and shouldRecord) then
+			local args = table.pack(...);
+			local stamp = hub.HookStamp();
+			local pre = {};
+			if ((remoteName == "SellTower") and ((os.clock() - (hub.ManualSkipAt or -10)) > 0.8)) then
+				shouldRecord = false;
+			end
+			if ((remoteName ~= "PlaceTower") and (remoteName ~= "SkipWave")) then
+				local tower = ((remoteName == "UseAbility") and args[2]) or args[1];
+				if ((remoteName == "UseAbility") and (args[1] ~= "Teleport") and (args[1] ~= "Drones") and (args[1] ~= "Spin")) then
+					shouldRecord = false;
+				end
+				local cached = hub.RecordTowerCache and hub.RecordTowerCache[tower];
+				if (hub.Recording and cached) then
+					pre = {Handle = (cached.Handle or hub.Handle(tower)), Level = cached.Level, Cost = cached.Cost, DronesActive = cached.DronesActive};
+				else
+					shouldRecord = false;
+				end
+			end
+			local results = table.pack(original(self, ...));
+			if (shouldRecord and hub.Recording) then
+				hub.RecordJobs = hub.RecordJobs or {};
+				table.insert(hub.RecordJobs, {remoteName, args, results, pre, stamp});
+			end
+			return table.unpack(results, 1, results.n);
+		end
+		return original(self, ...);
+	end
+	local ok, old = pcall(hookmetamethod, game, "FireServer", ((type(newcclosure) == "function") and newcclosure(hook)) or hook);
+	if not ok then return false; end
+	original = old;
+	b.__AllianceTDRouter = router;
+	return true;
+end;
+j.StartRecord = function()
+	if (game.PlaceId ~= j.MatchId) then
+		j.Notify("Must be in a match to record");
+		return;
+	end
+	if j.Playing then
+		j.Notify("Stop playback before recording");
+		return;
+	end
+	if (Settings.Profile == "") then
+		j.Notify("Set a profile name first");
+		return;
+	end
+	if not j.MapId() then
+		j.Notify("Map not loaded");
+		return;
+	end
+	if not j.InstallRouter() then
+		j.Notify("Failed to install hook");
+		return;
+	end
+	j.Actions, j.Existing, j.RecordHandles, j.RecordJobs = {}, {}, {}, {};
+	j.HandleCount = 0;
+	j.RecordEpoch = j.RecordEpoch + 1;
+	j.ProfileMap = j.MapId();
+	j.RecordStart = j.GameTime;
+	for _, tower in ipairs(j.Towers()) do
+		j.Existing[#j.Existing + 1] = {Handle = j.Handle(tower), Unit = (tower:GetAttribute("UnitName") or tower.Name), CFrame = {tower:GetPivot():GetComponents()}};
+	end
+	j.Recording = true;
+	j.Status = "Recording...";
+	j.SaveMacro();
+	j.RefreshHookCache();
+	for _, tower in ipairs(j.Towers()) do
+		j.BindRecordTower(tower);
+	end
+end;
+j.StopRecord = function()
+	if not j.Recording then return; end
+	j.WaitFor(function()
+		return not j.RecordBusy;
+	end, 3.5);
+	for _, job in ipairs(j.RecordJobs or {}) do
+		j.RecordCall(table.unpack(job));
+	end
+	j.RecordJobs = {};
+	j.Recording = false;
+	j.RecordEpoch = j.RecordEpoch + 1;
+	j.SaveMacro();
+	j.Status = "Recording stopped";
+	if j.Widgets.Record then
+		j.ChangingToggle = true;
+		pcall(function()
+			j.Widgets.Record:Set(false);
+		end);
+		j.ChangingToggle = false;
+	end
+end;
+j.StopPlayback = function()
+	j.Serial = j.Serial + 1;
+	j.Playing = false;
+	j.Status = "Playback stopped";
+end;
+j.ResolveExisting = function()
+	j.Handles = {};
+	local used = {};
+	for _, entry in ipairs(j.Existing) do
+		local target = CFrame.new(table.unpack(entry.CFrame));
+		local best, bestDist = nil, 1;
+		for _, tower in ipairs(j.Towers()) do
+			if (not used[tower] and ((tower:GetAttribute("UnitName") or tower.Name) == entry.Unit)) then
+				local dist = (tower:GetPivot().Position - target.Position).Magnitude;
+				if (dist < bestDist) then
+					best, bestDist = tower, dist;
+				end
+			end
+		end
+		if not best then
+			return false, "Missing tower: " .. entry.Unit;
+		end
+		used[best] = true;
+		j.Handles[entry.Handle] = best;
+	end
+	return true;
+end;
+j.SkipAvailable = function()
+	local gui = j.PG("SkipGui");
+	if not gui then return false; end
+	for _, obj in ipairs(gui:GetDescendants()) do
+		if ((obj:IsA("TextLabel") or obj:IsA("TextButton")) and j.Visible(obj)) then
+			local text = obj.Text:lower();
+			if (text:find("skip wave", 1, true) or (text == "skip")) then
+				return true;
+			end
+		end
+	end
+	return false;
+end;
+j.AbilityRemaining = function(tower, attr)
+	local time = tonumber(tower:GetAttribute(attr));
+	if not time then return 0; end
+	local ok, now = pcall(Workspace.GetServerTimeNow, Workspace);
+	return (ok and math.max(0, time - now)) or 0;
+end;
+j.CinemaPlayback = function(action, tower, serial)
+	if ((action.Mode ~= "Toggle") and (action.Mode ~= "Teleport") and (action.Mode ~= "Spin")) then
+		return false, "Invalid ability mode";
+	end
+	if ((action.Mode == "Toggle") and (type(action.Enabled) ~= "boolean")) then
+		return false, "Invalid toggle";
+	end
+	if ((action.Mode == "Teleport") and ((type(action.CFrame) ~= "table") or (#action.CFrame ~= 12))) then
+		return false, "Invalid CFrame";
+	end
+	local deadline = os.clock() + Settings.ActionTimeout;
+	repeat
+		if not j.Active(serial) then return false, "Inactive"; end
+		if (not j.Own(tower) or not tower.Parent) then return false, "Tower missing"; end
+		if ((action.Mode == "Toggle") and ((tower:GetAttribute("DronesActive") == true) == action.Enabled)) then
+			return true;
+		end
+		local attr = ((action.Mode == "Toggle") and "DronesCooldown") or ((action.Mode == "Teleport") and "TeleportCooldown") or "SpinCooldown";
+		if (j.AbilityRemaining(tower, attr) <= 0) then
+			local mode = ((action.Mode == "Toggle") and "Drones") or action.Mode;
+			local ok, res = j.Call("UseAbility", mode, tower, nil);
+			if not ok then return false, "Ability call failed"; end
+			if (res == true) then
+				if (action.Mode == "Spin") then return true; end
+				if (action.Mode == "Toggle") then
+					return j.WaitFor(function()
+						return (tower:GetAttribute("DronesActive") == true) == action.Enabled;
+					end, 3, serial) ~= false, "Toggle failed";
+				end
+				if not j.Active(serial) then return false, "Inactive"; end
+				if (not j.Own(tower) or not tower.Parent) then return false, "Tower missing"; end
+				local cf = CFrame.new(table.unpack(action.CFrame));
+				local ok2, res2 = j.Call("UseAbility", "Teleport", tower, cf);
+				if (not ok2 or (res2 ~= true)) then return false, "Teleport failed"; end
+				return j.WaitFor(function()
+					local pos = tower:GetAttribute("Position");
+					return pos and ((pos - cf.Position).Magnitude < 0.75);
+				end, 3, serial) ~= false, "Teleport verify failed";
+			end
+		end
+		j.Status = "Cinema: " .. action.Mode;
+		task.wait(0.5);
+	until os.clock() >= deadline;
+	return false, "Timeout";
+end;
+j.DoAction = function(action, serial)
+	if (action.Kind == "Skip") then
+		local wave = action.WaveToken or action.Wave or j.Wave;
+		if (j.Wave > wave) then return true; end
+		if not j.WaitFor(function()
+			return (j.Wave >= wave) and j.SkipAvailable();
+		end, Settings.ActionTimeout, serial) then
+			return false, "Skip not available";
+		end
+		if (j.Wave > wave) then return true; end
+		return j.Call("SkipWave", wave);
+	end
+	if (action.Kind == "Place") then
+		j.PlaybackStage = "Placing";
+		local target = CFrame.new(table.unpack(action.CFrame));
+		local deadline = os.clock() + Settings.ActionTimeout;
+		repeat
+			if not j.Active(serial) then return false, "Inactive"; end
+			j.PlaybackStage = "Selecting";
+			local ok, unitName, err = j.Call("GetUnit", action.Unit);
+			if (ok and unitName) then
+				j.PlaybackStage = "Placing";
+				local ok2, tower = j.Call("PlaceTower", action.Unit, target);
+				j.PlaybackStage = "Verifying";
+				if (ok2 and j.Own(tower)) then
+					j.Handles[action.Handle] = tower;
+					return true;
+				end
+				return false, "Place failed";
+			end
+			j.Status = "Waiting for " .. action.Unit .. " (" .. tostring(err or unitName) .. ")";
+			task.wait(0.5);
+		until os.clock() >= deadline;
+		return false, "Place timeout";
+	end
+	local tower = j.Handles[action.Handle];
+	if ((action.Kind == "Upgrade") and (not tower or not tower.Parent)) then
+		return true;
+	end
+	if (not j.Own(tower) or not tower.Parent) then
+		return false, "Tower missing";
+	end
+	if ((action.Kind == "Cinema") or (action.Kind == "Ability")) then
+		if (j.Wave < (tonumber(action.Wave) or 0)) then
+			if not j.WaitFor(function()
+				return j.Wave >= (tonumber(action.Wave) or 0);
+			end, Settings.ActionTimeout, serial) then
+				return false, "Wave timeout";
+			end
+		end
+		if (action.Kind == "Cinema") then
+			return j.CinemaPlayback(action, tower, serial);
+		end
+		local deadline = os.clock() + Settings.ActionTimeout;
+		repeat
+			if not j.Active(serial) then return false, "Inactive"; end
+			if (not j.Own(tower) or not tower.Parent) then return false, "Tower missing"; end
+			local ok, res, err = j.Call("UseAbility", tower);
+			if (ok and (res == true)) then return true; end
+			if not ok then return false, "Call failed"; end
+			local msg = tostring(err):lower();
+			if ((msg ~= "cooldown") and not msg:find("cooldown", 1, true)) then
+				return false, "Ability error: " .. tostring(err);
+			end
+			j.Status = "Waiting ability: " .. tostring(err);
+			task.wait(0.5);
+		until os.clock() >= deadline;
+		return false, "Ability timeout";
+	elseif (action.Kind == "Upgrade") then
+		local target = tonumber(action.Level);
+		if not target then return false, "Invalid level"; end
+		local deadline = os.clock() + Settings.ActionTimeout;
+		local attempts = 0;
+		repeat
+			if not j.Active(serial) then return false, "Inactive"; end
+			local current = tower:GetAttribute("Level") or 0;
+			if (current >= target) then return true; end
+			local cost = tower:GetAttribute("UpgradeCost");
+			if ((cost == nil) and (current > 0)) then
+				return true, "Maxed";
+			end
+			if (j.Cash() >= (tonumber(cost) or action.Cost or 0)) then
+				attempts = attempts + 1;
+				local ok, res, err = j.Call("UpgradeTower", tower);
+				if j.WaitFor(function()
+					return (tower:GetAttribute("Level") or 0) > current;
+				end, 2, serial) then
+					if ((tower:GetAttribute("Level") or 0) >= target) then
+						return true;
+					end
+				elseif (ok and (res == false) and tostring(err):lower():find("max", 1, true)) then
+					return true;
+				end
+				if (attempts >= 5) then
+					return false, "Upgrade failed";
+				end
+			end
+			task.wait(0.5);
+		until os.clock() >= deadline;
+		return false, "Upgrade timeout";
+	elseif (action.Kind == "Sell") then
+		local ok, res = j.Call("SellTower", tower);
+		if (ok and (res == true)) then
+			return j.WaitFor(function()
+				return not tower.Parent;
+			end, 3, serial) ~= false, "Sell failed";
+		end
+		return false, "Sell call failed";
+	elseif (action.Kind == "Target") then
+		for _ = 1, 6 do
+			if not j.Active(serial) then return false, "Inactive"; end
+			if (tower:GetAttribute("TargetMode") == action.Target) then return true; end
+			local ok, res, current = j.Call("SetTowerTarget", tower);
+			if (ok and res and (current == action.Target)) then return true; end
+			task.wait(0.25);
+		end
+		return false, "Target failed";
+	end
+	return false, "Unknown action";
+end;
+j.StartPlayback = function()
+	if (j.Playing or j.Recording or j.Ended or (game.PlaceId ~= j.MatchId)) then return; end
+	if (#j.Actions == 0) then
+		j.Notify("No actions to play");
+		return;
+	end
+	local mapId = j.MapId();
+	if not mapId then return; end
+	if (mapId ~= j.ProfileMap) then
+		j.Status = "Map mismatch: " .. tostring(j.ProfileMap);
+		return;
+	end
+	j.Serial = j.Serial + 1;
+	local serial = j.Serial;
+	j.Playing = true;
+	j.PlayStart = j.GameTime;
+	task.spawn(function()
+		local idx = 0;
+		j.LastPlaybackError = nil;
+		j.PlaybackStage = "Starting";
+		local ok, err = xpcall(function()
+			local resolved, resolveErr = j.ResolveExisting();
+			if not resolved then error(resolveErr, 0); end
+			for i, action in ipairs(j.Actions) do
+				idx = i;
+				j.PlaybackStage = tostring(action.Kind) .. " #" .. i;
+				j.Status = "Playing " .. i .. "/" .. #j.Actions .. " " .. tostring(action.Kind);
+				local ready = j.WaitFor(function()
+					local cond = true;
+					if (Settings.PlaybackMode == "Wave+Time") then
+						cond = (j.Wave > (action.Wave or 0)) or ((j.Wave == (action.Wave or 0)) and (j.WaveTime >= (action.WaveTime or 0)));
+					elseif (Settings.PlaybackMode == "Time") then
+						cond = (j.GameTime - j.PlayStart) >= (action.Time or 0);
+					end
+					return cond and ((action.Kind == "Place") or (j.Cash() >= (action.Cost or 0)));
+				end, Settings.ActionTimeout, serial);
+				if not ready then
+					error("Timeout waiting for action " .. i, 0);
+				end
+				j.PlaybackStage = tostring(action.Kind) .. " exec";
+				local result, errMsg = j.DoAction(action, serial);
+				if not result then
+					error("Action " .. i .. ": " .. tostring(errMsg), 0);
+				end
+			end
+		end, function(err2)
+			local msg = "Action " .. idx .. " failed: " .. tostring(j.PlaybackStage) .. ": " .. tostring(err2);
+			j.LastPlaybackError = {Index = idx, Stage = j.PlaybackStage, Error = tostring(err2), Message = msg};
+			if (debug and (type(debug.traceback) == "function")) then
+				j.LastPlaybackError.Trace = debug.traceback(msg, 2);
+			end
+			return msg;
+		end);
+		if (j.Serial == serial) then
+			j.Playing = false;
+			j.Status = (ok and "Playback complete") or tostring(err);
+			if not ok then j.Notify(j.Status); end
+		end
+	end);
+end;
+j.Webhook = function(url, title, fields, color, description, thumbnail)
+	if ((type(url) ~= "string") or not url:match("^https://discord%.com/api/webhooks/%d+/[%w%-_]+$")) then
+		return false, "Invalid webhook URL";
+	end
+	local requestFn = request or http_request or (syn and syn.request);
+	if (type(requestFn) ~= "function") then
+		return false, "No HTTP request function";
+	end
+	local body = {username = title, avatar_url = thumbnail, embeds = {{title = title, description = description, color = (color or 5793266), fields = fields, footer = {text = "Miko Hub - Alliance TD", icon_url = "rbxassetid://103525855196551"}, timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")}}};
+	if thumbnail then body.thumbnail = {url = thumbnail}; end
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, {content = "", embeds = body.embeds, username = title, avatar_url = thumbnail});
+	if not ok then return false, "Encode failed"; end
+	local ok2, res = pcall(requestFn, {Url = url, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = encoded});
+	local code = ok2 and (type(res) == "table") and tonumber(res.StatusCode or res.Status);
+	return (code and (code >= 200) and (code < 300)) or false, (code and ("HTTP " .. code)) or "Request failed";
+end;
+j.Result = function()
+	local gui = j.PG("ResultGui");
+	if not j.Visible(gui) then return; end
+	local status = j.Text(j.Path(gui, "Main/StatusLabel"));
+	if ((status ~= "Victory") and (status ~= "Defeat")) then return; end
+	local rewards = {};
+	local list = gui:FindFirstChild("Rewards", true);
+	if list then
+		for _, item in ipairs(list:GetChildren()) do
+			local amount = item:FindFirstChild("Amount", true);
+			local name = item.Name:gsub("Reward", "");
+			if ((name ~= "Title") and j.Visible(item) and amount and (j.Text(amount) ~= "")) then
+				local labels = {Coins = "💵 Coins", Pumpkins = "🎃 Pumpkins", XP = "✨ XP", Exp = "✨ XP"};
+				rewards[#rewards + 1] = (labels[name] or name) .. ": " .. j.Text(amount);
+			end
+		end
+	end
+	table.sort(rewards);
+	return {Status = status, Map = j.Text(j.Path(gui, "Main/MapLabel")), Mode = j.Text(j.Path(gui, "Main/ModeLabel")), Time = j.Text(j.Path(gui, "Main/TimeLabel")), Rewards = table.concat(rewards, "\n")};
+end;
+j.MatchReport = function(result)
+	local status = ((result.Status == "Victory") and "VICTORY") or ((result.Status == "Defeat") and "DEFEAT") or result.Status;
+	local function val(x, fallback)
+		return ((type(x) == "string") and (x ~= "") and x) or fallback;
+	end
+	return {Title = "Miko Hub - Match Result", Description = string.format("**Stage:** %s\n**Mode:** %s\n**Result:** %s", val(result.Map, tostring(j.MapId() or "Unknown")), val(result.Mode, Settings.Difficulty), status), Color = (((status == "VICTORY") and 65280) or ((status == "DEFEAT") and 16711680) or 16776960), Fields = {{name = "Player", value = ("👤 Name: ||" .. player.Name .. "||\n❤️ Base HP: " .. tostring(result.BaseHP or "N/A")), inline = false}, {name = "Time", value = ("⏱️ " .. val(result.Time, "N/A")), inline = true}, {name = "Rewards", value = val(result.Rewards, "No rewards"), inline = false}}, Image = "rbxassetid://103525855196551"};
+end;
+j.ReturnLobby = function()
+	j.SaveConfig(true);
+	j.QueueTeleport();
+	if (game.PlaceId == j.MatchId) then
+		j.Call("LeaveMatch");
+		task.delay(10, function()
+			if j.Running then
+				pcall(TeleportService.Teleport, TeleportService, j.LobbyId, player);
+			end
+		end);
+	else
+		pcall(TeleportService.Teleport, TeleportService, j.LobbyId, player);
+	end
+end;
+j.QueueTeleport = function()
+	if (j.TeleportQueued or not Settings.AutoExecute) then return; end
+	local queueFn = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport);
+	if ((type(queueFn) ~= "function") or not j.FS) then return; end
+	local boot = 'if game.GameId~=10393438342 then return end; local e=getgenv(); if not e.__AllianceTDAutoBoot then local p=game:GetService("Players").LocalPlayer or game:GetService("Players").PlayerAdded:Wait(); local c="AllianceTD_Macros/Settings/"..p.Name..".json"; local ok,s=pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(c)) end); if ok and s.AutoExecute then e.__AllianceTDAutoBoot=true; local f=loadstring(readfile("AllianceTD_Macros/Hub.lua")); if f then f() end end end';
+	local ok = pcall(queueFn, boot);
+	j.TeleportQueued = ok;
+end;
+j.EndStep = function(result)
+	if not j.Ended then
+		j.Ended = true;
+		j.StopRecord();
+		j.StopPlayback();
+		j.EndAt = os.clock();
+		local stored = b.__AllianceTDResult;
+		if (not stored or (stored.JobId ~= game.JobId) or not stored.Counted) then
+			Settings.MatchesCompleted = Settings.MatchesCompleted + 1;
+			j.SaveConfig(true);
+			b.__AllianceTDResult = {JobId = game.JobId, Counted = true};
+		end
+		j.Status = result.Status;
+		if (Settings.WebhookEnabled and Settings.WebhookMatchEnd and not b.__AllianceTDResult.Reported) then
+			b.__AllianceTDResult.Reported = true;
+			task.delay(1, function()
+				if not j.Running then return; end
+				local res = j.Result() or result;
+				local report = j.MatchReport(res);
+				local ok, err = j.Webhook(Settings.WebhookURL, report.Title, report.Fields, report.Color, report.Description, report.Image);
+				if not ok then
+					j.Notify("Webhook failed: " .. tostring(err));
+				end
+			end);
+		end
+	end
+	if (((os.clock() - j.EndAt) < Settings.EndDelay) or j.EndSent) then return; end
+	if (Settings.AutoReturnAfterMatches and (Settings.MatchesCompleted >= Settings.MatchLimit)) then
+		j.EndSent = true;
+		j.ReturnLobby();
+	elseif (Settings.EndAction == "Lobby") then
+		j.EndSent = true;
+		j.ReturnLobby();
+	elseif (Settings.EndAction == "Rejoin") then
+		j.EndSent = true;
+		j.QueueTeleport();
+		j.Call("Rejoin");
+	end
+end;
+j.UpdateSpeed = function(state)
+	if (type(state) ~= "table") then return; end
+	j.TickClock();
+	j.Speed = tonumber(state.Speed) or j.Speed;
+	j.SpeedState = state;
+end;
+j.MatchStep = function()
+	j.TickClock();
+	local result = j.Result();
+	if result then
+		j.EndStep(result);
+		return;
+	end
+	if j.Ended then
+		if j.Visible(j.PG("MatchGui")) then return; end
+		j.Ended, j.EndSent = false, false;
+		j.Wave, j.GameTime, j.WaveTime = 0, 0, 0;
+		j.AutoPlayed = false;
+		j.LastSkipWave = nil;
+		j.SellAllDone = {};
+		j.SellRound = (j.SellRound or 0) + 1;
+		b.__AllianceTDResult = {JobId = game.JobId, Counted = false};
+		j.Next.Speed = 0;
+	end
+	local map = j.Map();
+	local diff = map and map:GetAttribute("Difficulty");
+	local diffObj = j.Path(ReplicatedStorage, "Remotes/Difficulty/" .. player.UserId);
+	if (Settings.AutoDifficulty and (not diffObj or (diffObj.Value ~= Settings.Difficulty)) and (j.Wave == 0) and j.Due("Difficulty", 3)) then
+		j.Call("SetDifficulty", Settings.Difficulty);
+	end
+	if (Settings.AutoSpeed and j.Due("Speed", 3)) then
+		if (not j.SpeedState or j.Due("SpeedRead", 30)) then
+			local ok, state = j.Call("GetSpeedState");
+			if ok then j.UpdateSpeed(state); end
+		end
+		local state = j.SpeedState;
+		if (state and state.Ready and not state.Locked) then
+			local target = math.min(tonumber(Settings.Speed) or 1, tonumber(state.MaxSpeed) or 1);
+			if (math.abs(j.Speed - target) > 0.01) then
+				j.Call("SetSpeed", target);
+			end
+		end
+	end
+	local stop = false;
+	for waveStr in tostring(Settings.StopAtWave):gmatch("%d+") do
+		if (tonumber(waveStr) == j.Wave) then
+			stop = true;
+			break;
+		end
+	end
+	if (Settings.AutoSkip and (j.Wave > 0) and not stop and j.SkipAvailable() and (j.LastSkipWave ~= j.Wave) and j.Due("Skip", 1)) then
+		local ok = j.Call("SkipWave", j.Wave);
+		if ok then j.LastSkipWave = j.Wave; end
+	end
+	if (Settings.AutoPlayback and not j.AutoPlayed and not j.Recording and (#j.Actions > 0) and j.MapId()) then
+		j.AutoPlayed = true;
+		j.StartPlayback();
+	end
+end;
+j.LobbyStep = function()
+	if (Settings.AutoJoin and j.Due("Join", 8)) then
+		local q = j.Queue;
+		if (not q or ((q.Status ~= "Starting") and (q.Status ~= "Waiting"))) then
+			j.QueueTeleport();
+			local ok, res = j.Call("QueueJoin", Settings.Map, Settings.Players);
+			if (ok and (type(res) == "table") and res.Ok) then
+				j.Queue = res.State;
+			else
+				j.Status = "Queue: " .. tostring(((type(res) == "table") and res.Reason) or res);
+			end
+		end
+	end
+end;
+j.AbilityBossPresent = function()
+	local gui = j.PG("BossGui");
+	if not gui then return false; end
+	for _, boss in ipairs(gui:GetChildren()) do
+		if (boss.Name:match("Boss") and j.Visible(boss)) then
+			local text = j.Text(j.Path(boss, "HPText")):gsub(",", "");
+			local hp = tonumber(text:match("%d+"));
+			if (hp and (hp > 0)) then
+				return true;
+			end
+		end
+	end
+	return false;
+end;
+j.AbilityAllowed = function()
+	if ((game.PlaceId ~= j.MatchId) or j.Ended or (j.Wave <= 0)) then return false; end
+	if Settings.AutoUseAbility then return true; end
+	if (Settings.AbilityOnBoss and j.AbilityBossPresent()) then return true; end
+	if Settings.AbilityOnWave then
+		for waveStr in tostring(Settings.AbilityWaves):gmatch("%d+") do
+			if (tonumber(waveStr) == j.Wave) then return true; end
+		end
+	end
+	return false;
+end;
+j.AbilityTargetInRange = function(tower, enemies)
+	local range = tonumber(tower:GetAttribute("Range"));
+	if (not range or (range <= 0)) then return false; end
+	local pos = tower:GetAttribute("Position") or tower:GetPivot().Position;
+	for _, enemy in ipairs(enemies) do
+		if (enemy:IsA("Model") and enemy.Parent) then
+			local hp = tonumber(enemy:GetAttribute("Health") or enemy:GetAttribute("HP"));
+			if (not hp or (hp > 0)) then
+				local epos = enemy:GetPivot().Position;
+				local dx, dz = epos.X - pos.X, epos.Z - pos.Z;
+				if (((dx * dx) + (dz * dz)) <= (range * range)) then
+					return true;
+				end
+			end
+		end
+	end
+	return false;
+end;
+j.AbilityStep = function()
+	if (not j.Running or not j.AbilityAllowed() or (os.clock() < (j.Next.Ability or 0))) then return; end
+	local folder = Workspace:FindFirstChild("Enemies");
+	if not folder then return; end
+	local enemies = folder:GetChildren();
+	if (#enemies == 0) then return; end
+	local towers = j.Towers();
+	if (#towers == 0) then return; end
+	j.AbilityAttempts = j.AbilityAttempts or setmetatable({}, {__mode = "k"});
+	j.SpinAttempts = j.SpinAttempts or setmetatable({}, {__mode = "k"});
+	for i = 1, #towers do
+		local idx = ((((j.AbilityCursor or 0) + i) - 1) % #towers) + 1;
+		local tower = towers[idx];
+		local isCinema = (tower:GetAttribute("UnitName") or tower.Name) == "Cinema";
+		for attempt = 1, (isCinema and 2) or 1 do
+			local isSpin = (attempt == 2);
+			local cache = (isSpin and j.SpinAttempts) or j.AbilityAttempts;
+			local attr = (isSpin and "SpinCooldown") or "AbilityCooldown";
+			if ((os.clock() >= (cache[tower] or 0)) and (j.AbilityRemaining(tower, attr) <= 0) and j.AbilityTargetInRange(tower, enemies)) then
+				j.AbilityCursor = idx;
+				local ok, res, err;
+				if isSpin then
+					ok, res, err = j.Call("UseAbility", "Spin", tower, nil);
+				else
+					ok, res, err = j.Call("UseAbility", tower);
+				end
+				local delay = Settings.AbilityDelay;
+				if (ok and (res == true)) then
+					delay = math.max(delay, j.AbilityRemaining(tower, attr));
+					if (type(err) == "number") then
+						local ok2, now = pcall(Workspace.GetServerTimeNow, Workspace);
+						if (ok2 and (err > now) and ((err - now) < 3600)) then
+							delay = math.max(delay, err - now);
+						end
+					end
+				else
+					delay = math.max(delay, ((tostring(err):lower() == "cooldown") and 1) or 5);
+				end
+				cache[tower] = os.clock() + delay;
+				j.Next.Ability = os.clock() + Settings.AbilityDelay;
+				return;
+			end
+		end
+	end
+end;
+j.PotionNames = {Health = "Health Potion", Damage = "Damage Potion", Speed = "Speed Potion", Cash = "Cash Potion", Luck = "Luck Potion"};
+j.UpdateBoosts = function(state)
+	if ((type(state) == "table") and (type(state.Inventory) == "table")) then
+		j.BoostState = state;
+		j.BoostReadAt = os.clock() + 5;
+	end
+end;
+j.PotionStep = function()
+	if (not j.Running or not Settings.AutoUsePotion or (game.PlaceId ~= j.LobbyId) or not next(Settings.SelectedPotions) or not j.Due("Potion", Settings.PotionDelay)) then return; end
+	if ((not j.BoostState or (os.clock() >= (j.BoostReadAt or 0))) and not j.BoostReadBusy) then
+		j.BoostReadBusy = true;
+		j.BoostReadAt = os.clock() + 5;
+		task.spawn(function()
+			local ok, res, state = pcall(j.Call, "GetBoostState");
+			j.BoostReadBusy = false;
+			if (j.Running and ok and res) then
+				j.UpdateBoosts(state);
+			end
+		end);
+	end
+	if (not j.Running or not Settings.AutoUsePotion or (game.PlaceId ~= j.LobbyId)) then return; end
+	local inv = j.BoostState and j.BoostState.Inventory;
+	if not inv then return; end
+	local available = {};
+	for key in pairs(j.PotionNames) do
+		if (Settings.SelectedPotions[key] and ((tonumber(inv[key]) or 0) > 0)) then
+			available[#available + 1] = key;
+		end
+	end
+	table.sort(available);
+	if ((#available == 0) or ((j.PotionPending or 0) >= 8)) then return; end
+	local idx = 1;
+	for i, key in ipairs(available) do
+		if (key == j.LastPotion) then
+			idx = (i % #available) + 1;
+			break;
+		end
+	end
+	local key = available[idx];
+	j.LastPotion = key;
+	j.PotionPending = (j.PotionPending or 0) + 1;
+	task.spawn(function()
+		if (not j.Running or not Settings.AutoUsePotion or not Settings.SelectedPotions[key] or (game.PlaceId ~= j.LobbyId)) then
+			j.PotionPending = j.PotionPending - 1;
+			return;
+		end
+		local ok, res, success, data = pcall(j.Call, "UsePotion", key);
+		j.PotionPending = j.PotionPending - 1;
+		if not j.Running then return; end
+		if (ok and res and (success == true) and (type(data) == "table") and (type(data.Inventory) == "table")) then
+			local inv2 = j.BoostState and j.BoostState.Inventory;
+			if inv2 then
+				for k, v in pairs(data.Inventory) do
+					if (type(v) == "number") then
+						inv2[k] = math.min(tonumber(inv2[k]) or v, v);
+					end
+				end
+			end
+		end
+	end);
+end;
+j.SellAllStep = function()
+	if (not j.Running or not Settings.AutoSellAllOnWave or (game.PlaceId ~= j.MatchId) or j.Ended or (j.Wave <= 0) or j.AutoSelling) then return; end
+	local wave = j.Wave;
+	local should = false;
+	for waveStr in tostring(Settings.SellAllWaves):gmatch("%d+") do
+		if (tonumber(waveStr) == wave) then
+			should = true;
+			break;
+		end
+	end
+	if not should then return; end
+	j.SellAllDone = j.SellAllDone or {};
+	if j.SellAllDone[wave] then return; end
+	j.SellAllDone[wave] = true;
+	j.AutoSelling = true;
+	local round = j.SellRound or 0;
+	local towers = j.Towers();
+	local batch = {Pending = 0, Dispatching = true};
+	j.SellBatch = batch;
+	local function check()
+		if (not batch.Dispatching and (batch.Pending == 0) and (j.SellBatch == batch)) then
+			j.AutoSelling = false;
+			j.SellBatch = nil;
+		end
+	end
+	task.spawn(function()
+		local ok, err = pcall(function()
+			for _, tower in ipairs(towers) do
+				if (not j.Running or not Settings.AutoSellAllOnWave or j.Ended or (game.PlaceId ~= j.MatchId) or ((j.SellRound or 0) ~= round)) then break; end
+				if (tower.Parent and j.Own(tower)) then
+					local t = tower;
+					batch.Pending = batch.Pending + 1;
+					task.spawn(function()
+						if (j.Running and Settings.AutoSellAllOnWave and not j.Ended and (game.PlaceId == j.MatchId) and ((j.SellRound or 0) == round) and t.Parent and j.Own(t)) then
+							pcall(j.Call, "SellTower", t);
+						end
+						batch.Pending = batch.Pending - 1;
+						check();
+					end);
+				end
+			end
+		end);
+		batch.Dispatching = false;
+		check();
+		if not ok then
+			warn("SellAll error: " .. tostring(err));
+		end
+	end);
+end;
+j.SpinWheelStep = function()
+	if (not j.Running or not Settings.AutoSpinWheel or (game.PlaceId ~= j.LobbyId) or not j.Due("SpinWheel", 0.1)) then return; end
+	local state = j.SpinState;
+	if (not state or (os.clock() >= (j.SpinReadAt or 0))) then
+		local ok, res = j.Call("GetSpinState");
+		if (not ok or (type(res) ~= "table")) then
+			j.Next.SpinWheel = os.clock() + 0.1;
+			return;
+		end
+		j.SpinState = res;
+		state = res;
+		j.SpinReadAt = os.clock() + 5;
+	end
+	if (not j.Running or not Settings.AutoSpinWheel or (game.PlaceId ~= j.LobbyId)) then return; end
+	if state.InventoryFull then
+		j.Next.SpinWheel = os.clock() + 0.1;
+		return;
+	end
+	local freeSpins = tonumber(state.FreeSpins) or 0;
+	local tickets = tonumber(state.Tickets) or 0;
+	local cost = tonumber(state.Cost) or 1;
+	if ((freeSpins <= 0) and (tickets < cost)) then
+		j.Next.SpinWheel = os.clock() + 0.1;
+		return;
+	end
+	if ((j.SpinPending or 0) >= 8) then return; end
+	j.SpinPending = (j.SpinPending or 0) + 1;
+	task.spawn(function()
+		if (not j.Running or not Settings.AutoSpinWheel or (game.PlaceId ~= j.LobbyId)) then
+			j.SpinPending = j.SpinPending - 1;
+			return;
+		end
+		local ok, res, data = pcall(j.Call, "SpinWheel");
+		j.SpinPending = j.SpinPending - 1;
+		if not j.Running then return; end
+		if (ok and res and (type(data) == "table") and (data.Success == true)) then
+			local st = j.SpinState;
+			if st then
+				if tonumber(data.FreeSpins) then
+					st.FreeSpins = math.min(tonumber(st.FreeSpins) or 0, data.FreeSpins);
+				end
+				if tonumber(data.Tickets) then
+					st.Tickets = math.min(tonumber(st.Tickets) or 0, data.Tickets);
+				end
+			end
+		else
+			j.SpinState = nil;
+			j.Next.SpinWheel = os.clock() + 0.1;
+		end
+	end);
+end;
+j.SummonStep = function()
+	if ((game.PlaceId == j.LobbyId) and Settings.AutoSummon and j.Due("Summon", Settings.SummonDelay)) then
+		local amount = ({One = 1, Ten = 10, TwentyFive = 25})[Settings.SummonAmount] or 1;
+		local ok, res = j.Call("Summon", amount);
+		if (not ok or (type(res) ~= "table")) then
+			j.SummonStatus = "Summon failed: " .. tostring(res);
+		else
+			j.SummonStatus = "Summoned successfully";
+		end
+	end
+end;
+j.UpdateCrates = function(inv, authoritative)
+	if (type(inv) ~= "table") then return; end
+	local crates = {};
+	local names = {};
+	for k, v in pairs(inv) do
+		if ((type(k) == "string") and (type(v) == "number") and (v > 0)) then
+			crates[k] = math.floor(v);
+			names[#names + 1] = k;
+		end
+	end
+	table.sort(names);
+	j.Crates = crates;
+	if authoritative then j.CratesAuthoritative = true; end
+	local key = table.concat(names, "\0");
+	if (j.Widgets.OpenCrates and (key ~= j.CrateOptionsKey)) then
+		j.RefreshingCrates = true;
+		local selected = {};
+		for _, name in ipairs(names) do
+			if Settings.OpenCrates[name] then selected[#selected + 1] = name; end
+		end
+		local ok, err = pcall(function()
+			j.Widgets.OpenCrates:Refresh(names);
+			j.Widgets.OpenCrates:Select(selected);
+		end);
+		j.RefreshingCrates = false;
+		if ok then
+			j.CrateOptionsKey = key;
+		else
+			warn("Crate refresh failed: " .. tostring(err));
+		end
+	end
+	return names;
+end;
+j.SeedCrates = function()
+	if j.CratesAuthoritative then return; end
+	local list = j.PG("CrateList");
+	if not list then return; end
+	local crates = {};
+	for _, item in ipairs(list:GetChildren()) do
+		if (item.Name ~= "Title") then
+			local count = tonumber(j.Text(j.Path(item, "Count")):gsub(",", ""):match("%d+"));
+			if (count and (count > 0)) then
+				crates[item.Name] = count;
+			end
+		end
+	end
+	j.UpdateCrates(crates, false);
+end;
+j.CrateStep = function()
+	if ((game.PlaceId ~= j.LobbyId) or not j.Running) then return; end
+	if j.Due("SeedCrates", 2) then
+		j.SeedCrates();
+	end
+	local amounts = {One = 1, Three = 3, Ten = 10};
+	if (Settings.AutoBuyCrate and j.Due("BuyCrate", Settings.BuyCrateDelay)) then
+		local amount = amounts[Settings.BuyCrateAmount] or 1;
+		local ok, res, err;
+		if (Settings.BuyCrate == "Basic") then
+			ok, res, err = j.Call("BuyCrate", amount);
+		elseif (Settings.BuyCrate == "Premium") then
+			ok, res, err = j.Call("BuyPremiumCrate", Settings.BuyCrate, amount);
+		else
+			j.Next.BuyCrate = os.clock() + 5;
+			return;
+		end
+		local delay = (ok and (res == true) and Settings.BuyCrateDelay) or math.max(5, Settings.BuyCrateDelay);
+		j.Next.BuyCrate = os.clock() + delay;
+	end
+	if (Settings.AutoOpenCrate and j.Due("OpenCrate", Settings.OpenCrateDelay)) then
+		local available = {};
+		for name, count in pairs(j.Crates or {}) do
+			if ((count > 0) and Settings.OpenCrates[name]) then
+				available[#available + 1] = name;
+			end
+		end
+		table.sort(available);
+		local idx = 1;
+		for i, name in ipairs(available) do
+			if (name == j.LastOpenedCrate) then
+				idx = (i % #available) + 1;
+				break;
+			end
+		end
+		local name = available[idx];
+		if name then
+			local count = math.min(({One = 1, Three = 3, Six = 6})[Settings.OpenCrateAmount] or 1, j.Crates[name]);
+			j.LastOpenedCrate = name;
+			local ok, res, data = j.Call("OpenCrate", name, count);
+			if (ok and (res == true) and (type(data) == "table") and (type(data.Inventory) == "table")) then
+				j.UpdateCrates(data.Inventory, true);
+			end
+			j.Next.OpenCrate = os.clock() + ((ok and (res == true) and Settings.OpenCrateDelay) or math.max(5, Settings.OpenCrateDelay));
+		end
+	end
+end;
+j.SyncSummonSell = function()
+	if (j.SellSyncRunning or (game.PlaceId ~= j.LobbyId)) then return; end
+	j.SellSyncRunning = true;
+	task.spawn(function()
+		repeat
+			local rev = j.SellRevision or 0;
+			for _, unit in ipairs({"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"}) do
+				if (not j.Running or ((j.SellRevision or 0) ~= rev)) then break; end
+				pcall(j.Call, "SetSummonAutoSell", unit, Settings.SummonAutoSell[unit] == true);
+				task.wait(0.1);
+			end
+			if (not j.Running or ((j.SellRevision or 0) == rev)) then break; end
+		until false;
+		j.SellSyncRunning = false;
+	end);
+end;
+j.WakeClaims = function()
+	j.ClaimsWake = true;
+end;
+j.ClaimState = function(key, remoteName)
+	j.ClaimStates = j.ClaimStates or {};
+	local cached = j.ClaimStates[key];
+	if (cached and ((os.clock() - cached.At) < 5)) then
+		return true, cached.State;
+	end
+	local ok, state = j.Call(remoteName);
+	if (ok and (type(state) == "table")) then
+		j.ClaimStates[key] = {State = state, At = os.clock()};
+	end
+	return ok, state;
+end;
+j.TryClaim = function(key, remoteName, ...)
+	j.ClaimAttempts = j.ClaimAttempts or {};
+	if (os.clock() < (j.ClaimAttempts[key] or -1)) then return; end
+	j.ClaimAttempts[key] = os.clock() + 5;
+	local ok, res = j.Call(remoteName, ...);
+	if (ok and ((res == true) or ((type(res) == "table") and (res.Success == true)))) then
+		j.ClaimAttempts[key] = math.huge;
+	end
+	task.wait(0.15);
+end;
+j.ClaimReady = function(key, state)
+	if (key == "Pass") then
+		if not state.SeasonActive then return false; end
+		for tier = 1, math.min(state.Tier or 0, state.MaxTier or 50) do
+			if (not (state.ClaimedFree or {})[tier] and not (state.ClaimedFree or {})[tostring(tier)]) then return true; end
+			if ((state.Premium == true) and not (state.ClaimedPremium or {})[tier] and not (state.ClaimedPremium or {})[tostring(tier)]) then return true; end
+		end
+		return false;
+	end
+	local function hasReady(slots)
+		for _, slot in pairs(slots or {}) do
+			if (not slot.Claimed and ((slot.Progress or 0) >= (slot.Target or math.huge))) then return true; end
+		end
+		return false;
+	end
+	if (key == "Quest") then return hasReady(state.Slots); end
+	for _, track in pairs(state.Tracks or {}) do
+		if hasReady(track.Slots) then return true; end
+	end
+	return false;
+end;
+j.BindClaimEvents = function()
+	for _, entry in ipairs({{"Quest", "GetQuestState", "AutoClaimQuest"}, {"SeasonQuest", "GetSeasonQuestState", "AutoClaimSeasonQuest"}, {"Playtime", "GetPlaytimeGifts", "AutoClaimPlaytime"}, {"Pass", "GetSeasonPass", "AutoClaimPass"}}) do
+		local key, remoteName, settingKey = entry[1], entry[2], entry[3];
+		local r = j.Remote(remoteName);
+		if (r and not j.Bound[r]) then
+			j.Bound[r] = true;
+			j.Connect(r.OnClientEvent, function(state)
+				if (type(state) ~= "table") then return; end
+				j.ClaimStates = j.ClaimStates or {};
+				j.ClaimStates[key] = {State = state, At = os.clock()};
+				if (Settings[settingKey] and j.ClaimReady(key, state)) then
+					j.WakeClaims();
+				end
+			end);
+		end
+	end
+	local gui = j.PG("PlaytimeGui");
+	local container = gui and gui:FindFirstChild("Gifts", true);
+	local list = container and container:FindFirstChild("List", true);
+	if list then
+		for _, item in ipairs(list:GetChildren()) do
+			local label = item:FindFirstChild("StatusLabel", true);
+			if (label and not j.Bound[label]) then
+				j.Bound[label] = true;
+				j.Connect(label:GetPropertyChangedSignal("Text"), function()
+					if (Settings.AutoClaimPlaytime and (j.Text(label) == "Ready")) then
+						j.WakeClaims();
+					end
+				end);
+				if (Settings.AutoClaimPlaytime and (j.Text(label) == "Ready")) then
+					j.WakeClaims();
+				end
+			end
+		end
+	end
+end;
+j.Claims = function()
+	if (game.PlaceId ~= j.LobbyId) then return; end
+	if Settings.AutoClaimQuest then
+		local ok, state = j.ClaimState("Quest", "GetQuestState");
+		if (ok and (type(state) == "table")) then
+			for i, slot in pairs(state.Slots or {}) do
+				if (not j.Running or not Settings.AutoClaimQuest) then break; end
+				if (not slot.Claimed and ((slot.Progress or 0) >= (slot.Target or math.huge))) then
+					j.TryClaim("Quest:" .. tostring(slot.InstanceId), "ClaimQuest", slot.Index or i, slot.InstanceId);
+				end
+			end
+		end
+	end
+	if Settings.AutoClaimSeasonQuest then
+		for _, entry in ipairs({{"SeasonQuest", "GetSeasonQuestState", "ClaimSeasonQuest"}, {"SeasonQuest2", "GetSeasonQuestState2", "ClaimSeasonQuest2"}}) do
+			local ok, state = j.ClaimState(entry[1], entry[2]);
+			if (ok and (type(state) == "table")) then
+				for _, track in pairs(state.Tracks or {}) do
+					for i, slot in pairs(track.Slots or {}) do
+						if (not j.Running or not Settings.AutoClaimSeasonQuest) then break; end
+						if (not slot.Claimed and ((slot.Progress or 0) >= (slot.Target or math.huge))) then
+							j.TryClaim(entry[1] .. ":" .. tostring(slot.InstanceId), entry[3], track.Id, slot.Index or i, slot.InstanceId);
+						end
+					end
+				end
+			end
+		end
+	end
+	if Settings.AutoClaimPass then
+		local ok, state = j.ClaimState("Pass", "GetSeasonPass");
+		if (ok and (type(state) == "table") and state.SeasonActive) then
+			local tracks = {"Free"};
+			if (state.Premium == true) then
+				tracks[#tracks + 1] = "Premium";
+			end
+			for _, track in ipairs(tracks) do
+				for tier = 1, math.min(state.Tier or 0, state.MaxTier or 50) do
+					if (not j.Running or not Settings.AutoClaimPass) then break; end
+					local claimed = ((track == "Premium") and state.ClaimedPremium) or state.ClaimedFree or {};
+					if (not claimed[tier] and not claimed[tostring(tier)]) then
+						j.TryClaim("Pass:" .. tostring(state.SeasonId) .. ":" .. track .. ":" .. tier, "ClaimPassReward", tier, track);
+					end
+				end
+			end
+		end
+	end
+	if Settings.AutoClaimPlaytime then
+		local gui = j.PG("PlaytimeGui");
+		local container = gui and gui:FindFirstChild("Gifts", true);
+		local list = container and container:FindFirstChild("List", true);
+		if list then
+			local ready = {};
+			for _, item in ipairs(list:GetChildren()) do
+				local day = tonumber(item.Name:match("%d+"));
+				local label = item:FindFirstChild("StatusLabel", true);
+				if (day and (j.Text(label) == "Ready")) then
+					ready[#ready + 1] = day;
+				end
+			end
+			if (#ready > 0) then
+				local ok2, data = j.Call("GetPlaytimeState");
+				local state = ok2 and (type(data) == "table") and data.PlaytimeGifts;
+				if (state and state.Day) then
+					for _, day in ipairs(ready) do
+						if (not j.Running or not Settings.AutoClaimPlaytime) then break; end
+						j.TryClaim("Playtime:" .. tostring(state.Day) .. ":" .. day, "ClaimPlaytimeGift", day, state.Day);
+					end
+				end
+			end
+		end
+	end
+end;
+j.HideObject = function(obj)
+	if not Settings.HideName then return; end
+	if obj:IsA("BillboardGui") then
+		if not j.Hidden[obj] then
+			j.Hidden[obj] = {DisplayName = obj.DisplayName, NameDisplayDistance = obj.NameDisplayDistance};
+		end
+		obj.DisplayName = "";
+		obj.NameDisplayDistance = 0;
+	elseif ((obj:IsA("TextLabel") or obj:IsA("TextButton")) and obj:FindFirstAncestorWhichIsA("PlayerGui") and (obj.Text:find(player.Name, 1, true) or ((player.DisplayName ~= "") and obj.Text:find(player.DisplayName, 1, true)))) then
+		if not j.Hidden[obj] then
+			j.Hidden[obj] = {Visible = obj.Visible};
+		end
+		obj.Visible = false;
+	end
+end;
+j.Restore = function(tbl)
+	for obj, props in pairs(tbl) do
+		pcall(function()
+			for k, v in pairs(props) do
+				obj[k] = v;
+			end
+		end);
+	end
+	table.clear(tbl);
+end;
+j.BindCharacter = function(char)
+	if j.NameConnection then
+		j.NameConnection:Disconnect();
+	end
+	if not char then return; end
+	for _, obj in ipairs(char:GetDescendants()) do
+		j.HideObject(obj);
+	end
+	j.NameConnection = j.Connect(char.DescendantAdded, j.HideObject);
+end;
+j.SetHide = function(enabled)
+	for _, conn in ipairs(j.NameUIConnections or {}) do
+		conn:Disconnect();
+	end
+	j.NameUIConnections = {};
+	if not enabled then
+		j.Restore(j.Hidden);
+		return;
+	end
+	j.BindCharacter(player.Character);
+	local gui = player:FindFirstChildOfClass("PlayerGui");
+	local tracked = setmetatable({}, {__mode = "k"});
+	local function scan(obj)
+		if not (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("BillboardGui")) then return; end
+		if (obj:IsA("BillboardGui") or tracked[obj]) then return; end
+		tracked[obj] = true;
+		local updating = false;
+		local function refresh()
+			if (updating or not Settings.HideName or not j.Running) then return; end
+			local text = obj.Text;
+			local function replace(str, name)
+				if (name == "") then return str; end
+				local escaped = name:gsub("%p", "%%%0");
+				return str:gsub(escaped, "Player");
+			end
+			local newText = replace(replace(text, player.Name), player.DisplayName);
+			if (newText ~= text) then
+				j.Hidden[obj] = {Text = text};
+				updating = true;
+				obj.Text = newText;
+				updating = false;
+			elseif (text ~= "") then
+				j.Hidden[obj] = nil;
+			end
+		end
+		local conn = obj:GetPropertyChangedSignal("Text"):Connect(refresh);
+		j.NameUIConnections[#j.NameUIConnections + 1] = conn;
+		refresh();
+	end
+	local function scanTree(root)
+		if not root then return; end
+		j.NameUIConnections[#j.NameUIConnections + 1] = root.DescendantAdded:Connect(function(obj)
+			if (j.Running and Settings.HideName) then
+				pcall(scan, obj);
+			end
+		end);
+		for _, obj in ipairs(root:GetDescendants()) do
+			pcall(scan, obj);
+		end
+	end
+	scanTree(gui);
+	local ok, err = pcall(function()
+		scanTree(game:GetService("CoreGui"));
+	end);
+	if not ok then
+		j.Notify("Failed to hook CoreGui");
+	end
+end;
+j.VisualRemoteNames = {CreateEffect = true, SpawnEffect = true, PlayEffect = true, ShowEffect = true, EmitParticles = true, CreateBeam = true, CreateTrail = true, SpawnVisual = true};
+j.VisualObject = function(obj)
+	if not Settings.RemoveVisuals then return; end
+	if not obj:IsDescendantOf(Workspace) then return; end
+	local isEffect = false;
+	local cur = obj;
+	while cur and (cur ~= Workspace) do
+		local name = cur.Name;
+		if ((name == "Effects") or (name == "Particles") or (name == "Visuals") or (name == "FX") or (name == "VFX") or (name == "Beams") or (name == "Trails")) then
+			isEffect = true;
+			break;
+		end
+		cur = cur.Parent;
+	end
+	local props;
+	if (isEffect and obj:IsA("ParticleEmitter")) then
+		props = {Enabled = false};
+	elseif (isEffect and (obj:IsA("Beam") or obj:IsA("Trail"))) then
+		props = {Enabled = false};
+	elseif (obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") or obj:IsA("Explosion") or obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight")) then
+		props = {Enabled = false};
+	elseif obj:IsA("Decal") then
+		props = {Transparency = 1};
+	end
+	if not props then return; end
+	local saved = j.Visuals[obj] or {};
+	j.Visuals[obj] = saved;
+	for k, v in pairs(props) do
+		pcall(function()
+			if (saved[k] == nil) then
+				local fps = j.FPS[obj];
+				if (fps and (fps[k] ~= nil)) then
+					saved[k] = fps[k];
+				else
+					saved[k] = obj[k];
+				end
+			end
+			obj[k] = v;
+		end);
+	end
+end;
+j.RestoreVisuals = function()
+	for obj, props in pairs(j.Visuals) do
+		for k, v in pairs(props) do
+			pcall(function()
+				if (j.Running and Settings.FPSBoost and j.FPS[obj] and (j.FPS[obj][k] ~= nil)) then
+					if (k == "Enabled") then
+						obj[k] = false;
+					elseif (k == "Transparency") then
+						obj[k] = 1;
+					else
+						obj[k] = v;
+					end
+				else
+					obj[k] = v;
+				end
+			end);
+		end
+		j.Visuals[obj] = nil;
+	end
+end;
+j.BlockVisualEvents = function()
+	if (not j.Running or not Settings.RemoveVisuals or (type(getconnections) ~= "function")) then return; end
+	local folder = ReplicatedStorage:FindFirstChild("VisualRemotes");
+	if not folder then return; end
+	for name in pairs(j.VisualRemoteNames) do
+		local r = folder:FindFirstChild(name);
+		if r then
+			local ok, conns = pcall(getconnections, r.OnClientEvent);
+			if (ok and (type(conns) == "table")) then
+				for _, conn in ipairs(conns) do
+					if not j.BlockedVisualCallbacks[conn] then
+						pcall(function()
+							if ((conn.Enabled == true) and (type(conn.Disable) == "function") and (type(conn.Enable) == "function")) then
+								conn:Disable();
+								j.BlockedVisualCallbacks[conn] = true;
+							end
+						end);
+					end
+				end
+			end
+		end
+	end
+end;
+j.SetRemoveVisuals = function(enabled)
+	j.VisualGeneration = (j.VisualGeneration or 0) + 1;
+	local gen = j.VisualGeneration;
+	for _, conn in ipairs(j.VisualConnections) do
+		pcall(function() conn:Disconnect(); end);
+	end
+	j.VisualConnections = {};
+	for conn in pairs(j.BlockedVisualCallbacks or {}) do
+		pcall(function() conn:Enable(); end);
+	end
+	j.BlockedVisualCallbacks = {};
+	j.RestoreVisuals();
+	if not enabled then return; end
+	if (type(getconnections) ~= "function") then
+		j.Notify("Remove Visuals requires getconnections support");
+	end
+	j.BlockVisualEvents();
+	local queue, tracked, running = {}, setmetatable({}, {__mode = "k"}), false;
+	local function enqueue(obj)
+		if tracked[obj] then return; end
+		tracked[obj] = true;
+		queue[#queue + 1] = obj;
+		if running then return; end
+		running = true;
+		task.defer(function()
+			local idx, last = 1, os.clock();
+			while j.Running and Settings.RemoveVisuals and (gen == j.VisualGeneration) and (idx <= #queue) do
+				local obj2 = queue[idx];
+				queue[idx] = false;
+				idx = idx + 1;
+				tracked[obj2] = nil;
+				j.VisualObject(obj2);
+				if ((os.clock() - last) >= 0.002) then
+					task.wait();
+					last = os.clock();
+				end
+			end
+			queue = {};
+			running = false;
+		end);
+	end
+	local roots = {Workspace};
+	for _, root in ipairs(roots) do
+		j.VisualConnections[#j.VisualConnections + 1] = root.DescendantAdded:Connect(enqueue);
+	end
+	task.spawn(function()
+		local last = os.clock();
+		for _, root in ipairs(roots) do
+			for _, obj in ipairs(root:GetDescendants()) do
+				if (not j.Running or not Settings.RemoveVisuals or (gen ~= j.VisualGeneration)) then return; end
+				j.VisualObject(obj);
+				if ((os.clock() - last) >= 0.002) then
+					task.wait();
+					last = os.clock();
+				end
+			end
+		end
+	end);
+end;
+j.FPSObject = function(obj)
+	if (not Settings.FPSBoost or j.FPS[obj]) then return; end
+	local props;
+	if obj:IsA("BasePart") then
+		props = {CastShadow = false, Material = Enum.Material.SmoothPlastic, Reflectance = 0};
+	elseif (obj:IsA("ParticleEmitter") or obj:IsA("Beam")) then
+		props = {Enabled = false};
+	elseif (obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SurfaceAppearance") or obj:IsA("Trail") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") or obj:IsA("Explosion")) then
+		props = {Transparency = 1};
+	elseif obj:IsA("PointLight") then
+		props = {Enabled = false};
+	elseif obj:IsA("Atmosphere") then
+		props = {Density = 0, Haze = 0, Glare = 0};
+	elseif obj:IsA("Sky") then
+		props = {StarCount = 0};
+	end
+	if props then
+		j.FPSProperties(obj, props);
+	end
+end;
+j.FPSProperties = function(obj, props)
+	local saved = j.FPS[obj] or {};
+	j.FPS[obj] = saved;
+	for k, v in pairs(props) do
+		pcall(function()
+			if (saved[k] == nil) then
+				local vis = j.Visuals[obj];
+				if (vis and (vis[k] ~= nil)) then
+					saved[k] = vis[k];
+				else
+					saved[k] = obj[k];
+				end
+			end
+			obj[k] = v;
+		end);
+	end
+end;
+j.QueueFPS = function(obj)
+	if not Settings.FPSBoost then return; end
+	j.FPSPending = j.FPSPending or {};
+	j.FPSPending[#j.FPSPending + 1] = obj;
+	if j.FPSWorker then return; end
+	j.FPSWorker = true;
+	task.defer(function()
+		local idx = 1;
+		local last = os.clock();
+		while j.Running and Settings.FPSBoost and (idx <= #j.FPSPending) do
+			local obj2 = j.FPSPending[idx];
+			idx = idx + 1;
+			if obj2.Parent then
+				j.FPSObject(obj2);
+			end
+			if ((os.clock() - last) >= 0.002) then
+				task.wait();
+				last = os.clock();
+			end
+		end
+		j.FPSPending = {};
+		j.FPSWorker = false;
+	end);
+end;
+j.SetFPS = function(enabled)
+	j.FPSGeneration = (j.FPSGeneration or 0) + 1;
+	local gen = j.FPSGeneration;
+	if not enabled then
+		j.Restore(j.FPS);
+		if Settings.RemoveVisuals then
+			for obj in pairs(j.Visuals) do
+				j.VisualObject(obj);
+			end
+		end
+		return;
+	end
+	local lighting = game:GetService("Lighting");
+	j.FPSProperties(lighting, {GlobalShadows = false, Brightness = 0, Ambient = Color3.new(0,0,0), EnvironmentDiffuseScale = 0.5});
+	local atmosphere = Workspace:FindFirstChildOfClass("Atmosphere");
+	if atmosphere then
+		j.FPSProperties(atmosphere, {Density = 0, Haze = 0, Glare = 0, EnvironmentDiffuseScale = 0.5});
+	end
+	task.spawn(function()
+		local last = os.clock();
+		local list = Workspace:GetDescendants();
+		for _, obj in ipairs(lighting:GetDescendants()) do
+			list[#list + 1] = obj;
+		end
+		for _, obj in ipairs(list) do
+			if (not j.Running or not Settings.FPSBoost or (gen ~= j.FPSGeneration)) then return; end
+			j.FPSObject(obj);
+			if ((os.clock() - last) >= 0.002) then
+				task.wait();
+				last = os.clock();
+			end
+		end
+	end);
+end;
+j.Reconnect = {Attempts = 0};
+j.ConnectionError = function(err)
+	if (type(err) ~= "string") then return false; end
+	local lower = err:lower();
+	return (lower:match("lost connection") ~= nil) or (lower:find("connection lost", 1, true) ~= nil) or (lower:find("disconnected", 1, true) ~= nil) or (lower:find("reconnect", 1, true) ~= nil) or (lower:find("failed to connect", 1, true) ~= nil) or (lower:find("server closed", 1, true) ~= nil) or (lower:find("kick", 1, true) ~= nil);
+end;
+j.ReadConnectionPrompt = function()
+	local gui = game:GetService("CoreGui"):FindFirstChild("RobloxPromptGui");
+	if not gui then return; end
+	local overlay = gui:FindFirstChild("promptOverlay");
+	local container = (overlay and overlay:FindFirstChild("Message")) or gui:FindFirstChild("Message", true) or overlay or gui;
+	if not j.Visible(container) then return; end
+	local texts = {};
+	for _, obj in ipairs(container:GetDescendants()) do
+		if (obj:IsA("TextLabel") and j.Visible(obj) and (obj.Text ~= "")) then
+			texts[#texts + 1] = obj.Text;
+		end
+	end
+	if (#texts > 0) then
+		return table.concat(texts, " ");
+	end
+end;
+j.Rejoin = function()
+	local r = j.Reconnect;
+	if (not j.Running or not r or r.InFlight) then return; end
+	r.Attempts = r.Attempts + 1;
+	r.InFlight = os.clock();
+	r.NextAt = os.clock() + (({10, 20})[r.Attempts] or 60);
+	j.SaveConfig(true);
+	j.QueueTeleport();
+	local ok = pcall(TeleportService.Teleport, TeleportService, j.LobbyId, player);
+	if not ok then
+		r.InFlight = nil;
+	end
+end;
+j.RejoinStep = function(err)
+	if not j.Running then return; end
+	local r = j.Reconnect;
+	local now = os.clock();
+	if r.InFlight then
+		if ((now - r.InFlight) < 45) then return; end
+		r.InFlight = nil;
+	end
+	if not j.ConnectionError(err) then
+		r.Prompt = nil;
+		r.Attempts = 0;
+		r.NextAt = nil;
+		return;
+	end
+	if not r.Prompt then
+		r.Prompt = err;
+		r.Attempts = 0;
+		r.NextAt = now + 3;
+	end
+	if (now >= (r.NextAt or 0)) then
+		j.Rejoin();
+	end
+end;
+j.Destroy = function()
+	if not j.Running then return; end
+	j.StopRecord();
+	j.StopPlayback();
+	j.SaveConfig();
+	j.Running = false;
+	for _, conn in ipairs(j.NameUIConnections or {}) do
+		pcall(function() conn:Disconnect(); end);
+	end
+	for _, conn in ipairs(j.Connections) do
+		pcall(function() conn:Disconnect(); end);
+	end
+	j.Restore(j.Hidden);
+	j.Restore(j.FPS);
+	j.SetRemoveVisuals(false);
+	if j.Window then
+		pcall(function() j.Window:Destroy(); end);
+	end
+end;
+j.BindEvents = function()
+	j.RefreshHookCache();
+	j.BindClaimEvents();
+	local boostRemote = j.Remote("BoostChanged");
+	if (boostRemote and not j.Bound[boostRemote]) then
+		j.Bound[boostRemote] = true;
+		j.Connect(boostRemote.OnClientEvent, j.UpdateBoosts);
+	end
+	local crateRemote = j.Remote("CrateInventoryChanged");
+	if (crateRemote and not j.Bound[crateRemote]) then
+		j.Bound[crateRemote] = true;
+		j.Connect(crateRemote.OnClientEvent, function(inv)
+			j.UpdateCrates(inv, true);
+		end);
+	end
+	for _, name in ipairs({"SpeedChanged", "QueueChanged"}) do
+		local r = j.Remote(name);
+		if (r and not j.Bound[r]) then
+			j.Bound[r] = true;
+			j.Connect(r.OnClientEvent, function(data)
+				if (name == "SpeedChanged") then
+					j.UpdateSpeed(data);
+				elseif (type(data) == "table") then
+					j.Queue = data;
+					if ((data.Status ~= "Starting") and (type(data.PlayerUserIds) == "table") and not table.find(data.PlayerUserIds, player.UserId)) then
+						j.Queue = nil;
+					end
+				end
+			end);
+		end
+	end
+end;
+j.Connect(player.CharacterAdded, j.BindCharacter);
+j.BindCharacter(player.Character);
+j.Connect(UserInputService.InputBegan, function(input)
+	if (not j.Recording or (input.UserInputType ~= Enum.UserInputType.MouseButton1)) then return; end
+	local gui = player:FindFirstChildOfClass("PlayerGui");
+	local skipGui = j.PG("SkipGui");
+	if (not gui or not skipGui) then return; end
+	for _, obj in ipairs(gui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)) do
+		if obj:IsDescendantOf(skipGui) then
+			local cur = obj;
+			for _ = 1, 3 do
+				local text = j.Text(cur):lower();
+				if ((text == "skip") or text:find("skip wave", 1, true)) then
+					j.ManualSkipAt = os.clock();
+					return;
+				end
+				cur = cur and cur.Parent;
+			end
+		end
+	end
+end);
+j.Connect(player.Idled, function()
+	if Settings.AntiAFK then
+		local vu = game:GetService("VirtualUser");
+		pcall(function()
+			vu:CaptureController();
+			vu:ClickButton2(Vector2.new());
+		end);
+	end
+end);
+j.Connect(Workspace.DescendantAdded, j.QueueFPS);
+j.Connect(game:GetService("Lighting").DescendantAdded, j.QueueFPS);
+j.Connect(player.OnTeleport, function(state)
+	if (state == Enum.TeleportState.Started) then
+		j.QueueTeleport();
+		j.SaveConfig(true);
+	end
+	if (j.Reconnect.InFlight and (state == Enum.TeleportState.Failed)) then
+		j.Reconnect.InFlight = nil;
+	end
+end);
+j.Connect(TeleportService.TeleportInitFailed, function(plr, _, _, err)
+	if (plr == player) then
+		if ((err == nil) or (err == j.LobbyId)) then
+			j.Reconnect.InFlight = nil;
+		end
+		j.EndSent = false;
+		j.Queue = nil;
+		j.Next.Join = os.clock() + 8;
+	end
+end);
+local uiOk, uiErr = pcall(function()
+	local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/AllianceTD/Library/main/Library.lua"))();
+	j.UI = lib;
+	local window = lib:CreateWindow({Title = "Miko Hub - Alliance TD", Subtitle = "Auto Farm", Author = "Miko Hub", Icon = "rbxassetid://103525855196551", Theme = "Dark", Size = UDim2.fromOffset(620, 480), Transparent = true, MinimizeKey = Enum.KeyCode.RightShift, ShowToggle = true, ToggleKey = (Enum.KeyCode[Settings.ToggleKey] or Enum.KeyCode.RightShift), AutoShow = true});
+	j.Window = window;
+	local lobbyTab = window:Tab({Title = "Lobby", Icon = "rbxassetid://103525855196551"});
+	local matchTab = window:Tab({Title = "Match", Icon = "rbxassetid://103525855196551"});
+	local macroTab = window:Tab({Title = "Macro", Icon = "rbxassetid://103525855196551"});
+	local settingsTab = window:Tab({Title = "Settings", Icon = "rbxassetid://103525855196551"});
+	local socialTab = window:Tab({Title = "Social", Icon = "rbxassetid://103525855196551"});
+	local function section(tab, text) tab:Section({Title = text}); end
+	local function toggle(tab, text, key, default, cb)
+		return tab:Toggle({Title = text, Default = Settings[key], Callback = function(v) Settings[key] = v == true; if cb then cb(Settings[key]); end; j.QueueSave(); end});
+	end
+	local function dropdown(tab, text, key, options, cb)
+		return tab:Dropdown({Title = text, Options = options, Value = Settings[key], Multi = false, Callback = function(v) Settings[key] = v; if cb then cb(v); end; j.QueueSave(); end});
+	end
+	local function input(tab, text, key, placeholder, cb)
+		return tab:Input({Title = text, Value = tostring(Settings[key]), Placeholder = placeholder, Callback = function(v) Settings[key] = v; if cb then cb(v); end; j.QueueSave(); end});
+	end
+	local function slider(tab, text, key, min, max, step)
+		return tab:Slider({Title = text, Step = step, Value = {Min = min, Max = max, Default = Settings[key]}, Callback = function(v) Settings[key] = tonumber(v) or Settings[key]; j.QueueSave(); end});
+	end
+	section(lobbyTab, "Auto Join");
+	lobbyTab:Dropdown({Title = "Players", Options = {"1 Player", "2 Players", "3 Players", "4 Players"}, Value = (tostring(Settings.Players) .. (((Settings.Players == 1) and " Player") or " Players")), Multi = false, Callback = function(v) Settings.Players = tonumber(tostring(v):match("%d+")) or 1; j.QueueSave(); end});
+	dropdown(lobbyTab, "Map", "Map", {"Wave 1", "Wave 50", "Wave 100", "Infinite", "Endless", "Co-op"});
+	toggle(lobbyTab, "Auto Join", "AutoJoin", nil, function() j.Next.Join = 0; end);
+	section(lobbyTab, "Summon");
+	dropdown(lobbyTab, "Summon Amount", "SummonAmount", {"One", "Ten", "TwentyFive"});
+	slider(lobbyTab, "Summon Delay", "SummonDelay", 0.1, 10, 0.1);
+	j.Widgets.Summon = toggle(lobbyTab, "Auto Summon", "AutoSummon", nil, function() j.Next.Summon = 0; end);
+	local rarities = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"};
+	local selectedSell = {};
+	for _, rarity in ipairs(rarities) do
+		if Settings.SummonAutoSell[rarity] then selectedSell[#selectedSell + 1] = rarity; end
+	end
+	lobbyTab:Dropdown({Title = "Auto Sell Summon", Options = rarities, Value = selectedSell, Multi = true, Callback = function(v)
+		local sel = {};
+		if (type(v) == "table") then
+			for k, val in pairs(v) do
+				local item = ((type(k) == "number") and (val == true) and k) or val;
+				if ((type(item) == "string") and table.find(rarities, item)) then
+					sel[item] = true;
+				end
+			end
+		end
+		Settings.SummonAutoSell = sel;
+		j.SellRevision = (j.SellRevision or 0) + 1;
+		j.QueueSave();
+		j.SyncSummonSell();
+	end});
+	section(lobbyTab, "Potions");
+	local potionNames = {};
+	local selectedPotionNames = {};
+	for k, v in pairs(j.PotionNames) do
+		potionNames[#potionNames + 1] = v;
+		if Settings.SelectedPotions[k] then selectedPotionNames[#selectedPotionNames + 1] = v; end
+	end
+	table.sort(potionNames);
+	table.sort(selectedPotionNames);
+	lobbyTab:Dropdown({Title = "Potions", Options = potionNames, Value = selectedPotionNames, Multi = true, Callback = function(v)
+		local sel = {};
+		if (type(v) == "table") then
+			for k, val in pairs(v) do
+				local item = ((type(k) == "number") and (val == true) and k) or val;
+				for key, name in pairs(j.PotionNames) do
+					if (item == name) then sel[key] = true; end
+				end
+			end
+		end
+		Settings.SelectedPotions = sel;
+		j.Next.Potion = 0;
+		j.QueueSave();
+	end});
+	slider(lobbyTab, "Potion Delay", "PotionDelay", 0.1, 10, 0.1);
+	toggle(lobbyTab, "Auto Use Potion", "AutoUsePotion", nil, function() j.Next.Potion = 0; end);
+	section(lobbyTab, "Crates");
+	dropdown(lobbyTab, "Buy Crate", "BuyCrate", {"Basic", "Premium"});
+	dropdown(lobbyTab, "Buy Amount", "BuyCrateAmount", {"One", "Three", "Ten"});
+	slider(lobbyTab, "Buy Crate Delay", "BuyCrateDelay", 0.1, 10, 0.1);
+	toggle(lobbyTab, "Auto Buy Crate", "AutoBuyCrate", nil, function() j.Next.BuyCrate = 0; end);
+	section(lobbyTab, "Open Crates");
+	j.SeedCrates();
+	local crateNames = {};
+	local selectedCrateNames = {};
+	for name in pairs(j.Crates or {}) do crateNames[#crateNames + 1] = name; end
+	table.sort(crateNames);
+	for _, name in ipairs(crateNames) do
+		if Settings.OpenCrates[name] then selectedCrateNames[#selectedCrateNames + 1] = name; end
+	end
+	j.Widgets.OpenCrates = lobbyTab:Dropdown({Title = "Open Crates", Options = crateNames, Value = selectedCrateNames, Multi = true, Callback = function(v)
+		if j.RefreshingCrates then return; end
+		local sel = {};
+		if (type(v) == "table") then
+			for k, val in pairs(v) do
+				local item = ((type(k) == "number") and (val == true) and k) or val;
+				if ((type(item) == "string") and (j.Crates or {})[item]) then
+					sel[item] = true;
+				end
+			end
+		end
+		Settings.OpenCrates = sel;
+		j.Next.OpenCrate = 0;
+		j.QueueSave();
+	end});
+	j.CrateOptionsKey = table.concat(crateNames, "\0");
+	dropdown(lobbyTab, "Open Amount", "OpenCrateAmount", {"One", "Three", "Six"});
+	slider(lobbyTab, "Open Crate Delay", "OpenCrateDelay", 0.1, 10, 0.1);
+	toggle(lobbyTab, "Auto Open Crate", "AutoOpenCrate", nil, function() j.Next.OpenCrate = 0; end);
+	section(matchTab, "Difficulty & Playback");
+	dropdown(matchTab, "Difficulty", "Difficulty", {"Easy", "Normal", "Hard", "Insane", "Nightmare"});
+	toggle(matchTab, "Auto Difficulty", "AutoDifficulty", nil, function() j.Next.Difficulty = 0; end);
+	section(matchTab, "Wave Control");
+	toggle(matchTab, "Auto Skip", "AutoSkip", nil, function() j.Next.Skip = 0; end);
+	slider(matchTab, "Match Limit", "MatchLimit", 1, 100, 1);
+	toggle(matchTab, "Auto Return After Matches", "AutoReturnAfterMatches", nil);
+	matchTab:Input({Title = "Stop At Wave", Value = Settings.StopAtWave, Placeholder = "e.g. 10,20,30", Callback = function(v) Settings.StopAtWave = tostring(v or ""); j.QueueSave(); end});
+	toggle(matchTab, "Auto Speed", "AutoSpeed", nil, function() j.Next.Speed = 0; end);
+	matchTab:Dropdown({Title = "Speed", Options = {"1x", "2x", "3x", "4x", "5x"}, Value = (Settings.Speed .. "x"), Multi = false, Callback = function(v) Settings.Speed = tostring(v):match("%d+") or "1"; j.Next.Speed = 0; j.QueueSave(); end});
+	section(matchTab, "Ability");
+	toggle(matchTab, "Auto Use Ability", "AutoUseAbility", nil);
+	matchTab:Input({Title = "Ability Waves", Value = Settings.AbilityWaves, Placeholder = "e.g. 5,10,15", Callback = function(v) Settings.AbilityWaves = tostring(v or ""); j.QueueSave(); end});
+	toggle(matchTab, "Ability On Boss", "AbilityOnBoss", nil);
+	toggle(matchTab, "Ability On Wave", "AbilityOnWave", nil);
+	section(matchTab, "Sell All");
+	toggle(matchTab, "Auto Sell All On Wave", "AutoSellAllOnWave", nil);
+	matchTab:Input({Title = "Sell All Waves", Value = Settings.SellAllWaves, Placeholder = "e.g. 10,20,30", Callback = function(v) Settings.SellAllWaves = tostring(v or ""); j.QueueSave(); end});
+	section(matchTab, "End Action");
+	matchTab:Dropdown({Title = "End Action", Options = {"Stay", "Return Lobby", "Rejoin"}, Value = (((Settings.EndAction == "Lobby") and "Return Lobby") or Settings.EndAction), Multi = false, Callback = function(v) Settings.EndAction = ((v == "Return Lobby") and "Lobby") or v; j.QueueSave(); end});
+	section(macroTab, "Status");
+	j.Widgets.Status = macroTab:Paragraph({Title = "Status", Content = "Idle"});
+	j.Widgets.Live = macroTab:Paragraph({Title = "Live", Content = "Wave 0 | Mode: Wave+Time | Cash: 0"});
+	j.Widgets.Actions = macroTab:Paragraph({Title = "Actions", Content = "0 recorded"});
+	input(macroTab, "Profile Name", "NewProfile", "Enter name...");
+	local profileDropdown;
+	local function refreshProfiles()
+		if profileDropdown then profileDropdown:Refresh(j.ListMacros()); end
+	end
+	macroTab:Button({Title = "Create New Profile", Description = "Create empty profile", Callback = function()
+		if (j.Recording or j.Playing) then j.Notify("Stop recording or playback first"); return; end
+		local name = j.CleanName(Settings.NewProfile);
+		if (name == "") then j.Notify("Enter a profile name"); return; end
+		if not j.FS then j.Notify("File system unavailable"); return; end
+		if isfile(j.ProfilePath(name)) then j.Notify("Profile already exists"); return; end
+		Settings.Profile = name;
+		j.Actions, j.Existing, j.ProfileMap = {}, {}, j.MapId();
+		j.SaveMacro();
+		refreshProfiles();
+		if profileDropdown then profileDropdown:Select(name); end
+		j.QueueSave();
+	end});
+	profileDropdown = macroTab:Dropdown({Title = "Load Profile", Options = j.ListMacros(), Value = Settings.Profile, Callback = function(v)
+		j.LoadMacro(v);
+	end});
+	macroTab:Button({Title = "Delete Profile", Description = "Click twice to confirm", Callback = function()
+		if (j.Recording or j.Playing or Settings.AutoPlayback) then
+			j.Notify("Stop recording or playback first");
+			return;
+		end
+		if ((j.DeleteProfile ~= Settings.Profile) or (os.clock() > (j.DeleteUntil or 0))) then
+			j.DeleteProfile = Settings.Profile;
+			j.DeleteUntil = os.clock() + 5;
+			j.Notify("Click again within 5s to delete profile: " .. Settings.Profile);
+			return;
+		end
+		if (j.FS and (type(delfile) == "function") and (Settings.Profile ~= "") and isfile(j.ProfilePath(Settings.Profile))) then
+			pcall(writefile, j.ProfilePath(Settings.Profile) .. ".bak", readfile(j.ProfilePath(Settings.Profile)));
+			pcall(delfile, j.ProfilePath(Settings.Profile));
+			Settings.Profile = "";
+			j.Actions = {};
+			j.Existing = {};
+			refreshProfiles();
+			j.QueueSave();
+		end
+	end});
+	dropdown(macroTab, "Playback Mode", "PlaybackMode", {"Wave+Time", "Time", "Manual"});
+	j.Widgets.Record = macroTab:Toggle({Title = "Record", Default = false, Callback = function(v)
+		if j.ChangingToggle then return; end
+		if v then
+			if j.Playing then j.StopPlayback(); end
+			j.StartRecord();
+			j.ChangingToggle = true;
+			pcall(function() j.Widgets.Record:Set(j.Recording == true); end);
+			j.ChangingToggle = false;
+		else
+			j.StopRecord();
+		end
+	end});
+	toggle(macroTab, "Auto Playback", "AutoPlayback", nil, function(v)
+		if v then
+			j.StopRecord();
+			j.AutoPlayed = false;
+			if (game.PlaceId == j.MatchId) then
+				j.StartPlayback();
+				j.AutoPlayed = j.Playing == true;
+			end
+			if not j.Playing then
+				j.Status = "Auto playback waiting for match";
+			end
+		else
+			j.StopPlayback();
+		end
+	end);
+	section(settingsTab, "Performance");
+	toggle(settingsTab, "Hide Name", "HideName", nil, j.SetHide);
+	toggle(settingsTab, "FPS Boost", "FPSBoost", nil, j.SetFPS);
+	toggle(settingsTab, "Remove Visuals", "RemoveVisuals", nil, j.SetRemoveVisuals);
+	section(settingsTab, "Execution");
+	toggle(settingsTab, "Anti AFK", "AntiAFK", nil);
+	toggle(settingsTab, "Auto Execute", "AutoExecute", nil, function(v)
+		if v then j.QueueTeleport(); end
+	end);
+	toggle(settingsTab, "Auto Save", "AutoSave", nil);
+	input(settingsTab, "Toggle Key", "ToggleKey", "RightShift");
+	section(settingsTab, "Timeout");
+	slider(settingsTab, "Action Timeout", "ActionTimeout", 15, 600, 1);
+	section(socialTab, "Webhook");
+	input(socialTab, "Webhook URL", "WebhookURL", "https://discord.com/api/webhooks/...");
+	toggle(socialTab, "Enable Webhook", "WebhookEnabled", nil);
+	toggle(socialTab, "Webhook Match End", "WebhookMatchEnd", nil);
+	socialTab:Button({Title = "Test Webhook", Description = "Send test message", Callback = function()
+		task.spawn(function()
+			local ok, err = j.Webhook(Settings.WebhookURL, "Miko Hub - Test", {{name = "Player", value = player.Name, inline = true}});
+			j.Notify((ok and "Webhook OK") or ("Webhook failed: " .. tostring(err)));
+		end);
+	end});
+	section(socialTab, "Claims");
+	toggle(socialTab, "Auto Claim Quest", "AutoClaimQuest", nil, j.WakeClaims);
+	toggle(socialTab, "Auto Claim Season Quest", "AutoClaimSeasonQuest", nil, j.WakeClaims);
+	toggle(socialTab, "Auto Claim Pass", "AutoClaimPass", nil, j.WakeClaims);
+	toggle(socialTab, "Auto Claim Playtime", "AutoClaimPlaytime", nil, j.WakeClaims);
+	section(socialTab, "Spin Wheel");
+	toggle(socialTab, "Auto Spin Wheel", "AutoSpinWheel", nil, function()
+		j.Next.SpinWheel = 0;
+		j.SpinReadAt = 0;
+	end);
+end);
+b.__AllianceTDBoot.Loading = false;
+if not uiOk then
+	j.Destroy();
+	warn("UI failed to load: " .. tostring(uiErr));
+	return;
+end
+if (Settings.Profile ~= "") then
+	j.LoadMacro(Settings.Profile);
+end
+j.InstallRouter();
+j.SetHide(Settings.HideName);
+j.SetFPS(Settings.FPSBoost);
+j.SetRemoveVisuals(Settings.RemoveVisuals);
+j.SaveConfig();
+j.QueueTeleport();
+j.BindEvents();
+task.spawn(function()
+	while j.Running do
+		pcall(j.SummonStep);
+		task.wait(0.05);
+	end
+end);
+task.spawn(function()
+	while j.Running do
+		if (j.RecordJobs and (#j.RecordJobs > 0)) then
+			local job = table.remove(j.RecordJobs, 1);
+			j.RecordBusy = true;
+			pcall(j.RecordCall, table.unpack(job));
+			j.RecordBusy = false;
+		else
+			task.wait(0.1);
+		end
+	end
+end);
+j.SyncSummonSell();
+task.spawn(function()
+	while j.Running do
+		local ok, err = pcall(j.PotionStep);
+		if (not ok and j.Due("PotionError", 10)) then
+			warn("Potion error: " .. tostring(err));
+		end
+		task.wait(0.05);
+	end
+end);
+task.spawn(function()
+	while j.Running do
+		pcall(j.SellAllStep);
+		task.wait(0.1);
+	end
+end);
+task.spawn(function()
+	while j.Running do
+		local ok, err = pcall(j.SpinWheelStep);
+		if (not ok and j.Due("SpinError", 10)) then
+			warn("Spin error: " .. tostring(err));
+		end
+		task.wait(0.05);
+	end
+end);
+task.spawn(function()
+	while j.Running do
+		local ok, err = pcall(j.AbilityStep);
+		if (not ok and j.Due("AbilityError", 10)) then
+			warn("Ability error: " .. tostring(err));
+		end
+		task.wait(0.1);
+	end
+end);
+task.spawn(function()
+	while j.Running do
+		local ok, err = pcall(j.CrateStep);
+		if (not ok and j.Due("CrateError", 10)) then
+			warn("Crate error: " .. tostring(err));
+		end
+		task.wait(0.1);
+	end
+end);
+task.spawn(function()
+	while j.Running do
+		local ok, err = pcall(function()
+			if j.Due("BindEvents", 2) then j.BindEvents(); end
+			j.LastCash = j.Cash();
+			if (game.PlaceId == j.MatchId) then
+				j.MatchStep();
+			else
+				j.LobbyStep();
+			end
+			if (j.MacroDirty and j.Due("SaveMacro", 2)) then
+				j.MacroDirty = false;
+				j.SaveMacro();
+			end
+			if j.Due("UI", 0.5) then
+				j.Widgets.Status:SetTitle("Status: " .. j.Status);
+				j.Widgets.Status:SetDesc((j.Recording and "Recording actions...") or (j.Playing and "Playing actions...") or (Settings.AutoPlayback and "Auto playback armed") or "Idle");
+				j.Widgets.Live:SetDesc(string.format("Wave %d | Mode: %s | Cash: %s", j.Wave, Settings.PlaybackMode, tostring(j.Cash())));
+				j.Widgets.Actions:SetTitle("Actions: " .. #j.Actions);
+				j.Widgets.Actions:SetDesc(((Settings.Profile ~= "") and ("Profile: " .. Settings.Profile)) or "No profile loaded");
+			end
+		end);
+		if (not ok and j.Due("MainError", 10)) then
+			warn("Main loop error: " .. tostring(err));
+		end
+		task.wait(0.2);
+	end
+end);
+task.spawn(function()
+	while j.Running do
+		if ((game.PlaceId == j.LobbyId) and (Settings.AutoClaimQuest or Settings.AutoClaimSeasonQuest or Settings.AutoClaimPlaytime or Settings.AutoClaimPass) and (os.clock() >= (j.ClaimsNotBefore or 0)) and (j.ClaimsWake or (os.clock() >= (j.ClaimsNext or 0)))) then
+			j.ClaimsWake = false;
+			pcall(j.Claims);
+			j.ClaimsNext = os.clock() + 5;
+			j.ClaimsNotBefore = os.clock() + 0.25;
+		end
+		task.wait(0.1);
+	end
+end);
+task.spawn(function()
+	while j.Running do
+		pcall(j.BlockVisualEvents);
+		local ok, err = pcall(j.ReadConnectionPrompt);
+		if ok then
+			pcall(j.RejoinStep, err);
+		end
+		task.wait(1);
+	end
+end);
+if (WEBHOOK_URL ~= "") then
+	task.spawn(function()
+		b.__AllianceTDLogged = b.__AllianceTDLogged or {};
+		if b.__AllianceTDLogged[game.JobId] then return; end
+		b.__AllianceTDLogged[game.JobId] = true;
+		j.Webhook(WEBHOOK_URL, "Miko Hub - Alliance TD Started", {{name = "Player", value = player.Name, inline = true}}, 5793266, "Hub loaded successfully", nil);
+	end);
+end
+j.Notify("Miko Hub loaded successfully!");
