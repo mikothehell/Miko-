@@ -1,1258 +1,3071 @@
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UIS = game:GetService("UserInputService")
-local TS = game:GetService("TweenService")
-local RS = game:GetService("RunService")
-local player = Players.LocalPlayer
-
-local themes = {
-	Gold = {Accent = Color3.fromRGB(255, 184, 28), AccentDark = Color3.fromRGB(72, 52, 10)},
-	Red = {Accent = Color3.fromRGB(240, 50, 60), AccentDark = Color3.fromRGB(80, 16, 22)},
-	Blue = {Accent = Color3.fromRGB(45, 150, 255), AccentDark = Color3.fromRGB(12, 44, 86)},
-	Rainbow = {Accent = Color3.fromRGB(255, 255, 255), AccentDark = Color3.fromRGB(40, 40, 40)},
-}
-
-local T = {
-	Bg = Color3.fromRGB(10, 10, 14),
-	Panel = Color3.fromRGB(18, 18, 25),
-	Item = Color3.fromRGB(28, 28, 38),
-	Line = Color3.fromRGB(54, 54, 70),
-	Text = Color3.fromRGB(238, 238, 248),
-	Sub = Color3.fromRGB(145, 145, 165),
-	Off = Color3.fromRGB(62, 62, 80),
-	Red = Color3.fromRGB(232, 66, 78),
-	Accent = themes.Gold.Accent,
-	AccentDark = themes.Gold.AccentDark,
-}
-
-local Glass = {main = 0.2}
-local FX = {on = true, border = true, shine = true}
-local currentTheme = "Gold"
-local isRainbow = false
-
-local skins, glassSkins, grads, dotStrokes = {}, {}, {}, {}
-local themeHook
-
-local function skin(fn)
-	table.insert(skins, fn)
-	fn()
-end
-local function paint(obj, prop, key)
-	skin(function() obj[prop] = T[key] end)
-end
-local function glass(obj, offset)
-	local fn = function() obj.BackgroundTransparency = math.clamp(Glass.main + offset, 0, 1) end
-	table.insert(glassSkins, fn)
-	fn()
-end
-local function glassRefresh()
-	for _, fn in ipairs(glassSkins) do fn() end
-end
-local function markDots()
-	for nm, st in pairs(dotStrokes) do
-		st.Transparency = nm == currentTheme and 0 or 1
-	end
-end
-local function setTheme(name)
-	if name == "Rainbow" then
-		isRainbow = true
-		currentTheme = "Rainbow"
-	else
-		isRainbow = false
-		local th = themes[name]
-		if not th then return end
-		currentTheme = name
-		T.Accent, T.AccentDark = th.Accent, th.AccentDark
-	end
-	for _, fn in ipairs(skins) do fn() end
-	markDots()
-	if themeHook then themeHook(name) end
-end
-
--- Rainbow Color Loop (Optimized, no lag)
-task.spawn(function()
-	while true do
-		if isRainbow then
-			local hue = (tick() % 5) / 5
-			local col = Color3.fromHSV(hue, 0.9, 1)
-			T.Accent = col
-			T.AccentDark = col:Lerp(Color3.new(0,0,0), 0.6)
-			for _, fn in ipairs(skins) do fn() end
-		end
-		task.wait(0.1)
-	end
-end)
-
-local function new(class, props, parent)
-	local o = Instance.new(class)
-	for k, v in pairs(props) do o[k] = v end
-	o.Parent = parent
-	return o
-end
-local function corner(o, r) return new("UICorner", {CornerRadius = UDim.new(0, r)}, o) end
-local function stroke(o, c, t)
-	return new("UIStroke", {Color = c, Thickness = t or 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, o)
-end
-local function tween(o, t, p, style, dir)
-	if not FX.on then t = 0 end
-	local tw = TS:Create(o, TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), p)
-	tw:Play()
-	return tw
-end
-local function isPress(i)
-	return i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1
-end
-local function isMove(i)
-	return i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement
-end
-
-local conns = {}
-local function bind(signal, fn)
-	local c = signal:Connect(fn)
-	table.insert(conns, c)
-	return c
-end
-
-local function press(btn, s)
-	local sc = new("UIScale", {Scale = 1}, btn)
-	btn.InputBegan:Connect(function(i)
-		if isPress(i) then tween(sc, 0.08, {Scale = s or 0.94}) end
-	end)
-	btn.InputEnded:Connect(function(i)
-		if isPress(i) then tween(sc, 0.2, {Scale = 1}, Enum.EasingStyle.Back) end
-	end)
-end
-
-local function borderFx(st, host)
-	local g = new("UIGradient", {}, st)
-	skin(function()
-		local light = T.Accent:Lerp(Color3.new(1, 1, 1), 0.6)
-		g.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, T.Accent),
-			ColorSequenceKeypoint.new(0.5, light),
-			ColorSequenceKeypoint.new(1, T.Accent),
-		})
-	end)
-	table.insert(grads, {g = g, host = host})
-end
-
-bind(RS.Heartbeat, function(dt)
-	if FX.border then
-		for _, e in ipairs(grads) do
-			if e.host.Visible then e.g.Rotation = (e.g.Rotation + dt * 90) % 360 end
-		end
-	end
-end)
-
-local pg = player:WaitForChild("PlayerGui")
-local old = pg:FindFirstChild("MikoHub")
-if old then old:Destroy() end
-
-local gui = new("ScreenGui", {
-	Name = "MikoHub",
-	ResetOnSpawn = false,
-	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-	DisplayOrder = 100,
-}, pg)
-
-local function closeAll()
-	for _, c in ipairs(conns) do c:Disconnect() end
-	gui:Destroy()
-end
-
-local W, H = 460, 260
-local BODY_Y, BODY_H = 54, H - 60
-
-local root = new("Frame", {
-	Size = UDim2.fromOffset(W, H),
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	BackgroundTransparency = 1,
-}, gui)
-local userScale = new("UIScale", {Scale = 1}, root)
-
-local main = new("Frame", {
-	Size = UDim2.fromScale(1, 1),
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	BackgroundColor3 = T.Bg,
-	ClipsDescendants = true,
-}, root)
-local animScale = new("UIScale", {Scale = 0.7}, main)
-corner(main, 12)
-glass(main, 0)
-borderFx(stroke(main, Color3.new(1, 1, 1), 2), root)
-
-local function ripple(obj, i)
-	local s = userScale.Scale
-	local x = (i.Position.X - obj.AbsolutePosition.X) / s
-	local y = (i.Position.Y - obj.AbsolutePosition.Y) / s
-	local r = new("Frame", {
-		Size = UDim2.fromOffset(0, 0),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromOffset(x, y),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		BackgroundTransparency = 0.8,
-		BorderSizePixel = 0,
-		ZIndex = 2,
-	}, obj)
-	corner(r, 200)
-	local d = math.max(obj.AbsoluteSize.X, obj.AbsoluteSize.Y) * 2.4 / s
-	tween(r, 0.5, {Size = UDim2.fromOffset(d, d), BackgroundTransparency = 1})
-	task.delay(0.55, function() r:Destroy() end)
-end
-
-local function drag(handle, target, onTap)
-	local active, start, orig, moved = false, nil, nil, false
-	handle.InputBegan:Connect(function(i)
-		if isPress(i) then
-			active, start, orig, moved = true, i.Position, target.Position, false
-			i.Changed:Connect(function()
-				if i.UserInputState == Enum.UserInputState.End then
-					active = false
-					if onTap and not moved then onTap() end
-				end
-			end)
-		end
-	end)
-	bind(UIS.InputChanged, function(i)
-		if active and isMove(i) then
-			local d = i.Position - start
-			if d.Magnitude > 6 then moved = true end
-			target.Position = UDim2.new(orig.X.Scale, orig.X.Offset + d.X, orig.Y.Scale, orig.Y.Offset + d.Y)
-		end
-	end)
-end
-
-local shine = new("Frame", {
-	Size = UDim2.new(0, 70, 1.6, 0),
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.new(0, -80, 0.5, 0),
-	Rotation = 18,
-	BackgroundColor3 = Color3.new(1, 1, 1),
-	BackgroundTransparency = 0.92,
-	BorderSizePixel = 0,
-	ZIndex = 50,
-}, main)
-new("UIGradient", {
-	Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.5, 0),
-		NumberSequenceKeypoint.new(1, 1),
-	}),
-}, shine)
-task.spawn(function()
-	while gui.Parent do
-		task.wait(6)
-		if gui.Parent and FX.on and FX.shine and root.Visible then
-			shine.Position = UDim2.new(0, -80, 0.5, 0)
-			local tw = tween(shine, 1.3, {Position = UDim2.new(1, 80, 0.5, 0)}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-			tw.Completed:Wait()
-		end
-	end
-end)
-
-local toasts = new("Frame", {
-	Size = UDim2.fromOffset(220, 260),
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -10, 0, 10),
-	BackgroundTransparency = 1,
-}, gui)
-new("UIListLayout", {
-	Padding = UDim.new(0, 6),
-	HorizontalAlignment = Enum.HorizontalAlignment.Right,
-	SortOrder = Enum.SortOrder.LayoutOrder,
-}, toasts)
-
-local live = {}
-local function notify(title, text, dur)
-	local key = title .. "|" .. text
-	if live[key] then return end
-	live[key] = true
-	dur = dur or 2.5
-	local f = new("Frame", {
-		Size = UDim2.fromOffset(210, 0),
-		BackgroundColor3 = T.Panel,
-		BackgroundTransparency = 0.1,
-		ClipsDescendants = true,
-	}, toasts)
-	corner(f, 8)
-	stroke(f, T.Accent, 1.5)
-	new("TextLabel", {
-		Size = UDim2.new(1, -16, 0, 16),
-		Position = UDim2.fromOffset(8, 5),
-		BackgroundTransparency = 1,
-		Text = title,
-		Font = Enum.Font.GothamBold,
-		TextSize = 12,
-		TextColor3 = T.Accent,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-	}, f)
-	new("TextLabel", {
-		Size = UDim2.new(1, -16, 0, 14),
-		Position = UDim2.fromOffset(8, 23),
-		BackgroundTransparency = 1,
-		Text = text,
-		Font = Enum.Font.Gotham,
-		TextSize = 11,
-		TextColor3 = T.Text,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-	}, f)
-	local bar = new("Frame", {
-		Size = UDim2.new(1, 0, 0, 2),
-		Position = UDim2.new(0, 0, 1, -2),
-		BackgroundColor3 = T.Accent,
-		BorderSizePixel = 0,
-	}, f)
-	tween(f, 0.3, {Size = UDim2.fromOffset(210, 44)}, Enum.EasingStyle.Back)
-	TS:Create(bar, TweenInfo.new(dur, Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 0, 2)}):Play()
-	task.delay(dur, function()
-		if f.Parent then
-			local tw = tween(f, 0.2, {Size = UDim2.fromOffset(210, 0)})
-			tw.Completed:Wait()
-			f:Destroy()
-		end
-		live[key] = nil
-	end)
-end
-
-local header = new("Frame", {
-	Size = UDim2.new(1, -12, 0, 40),
-	Position = UDim2.fromOffset(6, 6),
-	BackgroundColor3 = Color3.new(1, 1, 1),
-}, main)
-corner(header, 8)
-stroke(header, T.Line)
-glass(header, 0.15)
-local hg = new("UIGradient", {Rotation = 0}, header)
-skin(function()
-	hg.Color = ColorSequence.new(T.AccentDark:Lerp(T.Panel, 0.35), T.Panel)
-end)
-drag(header, root)
-
-local logo = new("ImageLabel", {
-	Size = UDim2.fromOffset(28, 28),
-	Position = UDim2.fromOffset(6, 6),
-	Image = "rbxassetid://103525855196551",
-	BackgroundTransparency = 1,
-}, header)
-corner(logo, 14)
-local logoScale = new("UIScale", {Scale = 1}, logo)
-TS:Create(logoScale, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Scale = 1.08}):Play()
-
-new("TextLabel", {
-	Size = UDim2.new(1, -200, 0, 18),
-	Position = UDim2.fromOffset(40, 4),
-	BackgroundTransparency = 1,
-	Text = "MIKO HUB",
-	Font = Enum.Font.GothamBlack,
-	TextSize = 14,
-	TextColor3 = T.Text,
-	TextXAlignment = Enum.TextXAlignment.Left,
-}, header)
-
-local sub = new("TextLabel", {
-	Size = UDim2.new(1, -200, 0, 12),
-	Position = UDim2.fromOffset(40, 22),
-	BackgroundTransparency = 1,
-	Text = "// MIKO v2.1",
-	Font = Enum.Font.GothamMedium,
-	TextSize = 10,
-	TextXAlignment = Enum.TextXAlignment.Left,
-}, header)
-paint(sub, "TextColor3", "Accent")
-
-for idx, nm in ipairs({"Gold", "Red", "Blue", "Rainbow"}) do
-	local d = new("TextButton", {
-		Size = UDim2.fromOffset(12, 12),
-		Position = UDim2.new(1, -144 + (idx - 1) * 18, 0.5, -6),
-		BackgroundColor3 = nm == "Rainbow" and Color3.fromRGB(255, 255, 255) or themes[nm].Accent,
-		Text = "",
-		AutoButtonColor = false,
-	}, header)
-	corner(d, 6)
-	dotStrokes[nm] = stroke(d, Color3.new(1, 1, 1), 1.5)
-	press(d, 0.8)
-	d.Activated:Connect(function() setTheme(nm) end)
-end
-markDots()
-
-local function iconButton(x, color)
-	local b = new("TextButton", {
-		Size = UDim2.fromOffset(26, 26),
-		Position = UDim2.new(1, x, 0.5, -13),
-		BackgroundColor3 = color,
-		Text = "",
-		AutoButtonColor = false,
-	}, header)
-	corner(b, 6)
-	press(b, 0.88)
-	return b
-end
-
-local minBtn = iconButton(-68, T.AccentDark)
-paint(minBtn, "BackgroundColor3", "AccentDark")
-paint(stroke(minBtn, T.Accent, 1), "Color", "Accent")
-new("Frame", {
-	Size = UDim2.fromOffset(10, 2),
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	BackgroundColor3 = T.Text,
-	BorderSizePixel = 0,
-}, minBtn)
-
-local closeBtn = iconButton(-34, T.Red)
-for _, rot in ipairs({45, -45}) do
-	new("Frame", {
-		Size = UDim2.fromOffset(12, 2),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Rotation = rot,
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		BorderSizePixel = 0,
-	}, closeBtn)
-end
-
-local searchHolder = new("Frame", {
-	Size = UDim2.fromOffset(110, 26),
-	Position = UDim2.fromOffset(6, BODY_Y),
-	BackgroundColor3 = T.Panel,
-}, main)
-corner(searchHolder, 6)
-glass(searchHolder, 0.2)
-local sStroke = stroke(searchHolder, T.Line)
-
-local sRing = new("Frame", {
-	Size = UDim2.fromOffset(8, 8),
-	Position = UDim2.fromOffset(8, 7),
-	BackgroundTransparency = 1,
-}, searchHolder)
-corner(sRing, 4)
-paint(stroke(sRing, T.Accent, 1.5), "Color", "Accent")
-local sHandle = new("Frame", {
-	Size = UDim2.fromOffset(5, 2),
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromOffset(17, 17),
-	Rotation = 45,
-	BorderSizePixel = 0,
-}, searchHolder)
-paint(sHandle, "BackgroundColor3", "Accent")
-
-local searchBox = new("TextBox", {
-	Size = UDim2.new(1, -26, 1, 0),
-	Position = UDim2.fromOffset(26, 0),
-	BackgroundTransparency = 1,
-	Text = "",
-	PlaceholderText = "Search...",
-	PlaceholderColor3 = T.Sub,
-	TextColor3 = T.Text,
-	Font = Enum.Font.GothamMedium,
-	TextSize = 11,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	ClearTextOnFocus = false,
-}, searchHolder)
-searchBox.Focused:Connect(function() tween(sStroke, 0.15, {Color = T.Accent}) end)
-searchBox.FocusLost:Connect(function() tween(sStroke, 0.15, {Color = T.Line}) end)
-
-local sidePanel = new("Frame", {
-	Size = UDim2.fromOffset(110, BODY_H - 32),
-	Position = UDim2.fromOffset(6, BODY_Y + 32),
-	BackgroundColor3 = T.Panel,
-}, main)
-corner(sidePanel, 8)
-glass(sidePanel, 0.25)
-local spStroke = stroke(sidePanel, T.Accent, 1.5)
-spStroke.Transparency = 0.25
-paint(spStroke, "Color", "Accent")
-
-local side = new("ScrollingFrame", {
-	Size = UDim2.new(1, -8, 1, -8),
-	Position = UDim2.fromOffset(4, 4),
-	BackgroundTransparency = 1,
-	BorderSizePixel = 0,
-	ScrollBarThickness = 0,
-	CanvasSize = UDim2.new(),
-	AutomaticCanvasSize = Enum.AutomaticSize.Y,
-}, sidePanel)
-new("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, side)
-
-local contentPanel = new("Frame", {
-	Size = UDim2.fromOffset(W - 124, BODY_H),
-	Position = UDim2.fromOffset(122, BODY_Y),
-	BackgroundColor3 = T.Panel,
-}, main)
-corner(contentPanel, 8)
-glass(contentPanel, 0.25)
-local cpStroke = stroke(contentPanel, T.Accent, 1.5)
-cpStroke.Transparency = 0.25
-paint(cpStroke, "Color", "Accent")
-
-local pageHolder = new("Frame", {
-	Size = UDim2.new(1, -12, 1, -12),
-	Position = UDim2.fromOffset(6, 6),
-	BackgroundTransparency = 1,
-	ClipsDescendants = true,
-}, contentPanel)
-
-local noResult = new("TextLabel", {
-	Size = UDim2.new(1, 0, 0, 30),
-	Position = UDim2.fromOffset(0, 30),
-	BackgroundTransparency = 1,
-	Text = "No results found",
-	Font = Enum.Font.GothamMedium,
-	TextSize = 11,
-	TextColor3 = T.Sub,
-	Visible = false,
-}, pageHolder)
-
-local pages, current = {}, nil
-
-local function paintTabs()
-	for _, p in ipairs(pages) do
-		local on = p == current
-		tween(p.Tab, 0.2, {BackgroundColor3 = on and T.AccentDark or T.Item})
-		tween(p.Label, 0.2, {TextColor3 = on and T.Accent or T.Text})
-		tween(p.Bar, 0.25, {Size = on and UDim2.fromOffset(2, 12) or UDim2.fromOffset(2, 0)}, Enum.EasingStyle.Back)
-	end
-end
-
-local function applyFilter()
-	if not current then return end
-	local q = searchBox.Text:lower()
-	local any = false
-	local shown = {}
-	for _, it in ipairs(current.Items) do
-		local v = q == "" or it.Name:find(q, 1, true) ~= nil
-		it.Frame.Visible = v
-		if v then
-			any = true
-			if it.Card then shown[it.Card] = true end
-		end
-	end
-	for _, c in ipairs(current.Cards) do
-		c.Visible = q == "" or shown[c] == true
-	end
-	noResult.Visible = not any
-end
-
-local function selectPage(page)
-	if current == page then return end
-	for _, p in ipairs(pages) do p.Group.Visible = p == page end
-	current = page
-	paintTabs()
-	applyFilter()
-	page.Group.GroupTransparency = 1
-	page.Group.Position = UDim2.fromOffset(14, 0)
-	tween(page.Group, 0.3, {GroupTransparency = 0, Position = UDim2.fromOffset(0, 0)})
-end
-
-bind(searchBox:GetPropertyChangedSignal("Text"), applyFilter)
-skin(paintTabs)
-
-local Methods = {}
-Methods.__index = Methods
-
-function Methods:Section(text)
-	local card = new("Frame", {
-		Size = UDim2.new(1, 0, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundColor3 = T.Panel,
-	}, self.Frame)
-	corner(card, 8)
-	glass(card, 0.2)
-	local st = stroke(card, T.Accent, 1)
-	st.Transparency = 0.45
-	paint(st, "Color", "Accent")
-	new("UIListLayout", {
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-	}, card)
-	new("TextLabel", {
-		Size = UDim2.new(1, 0, 0, 24),
-		BackgroundTransparency = 1,
-		Text = text,
-		Font = Enum.Font.GothamBold,
-		TextSize = 12,
-		TextColor3 = T.Text,
-		LayoutOrder = 1,
-	}, card)
-	local line = new("Frame", {
-		Size = UDim2.new(1, -16, 0, 1),
-		BorderSizePixel = 0,
-		LayoutOrder = 2,
-	}, card)
-	paint(line, "BackgroundColor3", "Accent")
-	new("UIGradient", {
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.5, 0),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-	}, line)
-	local body = new("Frame", {
-		Size = UDim2.new(1, 0, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1,
-		LayoutOrder = 3,
-	}, card)
-	new("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, body)
-	new("UIPadding", {
-		PaddingTop = UDim.new(0, 6),
-		PaddingBottom = UDim.new(0, 6),
-		PaddingLeft = UDim.new(0, 6),
-		PaddingRight = UDim.new(0, 6),
-	}, body)
-	self.Body, self.Card, self.CardName = body, card, text:lower()
-	table.insert(self.Cards, card)
-end
-
-function Methods:_item(name, h)
-	local f = new("Frame", {
-		Size = UDim2.new(1, 0, 0, h),
-		BackgroundColor3 = T.Item,
-		ClipsDescendants = true,
-	}, self.Body or self.Frame)
-	corner(f, 6)
-	glass(f, 0.25)
-	local st = stroke(f, T.Line)
-	f.MouseEnter:Connect(function() tween(st, 0.15, {Color = T.Accent}) end)
-	f.MouseLeave:Connect(function() tween(st, 0.15, {Color = T.Line}) end)
-	table.insert(self.Items, {Frame = f, Name = name:lower() .. " " .. (self.CardName or ""), Card = self.Card})
-	return f
-end
-
-function Methods:_row(name, desc, rightW)
-	local h = desc and 42 or 34
-	local f = self:_item(name .. " " .. (desc or ""), h)
-	local edge = new("Frame", {
-		Size = UDim2.fromOffset(2, 0),
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 0, 0.5, 0),
-		BorderSizePixel = 0,
-	}, f)
-	paint(edge, "BackgroundColor3", "Accent")
-	new("TextLabel", {
-		Size = UDim2.new(1, -(rightW + 10), 0, desc and 16 or h),
-		Position = UDim2.fromOffset(10, desc and 5 or 0),
-		BackgroundTransparency = 1,
-		Text = name,
-		Font = Enum.Font.GothamMedium,
-		TextSize = 12,
-		TextColor3 = T.Text,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-	}, f)
-	if desc then
-		new("TextLabel", {
-			Size = UDim2.new(1, -(rightW + 10), 0, 14),
-			Position = UDim2.fromOffset(10, 21),
-			BackgroundTransparency = 1,
-			Text = desc,
-			Font = Enum.Font.Gotham,
-			TextSize = 10,
-			TextColor3 = T.Sub,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextTruncate = Enum.TextTruncate.AtEnd,
-		}, f)
-	end
-	return f, h, edge
-end
-
-function Methods:Toggle(name, default, callback, desc)
-	local f, h, edge = self:_row(name, desc, 50)
-	local sw = new("Frame", {
-		Size = UDim2.fromOffset(36, 18),
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -8, 0.5, 0),
-		BackgroundColor3 = T.Off,
-	}, f)
-	corner(sw, 9)
-	local sst = stroke(sw, T.Accent, 1)
-	sst.Transparency = 0.55
-	paint(sst, "Color", "Accent")
-	local knob = new("Frame", {
-		Size = UDim2.fromOffset(14, 14),
-		Position = UDim2.fromOffset(2, 2),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-	}, sw)
-	corner(knob, 7)
-	local state = default and true or false
-	local function render()
-		tween(sw, 0.2, {BackgroundColor3 = state and T.Accent or T.Off})
-		tween(knob, 0.25, {Position = state and UDim2.fromOffset(20, 2) or UDim2.fromOffset(2, 2)}, Enum.EasingStyle.Back)
-		tween(edge, 0.25, {Size = state and UDim2.fromOffset(2, h - 12) or UDim2.fromOffset(2, 0)}, Enum.EasingStyle.Back)
-	end
-	skin(render)
-	local hit = new("TextButton", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Text = "",
-		ZIndex = 3,
-	}, f)
-	hit.InputBegan:Connect(function(i)
-		if isPress(i) then ripple(f, i) end
-	end)
-	hit.Activated:Connect(function()
-		state = not state
-		render()
-		if callback then callback(state) end
-	end)
-end
-
-function Methods:Button(name, callback)
-	local f = self:_item(name, 36)
-	local b = new("TextButton", {
-		Size = UDim2.new(1, -16, 0, 24),
-		Position = UDim2.fromOffset(8, 6),
-		Text = name,
-		Font = Enum.Font.GothamBold,
-		TextSize = 11,
-		AutoButtonColor = false,
-		ClipsDescendants = true,
-	}, f)
-	corner(b, 6)
-	paint(b, "BackgroundColor3", "AccentDark")
-	paint(b, "TextColor3", "Accent")
-	paint(stroke(b, T.Accent, 1), "Color", "Accent")
-	press(b, 0.96)
-	b.InputBegan:Connect(function(i)
-		if isPress(i) then ripple(b, i) end
-	end)
-	b.Activated:Connect(function()
-		if callback then callback() end
-	end)
-end
-
-function Methods:Slider(name, min, max, default, callback, unit, desc)
-	local h = desc and 52 or 42
-	local f = self:_item(name .. " " .. (desc or ""), h)
-	new("TextLabel", {
-		Size = UDim2.new(1, -80, 0, 16),
-		Position = UDim2.fromOffset(10, 6),
-		BackgroundTransparency = 1,
-		Text = name,
-		Font = Enum.Font.GothamMedium,
-		TextSize = 11,
-		TextColor3 = T.Text,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-	}, f)
-	if desc then
-		new("TextLabel", {
-			Size = UDim2.new(1, -20, 0, 14),
-			Position = UDim2.fromOffset(10, 21),
-			BackgroundTransparency = 1,
-			Text = desc,
-			Font = Enum.Font.Gotham,
-			TextSize = 9,
-			TextColor3 = T.Sub,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextTruncate = Enum.TextTruncate.AtEnd,
-		}, f)
-	end
-	local val = new("TextLabel", {
-		Size = UDim2.new(1, -78, 0, 6),
-		BackgroundTransparency = 1,
-		Text = tostring(default) .. (unit or ""),
-		Font = Enum.Font.GothamBold,
-		TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Right,
-	}, f)
-	paint(val, "TextColor3", "Accent")
-	local track = new("Frame", {
-		Size = UDim2.new(1, -20, 0, 6),
-		Position = UDim2.fromOffset(10, h - 14),
-		BackgroundColor3 = T.Off,
-	}, f)
-	corner(track, 3)
-	local fill = new("Frame", {Size = UDim2.fromScale(0, 1)}, track)
-	corner(fill, 3)
-	paint(fill, "BackgroundColor3", "Accent")
-	local knob = new("Frame", {
-		Size = UDim2.fromOffset(14, 14),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0, 0.5),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-	}, track)
-	corner(knob, 7)
-	paint(stroke(knob, T.Accent, 1.5), "Color", "Accent")
-
-	local function set(a, silent)
-		a = math.clamp(a, 0, 1)
-		local v = math.floor(min + (max - min) * a + 0.5)
-		fill.Size = UDim2.fromScale(a, 1)
-		knob.Position = UDim2.fromScale(a, 0.5)
-		val.Text = tostring(v) .. (unit or "")
-		if callback and not silent then callback(v) end
-	end
-	set((default - min) / (max - min), true)
-
-	local sliding = false
-	local function fromX(x)
-		set((x - track.AbsolutePosition.X) / track.AbsoluteSize.X)
-	end
-	local hit = new("TextButton", {
-		Size = UDim2.new(1, 0, 0, 26),
-		Position = UDim2.fromOffset(0, h - 26),
-		BackgroundTransparency = 1,
-		Text = "",
-		ZIndex = 5,
-	}, f)
-	hit.InputBegan:Connect(function(i)
-		if isPress(i) then
-			sliding = true
-			self.Frame.ScrollingEnabled = false
-			tween(knob, 0.12, {Size = UDim2.fromOffset(18, 18)}, Enum.EasingStyle.Back)
-			fromX(i.Position.X)
-		end
-	end)
-	bind(UIS.InputChanged, function(i)
-		if sliding and isMove(i) then fromX(i.Position.X) end
-	end)
-	bind(UIS.InputEnded, function(i)
-		if sliding and isPress(i) then
-			sliding = false
-			self.Frame.ScrollingEnabled = true
-			tween(knob, 0.15, {Size = UDim2.fromOffset(14, 14)}, Enum.EasingStyle.Back)
-		end
-	end)
-end
-
-function Methods:Dropdown(name, options, default, callback, desc)
-	local f, h = self:_row(name, desc, 120)
-	local btn = new("TextButton", {
-		Size = UDim2.fromOffset(110, 24),
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -8, 0, h / 2),
-		BackgroundColor3 = T.Panel,
-		Text = default or options[1],
-		Font = Enum.Font.GothamMedium,
-		TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		AutoButtonColor = false,
-	}, f)
-	corner(btn, 6)
-	stroke(btn, T.Line)
-	new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 20)}, btn)
-	paint(btn, "TextColor3", "Accent")
-	local arrow = new("TextLabel", {
-		Size = UDim2.fromOffset(14, 24),
-		Position = UDim2.new(1, -26, 0, h / 2 - 12),
-		BackgroundTransparency = 1,
-		Text = ">",
-		Font = Enum.Font.GothamBold,
-		TextSize = 11,
-	}, f)
-	paint(arrow, "TextColor3", "Accent")
-	local list = new("Frame", {
-		Size = UDim2.new(1, -16, 0, #options * 24),
-		Position = UDim2.fromOffset(8, h + 4),
-		BackgroundTransparency = 1,
-	}, f)
-	new("UIListLayout", {Padding = UDim.new(0, 2)}, list)
-	local open = false
-	local function setOpen(v)
-		open = v
-		tween(f, 0.22, {Size = UDim2.new(1, 0, 0, open and (h + 6 + #options * 24) or h)})
-		tween(arrow, 0.2, {Rotation = open and 90 or 0})
-	end
-	for _, opt in ipairs(options) do
-		local o = new("TextButton", {
-			Size = UDim2.new(1, 0, 0, 22),
-			BackgroundColor3 = T.Panel,
-			Text = opt,
-			Font = Enum.Font.Gotham,
-			TextSize = 11,
-			TextColor3 = T.Text,
-			AutoButtonColor = false,
-		}, list)
-		corner(o, 4)
-		press(o, 0.96)
-		o.MouseEnter:Connect(function() tween(o, 0.12, {BackgroundColor3 = T.AccentDark}) end)
-		o.MouseLeave:Connect(function() tween(o, 0.12, {BackgroundColor3 = T.Panel}) end)
-		o.Activated:Connect(function()
-			btn.Text = opt
-			setOpen(false)
-			if callback then callback(opt) end
-		end)
-	end
-	btn.Activated:Connect(function() setOpen(not open) end)
-	return function(v) btn.Text = v end
-end
-
-local function icon(kind, parent)
-	local box = new("Frame", {
-		Size = UDim2.fromOffset(14, 14),
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 8, 0.5, 0),
-		BackgroundTransparency = 1,
-	}, parent)
-	local function fillPart(w, h2, x, y, r, rot)
-		local p = new("Frame", {
-			Size = UDim2.fromOffset(w, h2),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(x, y),
-			Rotation = rot or 0,
-			BorderSizePixel = 0,
-		}, box)
-		corner(p, r or 1)
-		paint(p, "BackgroundColor3", "Accent")
-	end
-	local function ringPart(size, thick)
-		local p = new("Frame", {
-			Size = UDim2.fromOffset(size, size),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(7, 7),
-			BackgroundTransparency = 1,
-		}, box)
-		corner(p, size)
-		paint(stroke(p, T.Accent, thick), "Color", "Accent")
-	end
-	if kind == "ring" then
-		ringPart(12, 2)
-	elseif kind == "dotring" then
-		ringPart(12, 2)
-		fillPart(3, 3, 7, 7, 1)
-	elseif kind == "diamond" then
-		fillPart(8, 8, 7, 7, 1, 45)
-	elseif kind == "square" then
-		local p = new("Frame", {
-			Size = UDim2.fromOffset(10, 10),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(7, 7),
-			BackgroundTransparency = 1,
-		}, box)
-		corner(p, 2)
-		paint(stroke(p, T.Accent, 2), "Color", "Accent")
-	elseif kind == "bars" then
-		fillPart(12, 2, 7, 3)
-		fillPart(8, 2, 5, 7)
-		fillPart(10, 2, 6, 11)
-	elseif kind == "shield" then
-		fillPart(10, 12, 7, 7, 2)
-	else
-		fillPart(12, 2, 7, 7)
-		fillPart(2, 12, 7, 7)
-	end
-end
-
-local function Tab(name, kind)
-	local btn = new("TextButton", {
-		Size = UDim2.new(1, 0, 0, 28),
-		BackgroundColor3 = T.Item,
-		Text = "",
-		AutoButtonColor = false,
-		ClipsDescendants = true,
-	}, side)
-	corner(btn, 6)
-	glass(btn, 0.15)
-	stroke(btn, T.Line)
-	press(btn, 0.97)
-	btn.InputBegan:Connect(function(i)
-		if isPress(i) then ripple(btn, i) end
-	end)
-	icon(kind, btn)
-	local label = new("TextLabel", {
-		Size = UDim2.new(1, -30, 1, 0),
-		Position = UDim2.fromOffset(28, 0),
-		BackgroundTransparency = 1,
-		Text = name,
-		Font = Enum.Font.GothamBold,
-		TextSize = 11,
-		TextColor3 = T.Text,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	}, btn)
-	local bar = new("Frame", {
-		Size = UDim2.fromOffset(2, 0),
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 2, 0.5, 0),
-		BorderSizePixel = 0,
-	}, btn)
-	corner(bar, 1)
-	paint(bar, "BackgroundColor3", "Accent")
-	local group = new("CanvasGroup", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Visible = false,
-	}, pageHolder)
-	local frame = new("ScrollingFrame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 2,
-		CanvasSize = UDim2.new(),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-	}, group)
-	paint(frame, "ScrollBarImageColor3", "Accent")
-	new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, frame)
-	new("UIPadding", {PaddingRight = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4)}, frame)
-	local page = setmetatable({
-		Name = name, Group = group, Frame = frame, Tab = btn, Label = label, Bar = bar, Items = {}, Cards = {},
-	}, Methods)
-	table.insert(pages, page)
-	btn.Activated:Connect(function() selectPage(page) end)
-	return page
-end
-
--- ==========================================
--- 1. TAB GOD MODE (Tích hợp theo yêu cầu)
--- ==========================================
-local godmodeTab = Tab("GOD MODE", "shield")
-godmodeTab:Section("God Mode Control")
-godmodeTab:Toggle("Enable God Mode", false, function(state)
-	if state then
-		game.StarterGui:SetCore("SendNotification", {
-			Title = "MIKO HUB",
-			Text = "lol:)",
-			Icon = "",
-			Duration = "10",
-			Button1 = "Ok:)",
-		})
-		
-		_G.MikoGodMode = true
-		task.spawn(function()
-			while _G.MikoGodMode do
-				task.wait(0.2)
-
-				local v3 = nil
-				if Players.LocalPlayer.Character then
-					v3 = Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-				end
-
-				if not v3 then
-					continue
-				end
-
-				if v3.Health ~= math.huge then
-					ReplicatedStorage.RemoteEvents.DamagePlayer:FireServer(-math.huge)
-				end
-			end
-		end)
-	else
-		_G.MikoGodMode = false
-		game.StarterGui:SetCore("SendNotification", {
-			Title = "MIKO HUB",
-			Text = "God Mode Disabled!",
-			Icon = "",
-			Duration = "3",
-			Button1 = "Ok",
-		})
-	end
-end, "Infinite health via damage exploit")
-
--- ==========================================
--- 2. TAB LOBBY
--- ==========================================
-local lobbyTab = Tab("LOBBY", "ring")
-lobbyTab:Section("Cài đặt phòng chờ")
-lobbyTab:Dropdown("Số người chơi", {"1 người", "2 người", "3 người", "4 người", "5 người"}, "1 người", function(v)
-	print("Chọn người chơi: " .. v)
-end, "Số người chơi tối đa trong circle")
-lobbyTab:Dropdown("Map", {"Grasslands", "Desert", "Winter"}, "Grasslands", function(v)
-	print("Chọn map: " .. v)
-end, "Chọn map muốn chơi")
-lobbyTab:Dropdown("Cách vào", {"Đi bộ", "Dịch chuyển"}, "Đi bộ", function(v)
-	print("Cách vào: " .. v)
-end, "Cách di chuyển vào circle")
-lobbyTab:Toggle("Tự động vào phòng chờ", false, function(state)
-	print("Auto Lobby: " .. tostring(state))
-end, "Tự động vào circle và bắt đầu trận")
-lobbyTab:Section("Triệu hồi")
-lobbyTab:Dropdown("Số lượng triệu hồi", {"x1", "x10"}, "x1", function(v)
-	print("Summon Amount: " .. v)
-end, "Số tower triệu hồi mỗi lần")
-lobbyTab:Slider("Độ trễ triệu hồi", 0.1, 10, 0.5, function(v)
-	print("Summon Delay: " .. v)
-end, "s", "Thời gian giữa mỗi lần triệu hồi")
-lobbyTab:Toggle("Tự động triệu hồi", false, function(state)
-	print("Auto Summon: " .. tostring(state))
-end, "Triệu hồi tower tự động")
-
--- ==========================================
--- 3. TAB IN-MATCH
--- ==========================================
-local inmatchTab = Tab("IN-MATCH", "gamepad")
-inmatchTab:Section("Trong trận")
-inmatchTab:Dropdown("Độ khó", {"Normal", "Hard", "Nightmare", "Insane"}, "Normal", function(v)
-	print("Độ khó: " .. v)
-end, "Chọn độ khó khi vote")
-inmatchTab:Toggle("Tự động vote độ khó", false, function(state)
-	print("Auto Difficulty: " .. tostring(state))
-end, "Tự vote độ khó đã chọn")
-inmatchTab:Section("Skip wave")
-inmatchTab:Toggle("Tự động skip", false, function(state)
-	print("Auto Skip: " .. tostring(state))
-end, "Tự động vote skip wave")
-inmatchTab:Toggle("Tự động tăng tốc", false, function(state)
-	print("Auto Speed: " .. tostring(state))
-end, "Tự động tăng tốc game")
-inmatchTab:Dropdown("Hệ số tốc độ", {"1x", "1.5x", "2x"}, "1x", function(v)
-	print("Speed Scale: " .. v)
-end)
-inmatchTab:Section("Kết thúc trận")
-inmatchTab:Dropdown("Hành động khi kết thúc", {"Về lobby", "Rejoin server", "Ở lại"}, "Về lobby", function(v)
-	print("End Action: " .. v)
-end)
-
--- ==========================================
--- 4. TAB AUTO
--- ==========================================
-local autoTab = Tab("AUTO", "dotring")
-autoTab:Section("Tự động hóa")
-autoTab:Toggle("Tự động đặt", false, function(state)
-	print("Auto Place: " .. tostring(state))
-end, "Tự động đặt tower khi đủ tiền")
-autoTab:Toggle("Tự động nâng cấp", false, function(state)
-	print("Auto Upgrade: " .. tostring(state))
-end, "Tự động nâng cấp tower")
-autoTab:Slider("Độ trễ auto", 0.1, 10, 0.5, function(v)
-	print("Auto Delay: " .. v)
-end, "s")
-autoTab:Slider("Phạm vi đặt", 1, 100, 120, function(v)
-	print("Placement Range: " .. v)
-end, "%", "Phần trăm đường đi được phép đặt")
-autoTab:Toggle("Hiển thị phạm vi", false, function(state)
-	print("Show Range: " .. tostring(state))
-end, "Hiển thị vòng tròn phạm vi đặt")
-
--- ==========================================
--- 5. TAB MACRO
--- ==========================================
-local macroTab = Tab("MACRO", "diamond")
-macroTab:Section("Macro")
-macroTab:Dropdown("Chọn profile", {"default"}, "default", function(v)
-	print("Profile: " .. v)
-end, "Chọn profile để ghi/phát")
-macroTab:Dropdown("Chế độ phát", {"recorded", "live", "replay"}, "recorded", function(v)
-	print("Playback Mode: " .. v)
-end)
-macroTab:Toggle("Ghi macro", false, function(state)
-	print("Record Macro: " .. tostring(state))
-end)
-macroTab:Toggle("Tự động phát", false, function(state)
-	print("Auto Playback: " .. tostring(state))
-end, "Tự động phát macro khi vào trận")
-
--- ==========================================
--- 6. TAB WEBHOOK
--- ==========================================
-local webhookTab = Tab("WEBHOOK", "bars")
-webhookTab:Section("Webhook Discord")
-webhookTab:Toggle("Bật webhook", false, function(state)
-	print("Webhook Enabled: " .. tostring(state))
-end)
-webhookTab:Toggle("Gửi kết quả trận", true, function(state)
-	print("Webhook Match End: " .. tostring(state))
-end)
-webhookTab:Button("Kiểm tra webhook", function()
-	notify("Webhook", "Đang gửi tin nhắn thử...")
-end)
-
--- ==========================================
--- 7. TAB SETTING
--- ==========================================
-local settingTab = Tab("SETTING", "cross")
-local minimize
-settingTab:Section("Appearance")
-local setThemeText = settingTab:Dropdown("Theme Color", {"Gold", "Red", "Blue", "Rainbow"}, "Gold", function(v)
-	setTheme(v)
-	notify("Appearance", "Changed theme to " .. v, 1.5)
-end, "Select accent color")
-themeHook = setThemeText
-settingTab:Slider("Glass Transparency", 0, 70, 20, function(v)
-	Glass.main = v / 100
-	glassRefresh()
-end, "%", "Menu background blur")
-settingTab:Slider("Menu Scale", 70, 130, 100, function(v)
-	userScale.Scale = v / 100
-end, "%")
-settingTab:Section("Effects")
-settingTab:Toggle("Animations", true, function(v) FX.on = v end, "Enable or disable UI animations")
-settingTab:Toggle("Border Glow", true, function(v) FX.border = v end, "Rotating glowing border")
-settingTab:Toggle("Shine Effect", true, function(v) FX.shine = v end, "Light sweep across menu")
-settingTab:Section("Menu Control")
-settingTab:Button("Minimize Menu", function() minimize() end)
-settingTab:Button("Close Menu", closeAll)
-
--- ==========================================
--- FLOATING BUBBLE & MINIMIZE LOGIC
--- ==========================================
-local bubble = new("ImageButton", {
-	Size = UDim2.fromOffset(38, 38),
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.82, 0.62),
-	BackgroundColor3 = T.Bg,
-	BackgroundTransparency = 0.1,
-	Image = "rbxassetid://103525855196551",
-	AutoButtonColor = false,
-	Visible = false,
-}, gui)
-new("UICorner", {CornerRadius = UDim.new(0.5, 0)})
-borderFx(stroke(bubble, Color3.new(1, 1, 1), 2), bubble)
-local bubbleScale = new("UIScale", {Scale = 1}, bubble)
-
-local minimized = false
-
-local function restore()
-	if not minimized then return end
-	minimized = false
-	root.Position = UDim2.fromScale(0.5, 0.5)
-	bubble.Visible = false
-	root.Visible = true
-	animScale.Scale = 0.2
-	tween(animScale, 0.35, {Scale = 1}, Enum.EasingStyle.Back)
-end
-
-minimize = function()
-	if minimized then return end
-	minimized = true
-	local tw = tween(animScale, 0.22, {Scale = 0.01}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-	tw.Completed:Connect(function()
-		if minimized then
-			root.Visible = false
-			bubble.Visible = true
-			bubbleScale.Scale = 0.01
-			tween(bubbleScale, 0.3, {Scale = 1}, Enum.EasingStyle.Back)
-		end
-	end)
-end
-
-local dragActive, dragStart, origPos = false, nil, nil
-bubble.InputBegan:Connect(function(i)
-	if isPress(i) then
-		dragActive, dragStart, origPos = true, i.Position, bubble.Position
-	end
-end)
-
-bind(UIS.InputChanged, function(i)
-	if dragActive and isMove(i) then
-		local delta = i.Position - dragStart
-		bubble.Position = UDim2.new(origPos.X.Scale, origPos.X.Offset + delta.X, origPos.Y.Scale, origPos.Y.Offset + delta.Y)
-	end
-end)
-
-bind(UIS.InputEnded, function(i)
-	if dragActive and isPress(i) then
-		dragActive = false
-	end
-end)
-
-bubble.Activated:Connect(restore)
-minBtn.Activated:Connect(minimize)
-closeBtn.Activated:Connect(closeAll)
-
-bind(UIS.InputBegan, function(i, gp)
-	if gp then return end
-	if i.KeyCode == Enum.KeyCode.RightShift then
-		if minimized then restore() else minimize() end
-	end
-end)
-
-selectPage(settingTab)
-tween(animScale, 0.5, {Scale = 1}, Enum.EasingStyle.Back)
-task.delay(0.6, function()
-	notify("Miko Hub", "Ready, welcome " .. player.DisplayName)
-end)
+local Env = getfenv();
+local V = {};
+local v1 = {...};
+local r1 = "VoqoXUU";
+for T = 0, 2 do
+    if T == 0 then
+        if r1 ~= "VoqoXUU" then
+            while true do end;
+        end;
+        r1 = false;
+    else
+        if T == 1 then
+            if r1 == false then
+            end;
+        else
+            if T == 2 then
+                r1 = false;
+            end;
+        end;
+    end; 
+end;
+local r18 = math.floor;
+local r20 = {};
+local v2 = {};
+for g = 1, 256 do
+    v2[g] = g; 
+end;
+repeat
+    g = table.remove(v2, math.random(1, #v2));
+    G = r20;
+    G[g] = string.char(g - 1);
+until #v2 == 0;
+local r23 = {};
+local r15 = setmetatable({}, {
+    ["__index"] = r23,
+    ["__metatable"] = nil
+});
+repeat
+    wait();
+    T = game;
+until (nil).IsLoaded(nil);
+wait(3);
+if getgenv then
+    if getgenv().__MacroStop then
+        pcall(getgenv().__MacroStop);
+    end;
+    if getgenv().__CTD_STOP then
+        pcall(getgenv().__CTD_STOP);
+    end;
+    if getgenv().__MacroGUI_Loaded then
+        pcall(function(...)
+            Y = getgenv().__MacroGUI_Loaded;
+            Y.Destroy(Y); 
+        end);
+    end;
+end;
+local v3 = {
+    pcall(function(...)
+        v1 = game;
+        return loadstring(v1.HttpGet(v1, "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))(); 
+    end)
+};
+local v4 = v3[2];
+local v5 = true;
+if not pcall(function(...)
+    v1 = game;
+    return loadstring(v1.HttpGet(v1, "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))(); 
+end) or not v4 then
+    warn("[CTD] โหลด WindUI ไม่สำเร็จ");
+    return;
+end;
+local r24 = v4.CreateWindow(v4, {
+    ["Title"] = "Cameraman Tower Defense",
+    ["Icon"] = "target",
+    ["Author"] = "MIKO HUB",
+    ["Folder"] = "CTDHub",
+    ["Size"] = UDim2.fromOffset(540, 440),
+    ["ToggleKey"] = Enum.KeyCode.RightShift,
+    ["Transparent"] = true,
+    ["Theme"] = "Dark",
+    ["HideSearchBar"] = true
+});
+if getgenv then
+    v3 = getgenv();
+    v3.__MacroGUI_Loaded = r24;
+end;
+pcall(function(...)
+    v5 = r24;
+    v5.EditOpenButton(v5, {
+        ["Title"] = "Open MIKO Hub",
+        ["Icon"] = "monitor",
+        ["CornerRadius"] = UDim.new(0, 16),
+        ["StrokeThickness"] = 2,
+        ["Color"] = ColorSequence.new(Color3.fromHex("FF0F7B"), Color3.fromHex("F89B29")),
+        ["OnlyMobile"] = false,
+        ["Enabled"] = true,
+        ["Draggable"] = true
+    }); 
+end);
+local v6 = r24;
+local r25 = v6.Tab(v6, {
+    ["Title"] = "Main",
+    ["Icon"] = "package"
+});
+local v7 = r24;
+local r26 = v7.Tab(v7, {
+    ["Title"] = "Macro",
+    ["Icon"] = "target"
+});
+local v8 = r24;
+local r27 = v8.Tab(v8, {
+    ["Title"] = "Webhook",
+    ["Icon"] = "bell"
+});
+pcall(function(...)
+    v5 = r25;
+    v5.Select(v5); 
+end);
+task.spawn(function(...)
+    h = game;
+    v5 = not h.IsLoaded(h);
+    if v5 then
+        v5 = game.Loaded;
+        v5.Wait(v5);
+    end;
+    task.wait(5);
+    v5 = game;
+    r28 = v5.GetService(v5, "Players");
+    r29 = r28.LocalPlayer;
+    v5 = game;
+    r30 = v5.GetService(v5, "ReplicatedStorage");
+    v5 = r29;
+    r31 = v5.WaitForChild(v5, "PlayerGui");
+    v5 = r30;
+    q = v5.WaitForChild(v5, "ModuleLoader", 20);
+    v4 = q and q.WaitForChild(q, "Shared", 10);
+    e = v4 and v4.WaitForChild(v4, "Network", 10);
+    if e then
+        h = e.WaitForChild(e, "RemoteEvent", 10);
+    end;
+    r32 = e;
+    if e then
+        h = e.WaitForChild(e, "RemoteFunction", 10);
+    end;
+    P = not (r32 and r33);
+    r33 = e;
+    if not (r32 and r33) then
+        pcall(function(...)
+            v5 = r25;
+            v5.Paragraph(v5, {
+                ["Title"] = "ไม่พบระบบของเกม Cameraman Tower Defense",
+                ["Desc"] = "ฟีเจอร์ในแท็บ CTD ใช้ได้เมื่อรันสคริปต์ในเกม Cameraman Tower Defense (ไม่พบ ReplicatedStorage.ModuleLoader)"
+            }); 
+        end);
+        print("[CTD] ไม่พบ ModuleLoader.Shared.Network -> ข้ามระบบ macroxxxx ในเกมนี้");
+        return;
+    end;
+    h = workspace;
+    P = h.FindFirstChild(h, "Elevators") ~= nil;
+    v5 = game;
+    r34 = v5.GetService(v5, "HttpService");
+    v5 = game;
+    v5.GetService(v5, "UserInputService");
+    r35 = "TowerMacroSettings_" .. r29.UserId .. ".json";
+    r36 = {
+        ["selected"] = nil,
+        ["saveName"] = "Macro1",
+        ["play"] = false
+    };
+    local function r37(...)
+        pcall(function(...)
+            writefile(r15, s.JSONEncode(s, r25)); 
+        end); 
+    end;
+    (function(...)
+        v1 = isfile;
+        if v1 then
+            h = isfile(r35);
+        end;
+        if v1 then
+            v6 = {
+                pcall(function(...)
+                    v5 = r34;
+                    return v5.JSONDecode(v5, readfile(r35)); 
+                end)
+            };
+            v1 = v6[2];
+            s = pcall(function(...)
+                v5 = r34;
+                return v5.JSONDecode(v5, readfile(r35)); 
+            end);
+            if s then
+                h = type(v1) == "table";
+            end;
+            if s then
+                q = "pairs";
+                for W, e in pairs(v1) do
+                    v5 = V[G];
+                    v5[W] = e; 
+                end;
+            end;
+        end; 
+    end)();
+    if type(r36.features) ~= "table" then
+        v5 = r36;
+        v5.features = {};
+    end;
+    r38 = r36.features;
+    N = "pairs";
+    for L, I in pairs({
+        ["autoElevator"] = true,
+        ["autoVote"] = true,
+        ["autoSkip"] = true,
+        ["autoLeaveUI"] = true,
+        ["autoLeavePlayers"] = true,
+        ["autoSummon"] = false
+    }) do
+        if r38[L] == nil then
+            v5 = r38;
+            v5[L] = I;
+        end; 
+    end;
+    v = {
+        "Easy",
+        "Normal",
+        "Hard",
+        "Insane",
+        "Nightmare"
+    };
+    if not table.find(v, r36.voteMode) then
+        v5 = r36;
+        v5.voteMode = "Insane";
+    end;
+    r39 = {
+        ["Toilet City"] = "Elevator4",
+        ["Desert"] = "Elevator5",
+        ["Cameraman HQ"] = "Elevator12"
+    };
+    if not r39[r36.stage] then
+        v5 = r36;
+        v5.stage = "Toilet City";
+    end;
+    p = 60;
+    for o = 1, p do
+        I[o] = tostring(o); 
+    end;
+    p = type(r36.skipStop);
+    if p ~= "table" then
+        v5 = r36;
+        v5.skipStop = {};
+        p = 60;
+        for o = 48, p do
+            v5 = r36.skipStop;
+            v5[tostring(o)] = true; 
+        end;
+    end;
+    r40 = {};
+    r41 = false;
+    r42 = 0;
+    local function r43(arg1_2, ...)
+        r42 = r42 + 1;
+        s = pcall(arg1_2);
+        r42 = r42 - 1;
+        return s; 
+    end;
+    r44 = {};
+    j = r44;
+    j.section = function(arg1_3, arg2_3, ...)
+        r45 = arg1_3;
+        r46 = arg2_3;
+        pcall(function(...)
+            v5 = r45;
+            v5.Section(v5, {
+                ["Title"] = r46
+            }); 
+        end); 
+    end;
+    j = r44;
+    j.statusRow = function(arg1_4, ...)
+        r47 = arg1_4;
+        pcall(function(...)
+            v5 = r47;
+            r48 = v5.Paragraph(v5, {
+                ["Title"] = "Status",
+                ["Desc"] = "-"
+            }); 
+        end);
+        return setmetatable({}, {
+            ["__index"] = function(arg1_5, arg2_5, ...)
+                v1 = arg1_5;
+                if arg2_5 == "Text" then
+                    v6 = r49;
+                    if v6 then
+                        return v6;
+                    else
+                        h = "";
+                    end;
+                end; 
+            end,
+            ["__newindex"] = function(arg1_6, arg2_6, arg3_6, ...)
+                v1 = arg1_6;
+                r50 = arg3_6;
+                if arg2_6 ~= "Text" or not r48 then
+                    return;
+                end;
+                r50 = tostring(r50);
+                if r50 == "" then
+                    r50 = "-";
+                end;
+                if r50 == r49 then
+                    return;
+                end;
+                r49 = r50;
+                pcall(function(...)
+                    v5 = r48;
+                    v5.SetDesc(v5, r50); 
+                end); 
+            end
+        }); 
+    end;
+    j = r44;
+    j.textRow = function(arg1_7, arg2_7, arg3_7, arg4_7, ...)
+        v1 = arg1_7;
+        r51 = arg4_7;
+        v6 = arg3_7;
+        if v6 then
+            r53 = v1.Input(v1, {
+                ["Title"] = arg2_7,
+                ["Value"] = r52,
+                ["Placeholder"] = "...",
+                ["Callback"] = function(arg1_8, ...)
+                    v1 = arg1_8;
+                    s, v6 = v1, tostring;
+                    if v1 then
+                        v5 = r42 > 0;
+                        r52 = v5(v1);
+                        if r42 > 0 or not r41 then
+                            return;
+                        end;
+                        r51(r52);
+                        return;
+                    else
+                        s = "";
+                    end; 
+                end
+            });
+            return setmetatable({}, {
+                ["__index"] = function(arg1_9, arg2_9, ...)
+                    v1 = arg1_9;
+                    if arg2_9 == "Text" then
+                        return r52;
+                    end; 
+                end,
+                ["__newindex"] = function(arg1_10, arg2_10, arg3_10, ...)
+                    v1 = arg1_10;
+                    r54 = arg3_10;
+                    if arg2_10 == "Text" then
+                        v5 = tostring;
+                        r52 = v5(r54 or "");
+                        r43(function(...)
+                            v5 = r53;
+                            v5.Set(v5, r52); 
+                        end);
+                    else
+                        if arg2_10 == "PlaceholderText" then
+                            pcall(function(...)
+                                v5 = r53;
+                                v5.SetPlaceholder(v5, tostring(r54)); 
+                            end);
+                        end;
+                        return;
+                    end; 
+                end
+            });
+        else
+            h = "";
+        end; 
+    end;
+    j = r44;
+    j.toggleRow = function(arg1_11, arg2_11, arg3_11, arg4_11, arg5_11, ...)
+        v1, v6 = arg1_11, arg3_11;
+        r55 = arg5_11;
+        g = v6 ~= nil and v6 ~= "";
+        if g then
+            v2 = arg3_11;
+        end;
+        r57 = v1.Toggle(v1, {
+            ["Title"] = arg2_11,
+            ["Desc"] = g or nil,
+            ["Value"] = arg4_11 == true,
+            ["Callback"] = function(arg1_12, ...)
+                v1 = arg1_12;
+                if not V[o] then
+                    return;
+                end;
+                s = r56;
+                if s ~= nil and v1 == s then
+                    return;
+                end;
+                r55(v1); 
+            end
+        });
+        return function(arg1_13, ...)
+            r58 = arg1_13;
+            r58 = r58 == true;
+            r56 = r58;
+            pcall(function(...)
+                v5 = V[e];
+                v5.Set(v5, r58); 
+            end); 
+        end; 
+    end;
+    j = r44;
+    j.buttonRow = function(arg1_14, arg2_14, arg3_14, ...)
+        v1 = arg1_14;
+        r59 = arg3_14;
+        local function r60(arg1_15, ...)
+            h = tostring(arg1_15);
+            return h.gsub(h, "^%s+", ""); 
+        end;
+        r61 = v1.Button(v1, {
+            ["Title"] = r60(arg2_14),
+            ["Callback"] = function(...)
+                r59(); 
+            end
+        });
+        return setmetatable({}, {
+            ["__newindex"] = function(arg1_16, arg2_16, arg3_16, ...)
+                v1 = arg1_16;
+                r62 = arg3_16;
+                if arg2_16 == "Text" then
+                    pcall(function(...)
+                        v5 = r61;
+                        v5.SetTitle(v5, r60(r62)); 
+                    end);
+                end; 
+            end
+        }); 
+    end;
+    j = r44;
+    j.dropdownRow = function(arg1_17, arg2_17, arg3_17, ...)
+        r63 = arg1_17;
+        r64 = arg2_17;
+        r65 = arg3_17;
+        r66 = {
+            ["value"] = nil
+        };
+        local function v4(arg1_18, ...)
+            v5 = r63;
+            return v5.Dropdown(v5, {
+                ["Title"] = r64,
+                ["Values"] = arg1_18,
+                ["Value"] = nil,
+                ["Multi"] = false,
+                ["AllowNone"] = true,
+                ["Callback"] = function(arg1_19, ...)
+                    v1 = arg1_19;
+                    if type(v1) == "table" then
+                        v1 = v1.Title or v1[1];
+                    end;
+                    if r42 > 0 or not r41 then
+                        return;
+                    end;
+                    if v1 == nil or v1 == r66.value then
+                        return;
+                    end;
+                    v5 = r66;
+                    v5.value = v1;
+                    r65(v1); 
+                end
+            }); 
+        end;
+        if not pcall(v4, {}) then
+            v2 = {
+                pcall(v4, {
+                    "-"
+                })
+            };
+            v7 = pcall(v4, {
+                "-"
+            });
+            e = v2[2];
+        end;
+        r67 = v8[2];
+        v2 = r66;
+        v2.set = function(arg1_20, ...)
+            r68 = arg1_20;
+            v5 = r66;
+            v5.value = r68;
+            r43(function(...)
+                v5 = r67;
+                v5.Select(v5, r68); 
+            end); 
+        end;
+        v2 = r66;
+        v2.setOptions = function(arg1_21, ...)
+            r69 = arg1_21;
+            V[X](function(...)
+                v5 = V[q];
+                v5.Refresh(v5, r69); 
+            end); 
+        end;
+        return r66; 
+    end;
+    j = r44;
+    j.multiDropdownRow = function(arg1_22, arg2_22, arg3_22, arg4_22, arg5_22, ...)
+        v1, v6 = arg1_22, arg3_22;
+        r70 = arg4_22;
+        r71 = arg5_22;
+        v4 = {};
+        v8 = "ipairs";
+        for v7, v2 in ipairs(v6) do
+            if r70[v2] then
+                v4[#v4 + 1] = v2;
+            end; 
+        end;
+        v1.Dropdown(v1, {
+            ["Title"] = arg2_22,
+            ["Values"] = v6,
+            ["Value"] = v4,
+            ["Multi"] = true,
+            ["AllowNone"] = true,
+            ["SearchBarEnabled"] = true,
+            ["Callback"] = function(arg1_23, ...)
+                v1 = arg1_23;
+                if r42 > 0 or not r41 then
+                    return;
+                end;
+                q = {
+                    pairs(r70)
+                };
+                v6 = pairs(r70)(q[2], q[3]);
+                while v6 do
+                    v5 = r70;
+                    v5[q] = nil; 
+                end;
+                v4 = ipairs;
+                if v1 then
+                    for W, v4 in v4(v1) do
+                        q = W;
+                        v7 = type(v4) == "table" and v4.Title;
+                        v5, e = v4, v7;
+                        if v7 then
+                            v5 = r70;
+                            v5[tostring(e)] = true;
+                        else
+                            e = v4;
+                        end; 
+                    end;
+                    r71();
+                    return;
+                end; 
+            end
+        }); 
+    end;
+    r72 = {};
+    local function r73(...)
+        v1 = not getgenv;
+        if v1 then
+            return v1;
+        else
+            h = getgenv().__CTD_SESSION == r72;
+        end; 
+    end;
+    if getgenv then
+        Kk = getgenv();
+        Kk.__CTD_SESSION = r72;
+        Kk = getgenv();
+        Kk.__CTD_STOP = function(...)
+            if getgenv().__CTD_SESSION == r72 then
+                h = getgenv();
+                h.__CTD_SESSION = nil;
+            end; 
+        end;
+    end;
+    r74 = r25;
+    r75 = r26;
+    v5 = r44;
+    v5.webhookTab = r27;
+    local function Zk(arg1_24, arg2_24, ...)
+        r76 = arg1_24;
+        r44.toggleRow(r74, arg2_24, nil, r38[r76], function(arg1_25, ...)
+            v1 = arg1_25;
+            v5 = r38;
+            s = arg1_25;
+            v5[r76] = s;
+            r37();
+            if r40[r76] then
+                task.spawn(r40[r76], v1);
+            end; 
+        end); 
+    end;
+    local function Yk(arg1_26, arg2_26, arg3_26, arg4_26, ...)
+        q = r44.dropdownRow(r74, arg1_26, arg4_26);
+        q.setOptions(arg2_26);
+        q.set(arg3_26);
+        return q; 
+    end;
+    r44.section(r74, "Auto Join");
+    Zk("autoElevator", "Auto Join");
+    Yk("Select Stage", {
+        "Toilet City",
+        "Desert",
+        "Cameraman HQ"
+    }, r36.stage, function(arg1_27, ...)
+        v5 = r36;
+        v5.stage = arg1_27;
+        r37(); 
+    end);
+    if not P then
+        r44.section(r74, "In Game");
+        Zk("autoVote", "Auto Mode Vote");
+        Yk("Vote Mode", v, r36.voteMode, function(arg1_28, ...)
+            v5 = r36;
+            v1 = arg1_28;
+            s = v1;
+            v5.voteMode = s;
+            r37();
+            if r40.voteMode then
+                task.spawn(r40.voteMode, v1);
+            end; 
+        end);
+        Yk("Speed", {
+            "1",
+            "1.5",
+            "2"
+        }, tostring(r36.speed or 1), function(arg1_29, ...)
+            v5 = r36;
+            v5.speed = tonumber(arg1_29);
+            r37();
+            if r40.speed then
+                task.spawn(r40.speed, r36.speed);
+            end; 
+        end);
+        Zk("autoSkip", "Auto Skip Wave");
+        r44.multiDropdownRow(r74, "Stop Skip At", {}, r36.skipStop, function(...)
+            r37(); 
+        end);
+        Zk("autoLeaveUI", "Auto Play Again");
+        Zk("autoLeavePlayers", "Auto Leave (2+ Players)");
+    end;
+    r77 = (function(...)
+        r78 = {
+            ["place"] = true,
+            ["upgrade"] = true,
+            ["sell"] = true,
+            ["target"] = true
+        };
+        r79 = "KUY1:";
+        local function r80(arg1_30, ...)
+            s = arg1_30 and ("tostring").gsub("tostring", "%s+$", "");
+            v5 = tostring;
+            h = v5("");
+            v5 = h.gsub(h, "[^%w_%-%s]", "");
+            h = v5.gsub(v5, "^%s+", "");
+            return h.gsub(h, "%s+$", ""); 
+        end;
+        local function r81(arg1_31, ...)
+            v4 = "ipairs";
+            for q, v7 in ipairs(arg1_31) do
+                if v7.type == "place" and (v7.name and not ({})[v7.name]) then
+                    s[v7.name] = true;
+                    table.insert({}, v7.name);
+                end; 
+            end;
+            return {}; 
+        end;
+        local function r82(arg1_32, arg2_32, ...)
+            v1 = arg1_32;
+            if type(v1) ~= "table" or #v1 < arg2_32 then
+                return false;
+            end;
+            for T = 1, #v1 do
+                if type(v1[v6]) ~= "number" then
+                    return false;
+                end; 
+            end;
+            return true; 
+        end;
+        local function r83(arg1_33, ...)
+            v1 = arg1_33;
+            if type(v1) ~= "table" or not r78[v1.type] then
+                return false;
+            end;
+            if type(v1.slot) ~= "number" then
+                return false;
+            end;
+            if v1.price ~= nil and type(v1.price) ~= "number" then
+                return false;
+            end;
+            if v1.type == "place" then
+                if type(v1.name) ~= "string" then
+                    return false;
+                end;
+                if v1.unitId ~= nil and type(v1.unitId) ~= "string" then
+                    return false;
+                end;
+                if not r82(v1.cframe, 12) or not r82(v1.pos, 3) then
+                    return false;
+                end;
+            else
+                if v1.type == "upgrade" then
+                    if type(arg1_33.level) ~= "number" then
+                        return false;
+                    end;
+                else
+                    if arg1_33.type == "target" then
+                        if type(arg1_33.mode) ~= "string" then
+                            return false;
+                        end;
+                    end;
+                    return true;
+                end;
+            end; 
+        end;
+        local function r84(arg1_34, arg2_34, ...)
+            e = r34;
+            return r79 .. r80(arg1_34) .. ":" .. e.JSONEncode(e, arg2_34); 
+        end;
+        return {
+            ["copyCode"] = function(arg1_35, arg2_35, arg3_35, arg4_35, arg5_35, ...)
+                s, v6, W, v1 = arg2_35, arg3_35, arg4_35, arg1_35;
+                v4 = r84(v1, s);
+                v7 = #s .. " ขั้น";
+                print("[KUY Macro] Share Code (" .. v1 .. ") " .. v7 .. " ต้องใช้ตัว: " .. table.concat(r81(s), ", "));
+                if setclipboard then
+                    setclipboard(v4);
+                    W("คัดลอกแล้ว " .. #v4 .. " ตัวอักษร | " .. v7);
+                else
+                    v8 = arg5_35 .. "/" .. r80(v1) .. "_share.txt";
+                    pcall(writefile, v8, v4);
+                    W("executor ไม่รองรับคัดลอก: เซฟรหัสไว้ที่ " .. v8);
+                end; 
+            end,
+            ["encodeShare"] = r84,
+            ["decodeShare"] = function(arg1_36, ...)
+                v1 = arg1_36;
+                s, v6 = v1, tostring;
+                if v1 then
+                    h = v5(v1);
+                    v5 = h.gsub(h, "^%s+", "");
+                    v1 = v5.gsub(v5, "%s+$", "");
+                    v4 = #r79;
+                    if v1.sub(v1, 1, v4) == r79 then
+                        v4 = {
+                            v1.match(v1, "^KUY1:([^:]*):(.+)$")
+                        };
+                        v6 = v1.match(v1, "^KUY1:([^:]*):(.+)$");
+                        r85 = v4[2];
+                    else
+                        if v1.sub(v1, 1, 1) == "[" then
+                            v6 = "Imported";
+                            r85 = h;
+                        else
+                            if h.match(h, "^TM[%w]*:") then
+                                return nil, "รหัสเก่า (TMV2) ใช้กับมาโครแบบใหม่ไม่ได้ ต้องอัดใหม่";
+                            end;
+                            if not r85 then
+                                return nil, "รหัสไม่ถูกต้อง (ต้องขึ้นต้นด้วย KUY1:)";
+                            end;
+                            v2 = {
+                                pcall(function(...)
+                                    v5 = r79;
+                                    return v5.JSONDecode(v5, r85); 
+                                end)
+                            };
+                            v8 = v2[2];
+                            v5 = s == q;
+                            if not pcall(function(...)
+                                v5 = r79;
+                                return v5.JSONDecode(v5, r85); 
+                            end) or (type(v8) ~= "table" or #v8 == 0) then
+                                return nil, "รหัสเสียหายหรือคัดลอกมาไม่ครบ";
+                            end;
+                            if #v8 > 3000 then
+                                return nil, "มาโครใหญ่เกินไป";
+                            end;
+                            for A, g in ipairs(v8) do
+                                if not r83(g) then
+                                    return nil, "ขั้นที่ " .. A .. " รูปแบบไม่ถูกต้อง";
+                                end; 
+                            end;
+                            return nil, v8;
+                        end;
+                    end;
+                else
+                    s = "";
+                end; 
+            end,
+            ["unitsNeeded"] = r81,
+            ["cleanName"] = r80
+        }; 
+    end)();
+    if P then
+        r86 = "KUY_Macros";
+        pcall(function(...)
+            if makefolder and (isfolder and not isfolder(r86)) then
+                makefolder(r86);
+            end; 
+        end);
+        local function r87(arg1_37, ...)
+            return r86 .. "/" .. arg1_37 .. ".json"; 
+        end;
+        local function r88(...)
+            v1 = {};
+            q = {
+                pcall(listfiles, r86)
+            };
+            if pcall(listfiles, r86) then
+                v4 = "ipairs";
+                for q, v7 in ipairs(q[2]) do
+                    v8 = tostring(v7);
+                    v8 = v8.match(v8, "([^/\\]+)%.json$");
+                    if v8 then
+                        table.insert({}, v8);
+                    end; 
+                end;
+            end;
+            table.sort(v1);
+            return v1; 
+        end;
+        r89 = r44.statusRow(r75);
+        Vk = r89;
+        Vk.Text = "Lobby: เลือก/แชร์/นำเข้ามาโครได้ (อัด/เซฟต้องทำในด่าน)";
+        r44.section(r75, "Macro Selection");
+        local function r94(...)
+            v1 = r88();
+            r90.setOptions(v1);
+            r91.setOptions(v1);
+            r92.setOptions(v1);
+            if r92.value and not table.find(v1, r92.value) then
+                r92.set(nil);
+            end;
+            if not r92.value then
+                r92.set(r36.selected);
+            end;
+            if r36.selected and not table.find(v1, r36.selected) then
+                v5 = r36;
+                v5.selected = nil;
+                r37();
+            end;
+            r90.set(r36.selected); 
+        end;
+        r90 = r44.dropdownRow(r75, "Select Macro File", function(arg1_38, ...)
+            v5 = r36;
+            v1 = arg1_38;
+            s = v1;
+            v5.selected = s;
+            r37();
+            v5 = r89;
+            v5.Text = "เลือก " .. tostring(v1) .. " แล้ว"; 
+        end);
+        r44.buttonRow(r75, "🔄 Refresh Macro Files", function(...)
+            r94();
+            v5 = r89;
+            v5.Text = "รีเฟรชรายการแล้ว"; 
+        end);
+        r93 = r44.toggleRow(r75, "Play Macro", "(เปิดไว้ = เริ่มเล่นเองเมื่อเข้าด่าน)", r36.play, function(arg1_39, ...)
+            v1 = arg1_39;
+            if v1 then
+                h = not r36.selected;
+            end;
+            if v1 then
+                r93(false);
+                v5 = r89;
+                v5.Text = "ยังไม่ได้เลือกมาโคร";
+                return;
+            end;
+            v5 = r36;
+            v5.play = v1;
+            r37();
+            v5 = r89;
+            if v1 then
+                W = "จะเล่นมาโครเมื่อเข้าด่าน";
+            end;
+            v5 = v5;
+            if v1 then
+                v5 = v5;
+                v5.Text = v1;
+                return;
+            else
+                s = "ปิดเล่นอัตโนมัติแล้ว";
+            end; 
+        end);
+        r44.section(r75, "Share Macro (แชร์ให้คนอื่น)");
+        r92 = r44.dropdownRow(r75, "Select Macro to Share", function(...)
+ 
+        end);
+        local function r95(arg1_40, ...)
+            v4 = "\x17\x8eq\xbau";
+            v5 = r92.value;
+            r96 = v5;
+            W = r96;
+            if W then
+                h = isfile(r87(r96));
+            end;
+            if W then
+                v5 = pcall;
+                v4 = {
+                    v5(function(...)
+                        v5 = r34;
+                        return v5.JSONDecode(v5, readfile(r87(r96))); 
+                    end)
+                };
+                W = v4[2];
+                q = v5(function(...)
+                    v5 = r34;
+                    return v5.JSONDecode(v5, readfile(r87(r96))); 
+                end);
+                if q then
+                    h = type(W) == "table";
+                end;
+                if q then
+                    v5 = v4[2];
+                    v6 = v4[2];
+                end;
+            end;
+            v5 = v5;
+            if not nil or #nil == 0 then
+                h = r89;
+                h.Text = "ยังไม่ได้เลือกมาโครที่จะแชร์";
+                return;
+            end;
+            r77.copyCode(r96, nil, arg1_40, function(arg1_41, ...)
+                v5 = r89;
+                v5.Text = arg1_41; 
+            end, r86); 
+        end;
+        r44.buttonRow(r75, "📤 Copy Share Code", function(...)
+            r95(false); 
+        end);
+        r97 = r44.textRow(r75, "Paste Share Code", "", function(...)
+ 
+        end);
+        Mk = r97;
+        Mk.PlaceholderText = "วางรหัส KUY1:... ที่นี่";
+        local function r98(arg1_42, ...)
+            v6 = {
+                r77.decodeShare(arg1_42)
+            };
+            s = v6[2];
+            v6 = r77.decodeShare(arg1_42);
+            if not v6 then
+                v5 = r89;
+                v5.Text = "นำเข้าไม่สำเร็จ: " .. tostring(s);
+                return;
+            end;
+            v6 = r77.cleanName(v6);
+            if v6 == "" then
+                v6 = "Imported";
+            end;
+            while isfile(r87(v6)) do
+                q = v6 .. "_" .. 1 + 1; 
+            end;
+            P = r34;
+            writefile(r87(v6), P.JSONEncode(P, s));
+            v7 = r36;
+            v7.selected = q;
+            r37();
+            r94();
+            v8 = r77.unitsNeeded(s);
+            print("[KUY Macro] นำเข้า '" .. v6 .. "' สำเร็จ ต้องมีตัวใน Slot: " .. table.concat(v8, ", "));
+            v7 = r89;
+            v7.Text = "นำเข้า " .. v6 .. " แล้ว | ต้องใช้ " .. #v8 .. " ตัว"; 
+        end;
+        r44.buttonRow(r75, "📥 Import จากช่องวางรหัส", function(...)
+            r98(r97.Text);
+            v5 = r97;
+            v5.Text = ""; 
+        end);
+        r44.buttonRow(r75, "📋 Import", function(...)
+            if not getclipboard then
+                v5 = r89;
+                v5.Text = "executor ไม่รองรับอ่าน Clipboard ให้วางในช่องแล้วกด Import";
+                return;
+            end;
+            r98(getclipboard()); 
+        end);
+        r44.section(r75, "Delete Macro");
+        r91 = r44.dropdownRow(r75, "Select Macro to Delete", function(...)
+ 
+        end);
+        r44.buttonRow(r75, "❌ Delete Macro", function(...)
+            v1 = r91.value;
+            if not v1 then
+                v5 = r89;
+                v5.Text = "ยังไม่ได้เลือกมาโครที่จะลบ";
+                return;
+            end;
+            pcall(delfile, r87(v1));
+            if r36.selected == v1 then
+                v5 = r36;
+                v5.selected = nil;
+                v5 = r36;
+                v5.play = false;
+                r93(false);
+                r37();
+            end;
+            r91.set(nil);
+            r94();
+            v5 = r89;
+            v5.Text = "ลบ " .. v1 .. " แล้ว"; 
+        end);
+        r94();
+    end;
+    if P then
+        r99 = "Basic Crate";
+        r100 = 2;
+        if r36.summonAmount ~= 1 and r36.summonAmount ~= 10 then
+            hk = r36;
+            hk.summonAmount = 10;
+        end;
+        hk = r36;
+        sk = not P;
+        hk.summonKeep = tonumber(r36.summonKeep) or 0;
+        r101 = false;
+        r104 = {
+            ["k"] = 1000,
+            ["m"] = 1000000,
+            ["b"] = 1000000000,
+            ["t"] = 1000000000000,
+            ["qa"] = 1e+15,
+            ["qi"] = 1e+18,
+            ["sx"] = 1e+21,
+            ["sp"] = 1e+24,
+            ["oc"] = 1e+27,
+            ["no"] = 1e+30,
+            ["dc"] = 1e+33
+        };
+        local function r105(arg1_43, ...)
+            v1 = arg1_43;
+            q = 21548387346226;
+            if type(v1) == "number" then
+                return v1;
+            end;
+            v6, s = tostring, v1;
+            if v1 then
+                v5 = v5;
+                h = v5(v1);
+                v5 = h.lower(h);
+                s = v5.gsub(v5, "[,%s%$]", "");
+                W = {
+                    s.match(s, "^(%d*%.?%d+)(%a*)$")
+                };
+                W, v6 = W[2], s.match(s, "^(%d*%.?%d+)(%a*)$");
+                if not v6 then
+                    return nil;
+                end;
+                q = tonumber(v6);
+                if not q then
+                    return nil;
+                end;
+                if W ~= "" then
+                    v4 = V[Tk][W];
+                    if not v4 then
+                        return nil;
+                    end;
+                    v4, q = nil, tonumber(v6) * v4;
+                end;
+                return q;
+            else
+                s = "";
+            end; 
+        end;
+        local function r106(arg1_44, ...)
+            return string.format("%.0f", arg1_44); 
+        end;
+        local function r107(...)
+            v5 = r29;
+            v1 = v5.FindFirstChild(v5, "leaderstats");
+            s = v1 and v1.FindFirstChild(v1, "Coins");
+            if not s then
+                return nil;
+            end;
+            return r105(s.Value); 
+        end;
+        local function r108(arg1_45, ...)
+            if r103 then
+                v5 = r103;
+                s = arg1_45;
+                v5.Text = s;
+            end; 
+        end;
+        local function r109(arg1_46, ...)
+            v5 = r38;
+            v5.autoSummon = false;
+            r101 = true;
+            r37();
+            if r102 then
+                r102(false);
+            end;
+            r108(arg1_46); 
+        end;
+        r44.section(r74, "Auto Summon");
+        kk = r44.dropdownRow(r74, "Summon Amount", function(arg1_47, ...)
+            v5 = r36;
+            v5.summonAmount = tonumber(arg1_47) or 10;
+            r37(); 
+        end);
+        kk.setOptions({
+            "1",
+            "10"
+        });
+        kk.set(tostring(r36.summonAmount));
+        r110 = r44.textRow(r74, "Stop When Coins", r106(r36.summonKeep), function(arg1_48, ...)
+            s = r105(arg1_48) or 0;
+            h = r36;
+            h.summonKeep = s;
+            r37();
+            if r110 then
+                h = r110;
+                h.Text = r106(s);
+            end;
+            if s ~= r36.summonKeep then
+                r101 = false;
+                r108("ตั้งค่าเงินขั้นต่ำเป็น " .. r106(s) .. " แล้ว");
+            end; 
+        end);
+        Dk = r110;
+        Dk.PlaceholderText = "0 = endless, or 5k, 1.5m";
+        r102 = r44.toggleRow(r74, "Auto Summon", nil, r38.autoSummon, function(arg1_49, ...)
+            v1 = arg1_49;
+            if v1 then
+                s = r107();
+                if r101 then
+                    r102(false);
+                    r108("ล็อกอยู่: เงินถึงค่าที่ตั้งแล้ว เปลี่ยนตัวเลขก่อนจึงจะเปิดได้");
+                    return;
+                end;
+                v6 = r36.summonKeep > 0;
+                if v6 then
+                    if s then
+                        v6 = r107() <= r36.summonKeep;
+                    end;
+                    h, v5 = s, r101;
+                end;
+                if v6 then
+                    r102(false);
+                    r101 = true;
+                    r108("เงิน (" .. r106(s) .. ") <= " .. r106(r36.summonKeep) .. " เปิดไม่ได้ ให้เปลี่ยนตัวเลข");
+                    return;
+                end;
+                r108("เริ่มสุ่ม...");
+            else
+                r108("หยุดสุ่มแล้ว");
+            end;
+            h = r38;
+            h.autoSummon = v1;
+            r37(); 
+        end);
+        r103 = r44.statusRow(r74);
+        task.spawn(function(...)
+            v5 = r33;
+            r111 = v5.WaitForChild(v5, "SummonTowers", 10);
+            if not r111 then
+                r108("ไม่พบ SummonTowers ในแมพนี้");
+                return;
+            end;
+            r112 = 0;
+            while r73() do
+                if r38.autoSummon then
+                    if r36.summonKeep <= 0 then
+                        (function(arg1_51, ...)
+                            s = pcall(function(...)
+                                v5 = r111;
+                                v5.InvokeServer(v5, r99, r36.summonAmount); 
+                            end);
+                            if s then
+                                r112 = r112 + r36.summonAmount;
+                                r108("กำลังสุ่ม... รวม " .. r112 .. " ตัว | " .. arg1_51);
+                                task.wait(r100);
+                            else
+                                task.wait(1);
+                            end; 
+                        end)("Endless");
+                    end;
+                    if r107() == nil then
+                        v5 = r29;
+                        q = v5.FindFirstChild(v5, "leaderstats");
+                        if q then
+                            h = q.FindFirstChild(q, "Coins");
+                        end;
+                        if q then
+                            v2 = q.Value;
+                        end;
+                        r108("อ่านค่าเงินไม่ได้: " .. tostring(v4));
+                        task.wait(1);
+                    else
+                        if r107() <= r36.summonKeep then
+                            r109("หยุด: เงิน " .. r106(r107()) .. " <= " .. r106(r36.summonKeep) .. " (เปลี่ยนตัวเลขเพื่อเปิดใหม่)");
+                        else
+                            (function(arg1_52, ...)
+                                s = pcall(function(...)
+                                    v5 = r111;
+                                    v5.InvokeServer(v5, r99, r36.summonAmount); 
+                                end);
+                                if s then
+                                    r112 = r112 + r36.summonAmount;
+                                    r108("กำลังสุ่ม... รวม " .. r112 .. " ตัว | " .. arg1_52);
+                                    task.wait(r100);
+                                else
+                                    task.wait(1);
+                                end; 
+                            end)("เงิน " .. r106(r107()));
+                        end;
+                    end;
+                else
+                    r112 = 0;
+                    task.wait(0.5);
+                end; 
+            end; 
+        end);
+    end;
+    if P then
+        print("[System] ตรวจพบว่าอยู่ใน Lobby -> เริ่มระบบ Auto Teleport & Elevator");
+        task.spawn(function(...)
+            v5 = r33;
+            r113 = v5.WaitForChild(v5, "ElevatorStart", 5);
+            while r73() do
+                if r38.autoElevator then
+                    r114 = r39[r36.stage] or "Elevator4";
+                    v5 = workspace;
+                    v6 = v5.FindFirstChild(v5, "Elevators");
+                    W = v6 and v6.FindFirstChild(v6, r114);
+                    if W then
+                        q = r29.Character;
+                        if q and q.FindFirstChild(q, "HumanoidRootPart") then
+                            if W.IsA(W, "Model") then
+                                v4.CFrame = W.GetPivot(W);
+                            else
+                                if W.IsA(W, "BasePart") then
+                                    v4.CFrame = (h and v6.FindFirstChild(v6, V[s])).CFrame;
+                                end;
+                            end;
+                        end;
+                    end;
+                    if r113 then
+                        pcall(function(...)
+                            v5 = r113;
+                            v5.InvokeServer(v5, r114); 
+                        end);
+                    end;
+                    task.wait(1);
+                end; 
+            end; 
+        end);
+    else
+        print("[System] เข้าสู่แมปในเกมแล้ว -> กำลังรอ 5 วินาที...");
+        task.wait(2);
+        print("[System] ครบ 2 วินาที -> เริ่มระบบ Auto ทั้งหมด!");
+        local function r115(...)
+ 
+        end;
+        Bk = r40;
+        Bk.speed = function(arg1_53, ...)
+            r117 = arg1_53;
+            if r116 and r117 then
+                pcall(function(...)
+                    v5 = V[hk];
+                    v5.InvokeServer(v5, r117); 
+                end);
+            end; 
+        end;
+        task.spawn(function(...)
+            v5 = r33;
+            r116 = v5.WaitForChild(v5, "ChangeSpeed", 5);
+            if r36.speed then
+                r40.speed(r36.speed);
+            end; 
+        end);
+        task.spawn(function(...)
+            v5 = r32;
+            r118 = v5.WaitForChild(v5, "ModeVote", 5);
+            if r118 then
+                r119 = 0;
+                v5 = r40;
+                v5.voteMode = function(...)
+                    r119 = 0; 
+                end;
+                while r73() do
+                    if r38.autoVote then
+                        if os.clock() - r119 >= 60 then
+                            r119 = os.clock();
+                            pcall(function(...)
+                                v5 = r118;
+                                v5.FireServer(v5, r36.voteMode or "Insane"); 
+                            end);
+                        end;
+                    else
+                        r119 = 0;
+                    end;
+                    task.wait(1); 
+                end;
+            end; 
+        end);
+        task.spawn(function(...)
+            task.wait(10);
+            local function r120(...)
+                v5 = r29;
+                v1 = v5.FindFirstChild(v5, "PlayerGui");
+                s = v1 and v1.FindFirstChild(v1, "GameUI");
+                v6 = s and s.FindFirstChild(s, "Stats");
+                if v6 then
+                    h = v6.FindFirstChild(v6, "Wave");
+                end;
+                return v6; 
+            end;
+            local function r121(arg1_54, ...)
+                v1, s = arg1_54, nil;
+                W = "TextLabel";
+                if v1.IsA(v1, W) or (v1.IsA(v1, "TextButton") or v1.IsA(v1, "TextBox")) then
+                    s = v1.ContentText;
+                    W = tostring(s);
+                    if not W.match(W, "%d+") then
+                        s = arg1_54.Text;
+                    end;
+                else
+                    if v1.IsA(v1, "ValueBase") then
+                        s = arg1_54.Value;
+                    else
+                        v7 = {
+                            v1.GetDescendants(v1)
+                        };
+                        for e, v7 in ipairs(S(v7)) do
+                            W = e;
+                            v8 = v7.IsA(v7, "TextLabel");
+                            if v8 then
+                                v8 = v7.ContentText;
+                                A = tostring(v8);
+                                if not A.match(A, "%d+") then
+                                    v8 = v7.Text;
+                                end;
+                                A = tostring(v8);
+                                if A.match(A, "%d+") then
+                                    s, W, v8 = v7.ContentText, nil, nil;
+                                end;
+                            end; 
+                        end;
+                        e = "tostring";
+                        v4 = Env[e];
+                        v7, v8 = s, nil;
+                        if s then
+                            v5 = v5;
+                            e = Env[e](s);
+                            return tonumber(e.match(e, "%d+"));
+                        else
+                            v7 = "";
+                        end;
+                    end;
+                end; 
+            end;
+            r124 = false;
+            while r73() do
+                if not r38.autoSkip then
+                end;
+                pcall(function(...)
+                    v5 = not r38.autoSkip;
+                    if v5 then
+                        return;
+                    end;
+                    if not r122 or not r122.Parent then
+                        v5 = r32;
+                        r122 = v5.FindFirstChild(v5, "WaveSkip");
+                    end;
+                    v5 = not r122;
+                    if v5 then
+                        if not r124 then
+                            r124 = true;
+                            warn("[Auto WaveSkip] ไม่พบ Remote WaveSkip");
+                        end;
+                        return;
+                    end;
+                    s = r120();
+                    if not s then
+                        return;
+                    end;
+                    v6 = r121(s);
+                    if v6 then
+                        v1 = r36.skipStop[tostring(v6)];
+                    end;
+                    v5 = v5;
+                    if v6 then
+                        if r123 ~= v6 then
+                            print("[Auto WaveSkip] ถึง Wave " .. tostring(v6) .. " (ติกหยุดไว้) -> ไม่ WaveSkip");
+                        end;
+                        return;
+                    end;
+                    q = r122;
+                    q.FireServer(q); 
+                end);
+                task.wait(1); 
+            end; 
+        end);
+        task.spawn(function(...)
+            r125 = 10;
+            v5 = r32;
+            r126 = v5.WaitForChild(v5, "PlayAgain", 5);
+            local function r127(arg1_55, ...)
+                v1 = arg1_55;
+                if not v1 then
+                    return false;
+                end;
+                if v1.AbsoluteSize.X <= 0 or v1.AbsoluteSize.v5 <= 0 then
+                    return false;
+                end;
+                h = v1;
+                while not v1 do
+                    if s then
+                        if v1.IsA(v1, "GuiObject") and not v1.Visible then
+                            return false;
+                        else
+                            if v1.IsA(v1, "ScreenGui") and not v1.Enabled then
+                                return false;
+                            else
+                                s = v1.Parent;
+                            end;
+                        end;
+                    end;
+                    return true; 
+                end;
+                h = v1 ~= r31; 
+            end;
+            local function r128(...)
+                v5 = r31;
+                v1 = v5.FindFirstChild(v5, "GameUI");
+                s = v1 and v1.FindFirstChild(v1, "FinalUI");
+                v6 = s and s.FindFirstChild(s, "Content");
+                if v6 then
+                    h = v6.FindFirstChild(v6, "Lobby");
+                end;
+                return v6; 
+            end;
+            local function r129(...)
+                print("[Auto-Leave] พบ Lobby UI บนหน้าจอจริง -> PlayAgain");
+                if not r126 then
+                    return;
+                end;
+                pcall(function(...)
+                    v5 = r126;
+                    if v5.IsA(v5, "RemoteEvent") then
+                        v5 = r126;
+                        v5.FireServer(v5);
+                        task.spawn(r115);
+                    else
+                        v5 = r126;
+                        if v5.IsA(v5, "BindableEvent") then
+                            v5.Fire(v5);
+                        end;
+                        return;
+                    end; 
+                end); 
+            end;
+            r130 = -math.huge;
+            v5 = r40;
+            v5.autoLeaveUI = function(arg1_56, ...)
+                if arg1_56 then
+                    r130 = -math.huge;
+                end; 
+            end;
+            while r73() do
+                pcall(function(...)
+                    v1 = r128();
+                    if not v1 or not r127(v1) then
+                        r130 = -math.huge;
+                        return;
+                    end;
+                    if not r38.autoLeaveUI then
+                        return;
+                    end;
+                    if os.clock() - r130 >= r125 then
+                        r130 = os.clock();
+                        r129();
+                    end; 
+                end);
+                task.wait(1); 
+            end; 
+        end);
+        task.spawn(function(...)
+            r131 = 2;
+            v5 = r32;
+            r132 = v5.WaitForChild(v5, "PlayAgain", 10);
+            local function r133(...)
+                if not r132 then
+                    return;
+                end;
+                pcall(function(...)
+                    v5 = r32;
+                    if v5.IsA(v5, "RemoteEvent") then
+                        v5 = r32;
+                        v5.FireServer(v5);
+                        task.spawn(r115);
+                    else
+                        v5 = r32;
+                        if v5.IsA(v5, "BindableEvent") then
+                            v5 = r32;
+                            v5.Fire(v5);
+                        end;
+                        return;
+                    end; 
+                end); 
+            end;
+            local function r134(...)
+                if not r38.autoLeavePlayers then
+                    return false;
+                end;
+                h = r28;
+                v1 = #h.GetPlayers(h);
+                if v1 >= r131 then
+                    print("[Auto-Leave] พบผู้เล่นในแมพ " .. v1 .. " คน -> PlayAgain ทันที");
+                    r133();
+                    return true;
+                end;
+                return false; 
+            end;
+            v5 = r40;
+            v5.autoLeavePlayers = function(arg1_57, ...)
+                if arg1_57 then
+                end; 
+            end;
+            r134();
+            v5 = r28.PlayerAdded;
+            v5.Connect(v5, function(...)
+                if not r73() then
+                    return;
+                end;
+                task.defer(r134); 
+            end);
+            while r73() do
+                task.wait(2);
+                r134(); 
+            end; 
+        end);
+        r135 = r29;
+        r136 = r34;
+        Bk = r32;
+        r137 = Bk.WaitForChild(Bk, "TowerAdd");
+        Ok = r32;
+        r138 = Ok.WaitForChild(Ok, "TowerUpgrade");
+        sk = r32;
+        r139 = sk.WaitForChild(sk, "TowerSell");
+        Tk = r32;
+        Wk = Tk.WaitForChild(Tk, "TowerRemove", 10);
+        Tk = r32;
+        r140 = Tk.WaitForChild(Tk, "TowerTarget", 10);
+        Mk = r32;
+        r141 = Mk.FindFirstChild(Mk, "PlayAgain") or Mk.WaitForChild(Mk, "PlayAgain", 10);
+        r142 = "KUY_Macros";
+        if makefolder and (isfolder and not isfolder(r142)) then
+            makefolder(r142);
+        end;
+        local function r143(...)
+            v5 = r135;
+            v1 = v5.FindFirstChild(v5, "leaderstats");
+            if v1 then
+                h = v1.FindFirstChild(v1, "Money");
+            end;
+            if v1 then
+                v6 = v1.Value;
+            end;
+            v5 = v5;
+            return v1 or 0; 
+        end;
+        r144 = false;
+        r145 = false;
+        r146 = 0;
+        r147 = {};
+        r148 = {};
+        r149 = 0;
+        r150 = {};
+        r151 = {};
+        r152 = {};
+        r153 = {};
+        r154 = {};
+        r155 = {};
+        r156 = {};
+        local function r157(...)
+ 
+        end;
+        local function r159(arg1_58, ...)
+            v1 = arg1_58;
+            if r150[v1] then
+                return false;
+            end;
+            v5 = r150;
+            v5[v1] = true;
+            return true; 
+        end;
+        Ck = r137.OnClientEvent;
+        Ck.Connect(Ck, function(arg1_59, ...)
+            v1 = arg1_59;
+            if not r73() then
+                return;
+            end;
+            if typeof(v1) ~= "table" or v1.OwnerUserId ~= r135.UserId then
+                return;
+            end;
+            v5 = not v1.Id;
+            if v5 then
+                return;
+            end;
+            s = r144;
+            if s then
+                r159("A" .. v1.Id);
+            end;
+            if s then
+                v5 = r149 + 1;
+                r149 = v5;
+                h = r148;
+                h[v1.Id] = r149;
+                v5 = v5;
+                x = v1.CFrame;
+                table.insert(r147, {
+                    ["type"] = "place",
+                    ["slot"] = r149,
+                    ["name"] = v1.Name,
+                    ["unitId"] = v1.UnitId,
+                    ["price"] = v1.Stats and v1.Stats.Price or 0,
+                    ["cframe"] = {
+                        x.GetComponents(x)
+                    },
+                    ["pos"] = {
+                        v1.Pos.X,
+                        v1.Pos.v5,
+                        v1.Pos.Z
+                    }
+                });
+                v6 = "บันทึก: วาง %s (slot %d)";
+                r157(v6.format(v6, tostring(v1.Name), r149));
+            end;
+            v5 = v5;
+            if r145 and not r152[v1.Id] then
+                h = r152;
+                h[v1.Id] = true;
+                h = r155;
+                h[v1.Id] = v1.TargetMode or "First";
+                v5 = v5;
+                table.insert(r151, v1);
+            end; 
+        end);
+        Ck = r138.OnClientEvent;
+        Ck.Connect(Ck, function(arg1_60, ...)
+            v1 = arg1_60;
+            v5 = not r73();
+            if v5 then
+                return;
+            end;
+            v6 = "table";
+            if typeof(v1) ~= v6 or not v1.Id then
+                return;
+            end;
+            if r144 and r148[v1.Id] then
+                v5 = table.insert;
+                A = v5;
+                v5 = v5;
+                v5(r147, {
+                    ["type"] = "upgrade",
+                    ["slot"] = r148[v1.Id],
+                    ["level"] = v1.Level,
+                    ["price"] = v1.Stats and v1.Stats.Price or 0
+                });
+                v6 = "บันทึก: อัพ slot %d -> Lv.%s";
+                r157(v6.format(v6, r148[v1.Id], tostring(v1.Level)));
+            end;
+            if r145 then
+                h = r153;
+                v4 = v5;
+                e = v5;
+                h[v1.Id] = math.max(r153[v1.Id] or 0, v1.Level or 0);
+            end; 
+        end);
+        if Wk then
+            Ck = Wk.OnClientEvent;
+            Ck.Connect(Ck, function(arg1_61, ...)
+                v1 = arg1_61;
+                if not r73() then
+                    return;
+                end;
+                if typeof(v1) ~= "table" then
+                    return;
+                end;
+                v4 = "\x1b\xaa\xb5;ƣ";
+                s = {};
+                if v1.Towers then
+                    v4 = "Towers";
+                    h = v4[1];
+                    for W, e in ipairs(v1[v4]) do
+                        v4 = W;
+                        table.insert({}, e.Id); 
+                    end;
+                end;
+                if v1.Id then
+                    table.insert(s, v1.Id);
+                end;
+                if r144 then
+                    for q, e in ipairs(s) do
+                        v4 = q;
+                        if r148[e] then
+                            v8 = "R" .. e;
+                            if r159(v8) then
+                                table.insert(r147, {
+                                    ["type"] = "sell",
+                                    ["slot"] = r148[e]
+                                });
+                                v8 = "บันทึก: ขาย slot %d";
+                                r157(v8.format(v8, r148[e]));
+                            end;
+                        end; 
+                    end;
+                end;
+                if r145 then
+                    for q, e in ipairs(s) do
+                        v5 = V[Qk];
+                        v5[e] = true; 
+                    end;
+                end; 
+            end);
+        end;
+        Ck = r140;
+        if Ck then
+            Ck = r140.OnClientEvent;
+            Ck.Connect(Ck, function(arg1_62, ...)
+                v1 = arg1_62;
+                if not r73() then
+                    return;
+                end;
+                if typeof(v1) ~= "table" or (not v1.Id or not v1.TargetMode) then
+                    return;
+                end;
+                if r144 and r148[v1.Id] then
+                    s = v1.Id .. ":" .. v1.TargetMode;
+                    v6 = os.clock();
+                    W = not r156[s];
+                    if W or v6 - r156[s] > .4 then
+                        table.insert(r147, {
+                            ["type"] = "target",
+                            ["slot"] = r148[v1.Id],
+                            ["mode"] = v1.TargetMode
+                        });
+                        W = "บันทึก: slot %d ตั้งเป็น %s";
+                        r157(W.format(W, r148[v1.Id], v1.TargetMode));
+                    end;
+                    v5 = r156;
+                end;
+                if r145 then
+                    v5 = r155;
+                    v5[v1.Id] = v1.TargetMode;
+                end; 
+            end);
+        end;
+        local function r160(arg1_63, ...)
+            return r142 .. "/" .. arg1_63 .. ".json"; 
+        end;
+        local function r161(...)
+            v1 = {};
+            q = {
+                pcall(listfiles, r142)
+            };
+            if pcall(listfiles, r142) then
+                v4 = "ipairs";
+                for q, v7 in ipairs(q[2]) do
+                    v8 = tostring(v7);
+                    v8 = v8.match(v8, "([^/\\]+)%.json$");
+                    if v8 then
+                        table.insert({}, v8);
+                    end; 
+                end;
+            end;
+            table.sort(v1);
+            return v1; 
+        end;
+        local function r162(arg1_64, ...)
+            r163 = arg1_64;
+            if not r163 or not isfile(r160(r163)) then
+                return nil;
+            end;
+            v5 = pcall;
+            W = {
+                v5(function(...)
+                    v5 = r136;
+                    return v5.JSONDecode(v5, readfile(r160(r163))); 
+                end)
+            };
+            s = W[2];
+            v6 = v5(function(...)
+                v5 = r136;
+                return v5.JSONDecode(v5, readfile(r160(r163))); 
+            end);
+            if v6 then
+                v4 = type(s) == "table";
+                W, v5 = v4 and s, pcall;
+            end;
+            v5 = v5;
+            return v6 or nil; 
+        end;
+        local function r164(arg1_65, ...)
+            h, v1 = "tostring", arg1_65;
+            s = v1;
+            v6 = Env[h];
+            if v1 then
+                v5 = v5;
+                h = v5(v1);
+                v5 = h.lower(h);
+                h = v5.gsub(v5, "^%s+", "");
+                return h.gsub(h, "%s+$", "");
+            else
+                s = "";
+            end; 
+        end;
+        local function r165(...)
+            v5 = {};
+            for s = 1, 5 do
+                v5 = r135;
+                v5 = r135;
+                e = v5.GetAttribute(v5, "Slot" .. s .. "Id");
+                v7 = v5.GetAttribute(v5, "Slot" .. s);
+                if v7 then
+                    h = v5.GetAttribute(v5, v8 .. P);
+                end;
+                if v7 then
+                    v1[#v5 + 1] = {
+                        ["slot"] = s,
+                        ["name"] = tostring(v7),
+                        ["id"] = tostring(e)
+                    };
+                end; 
+            end;
+            return v5; 
+        end;
+        local function r166(arg1_66, ...)
+            s = r165();
+            v6 = {};
+            for q, v7 in ipairs(s) do
+                v8 = r164(v7.name);
+                if not v6[v8] then
+                    v6[v8] = v7;
+                end; 
+            end;
+            W = {};
+            P = {
+                r77.unitsNeeded(arg1_66)
+            };
+            for v7, P in ipairs(S(P)) do
+                v8 = v7;
+                v2 = v6[r164(P)];
+                if v2 then
+                    W[#W + 1] = "✅ " .. P .. " (Slot" .. v2.slot .. ")";
+                else
+                    q = false;
+                    W[#W + 1] = "❌ " .. P;
+                end; 
+            end;
+            return true, v6, table.concat(W, ", "), #s; 
+        end;
+        local function r167(arg1_67, arg2_67, ...)
+            s = arg2_67;
+            q = r145;
+            W = v5;
+            v6 = q;
+            while not q do
+                if v6 then
+                    q = "รอเงิน %d / %d";
+                    P = v5;
+                    r157(q.format(q, math.floor(tonumber(r143()) or 0), math.floor(h)));
+                    task.wait(0.25);
+                end;
+                v5 = v5;
+                return r145 and s == r146; 
+            end;
+            v6, v5 = s == r146 and (tonumber(r143()) or 0) < (tonumber(arg1_67) or 0), v5; 
+        end;
+        local function r168(arg1_68, arg2_68, arg3_68, ...)
+            v1 = arg1_68;
+            e = r145;
+            W = e;
+            while not e do
+                v5 = v5;
+                if e then
+                    if arg1_68() then
+                        return true;
+                    else
+                        task.wait(.05);
+                    end;
+                end;
+                return false; 
+            end;
+            v5 = v5;
+            W = arg3_68 == r146 and os.clock() - os.clock() < (tonumber(arg2_68) or 3); 
+        end;
+        local function r169(arg1_69, arg2_69, ...)
+            r170 = arg2_69;
+            local function r171(...)
+                return r145 and r170 == r146; 
+            end;
+            v5 = {};
+            r151 = v5;
+            r152 = {};
+            r153 = {};
+            r154 = {};
+            r155 = {};
+            P = v5;
+            A = r171();
+            v7 = A;
+            while not A do
+                v5 = v5;
+                if A then
+                    r157("รอ Slot โหลด...");
+                    task.wait(0.5);
+                end;
+                if not r171() then
+                    return;
+                end;
+                G = {
+                    r166(arg1_69)
+                };
+                A, v2, P = G[3], G[2], r166(arg1_69);
+                if G[4] == 0 then
+                    warn("[KUY Macro] อ่าน Slot ไม่ได้ -> ใช้ UnitId ตามที่อัดไว้");
+                else
+                    if not r166(arg1_69) then
+                        warn("[KUY Macro] Slot ไม่มีตัวที่มาโครใช้: " .. A);
+                        r157("⚠ Slot ไม่ครบ: " .. A);
+                    end;
+                    for y, x in ipairs(arg1_69) do
+                        r172 = x;
+                        v7 = y;
+                        if not r171() then
+                            break;
+                        else
+                            if r172.type == "place" then
+                                f = v5;
+                                if not r167(r172.price or 0, r170) then
+                                    break;
+                                else
+                                    b = "[%d/%d] วาง %s";
+                                    r157(b.format(b, y, #arg1_69, tostring(r172.name)));
+                                    CFrame.new(table.unpack(r172.cframe));
+                                    Vector3.new(table.unpack(r172.pos));
+                                    L, I = r172.unitId, v5;
+                                    v5 = v5;
+                                    N = G[4] > 0 and G[2][r164(r172.name)] or nil;
+                                    if N then
+                                        L = N.id;
+                                    end;
+                                    for b = 1, 4 do
+                                        I = b;
+                                        if not r171() then
+                                        else
+                                            Ek = r137;
+                                            Ek.FireServer(Ek, {
+                                                ["UnitId"] = V[x][r15[r16(X, Ek)]],
+                                                ["CFrame"] = CFrame.new(table.unpack(V[x].cframe)),
+                                                ["Name"] = r172.name,
+                                                ["Pos"] = Vector3.new(table.unpack(V[x][r15[m]]))
+                                            });
+                                            r168(function(...)
+                                                v6 = r151;
+                                                for s, q in ipairs(h) do
+                                                    if q.Name == r172.name then
+                                                        r173 = table.remove(r151, s);
+                                                        return true;
+                                                    end; 
+                                                end; 
+                                            end, 4, r170);
+                                            if r173 then
+                                                e[r172.slot] = r173.Id;
+                                            end;
+                                        end; 
+                                    end;
+                                    p = not ({})[r172.slot];
+                                    if p then
+                                        r171();
+                                    end;
+                                    v5 = v5;
+                                    if p then
+                                        r157("วางไม่สำเร็จ ข้าม step");
+                                    end;
+                                    task.wait(.1);
+                                end;
+                            else
+                                if r172.type == "upgrade" then
+                                    r174 = ({})[r172.slot];
+                                    if r174 then
+                                        b = v5;
+                                        if not r167(r172.price or 0, r170) then
+                                            break;
+                                        else
+                                            N = "[%d/%d] อัพ slot %d -> Lv.%d";
+                                            r157(N.format(N, y, #arg1_69, r172.slot, r172.level));
+                                            for L = 1, 4 do
+                                                C = L;
+                                                if not r171() then
+                                                else
+                                                    p = r138;
+                                                    p.FireServer(p, {
+                                                        ["Id"] = r174
+                                                    });
+                                                    if r168(function(...)
+                                                        v1 = v5;
+                                                        return (r153[r174] or 0) >= r172.level; 
+                                                    end, 3, r170) then
+                                                    end;
+                                                end; 
+                                            end;
+                                        end;
+                                    end;
+                                else
+                                    L = "target";
+                                    if r172.type == L then
+                                        L = v5;
+                                        r175 = ({})[r172.slot];
+                                        v5 = L;
+                                        if r175 and (r140 and r172.mode) then
+                                            N = "[%d/%d] slot %d -> %s";
+                                            o = L;
+                                            r157(N.format(N, y, #arg1_69, tonumber(r172.slot) or 0, tostring(r172.mode)));
+                                            if not pcall(function(...)
+                                                for O = 1, 8 do
+                                                    q = v1;
+                                                    if not r171() or r155[r175] == r172.mode then
+                                                    else
+                                                        v5 = r140;
+                                                        v5.FireServer(v5, {
+                                                            ["Id"] = r175
+                                                        });
+                                                        v5 = os.clock;
+                                                        v8 = r171();
+                                                        h = v5;
+                                                        while not v8 do
+                                                            if h then
+                                                                task.wait(.05);
+                                                            end; 
+                                                        end;
+                                                        v5 = v5;
+                                                        h = r155[r175] == r155[r175] and os.clock() - v5() < 2;
+                                                    end; 
+                                                end; 
+                                            end) then
+                                                warn("[KUY Macro] ปรับการโจมตีผิดพลาด step " .. tostring(y) .. ": " .. tostring(b[2]));
+                                            end;
+                                        end;
+                                    else
+                                        if r172.type == "sell" then
+                                            r176 = ({})[r172.slot];
+                                            if r176 then
+                                                N = "[%d/%d] ขาย slot %d";
+                                                r157(N.format(N, y, #arg1_69, r172.slot));
+                                                for L = 1, 4 do
+                                                    C = L;
+                                                    if not r171() then
+                                                    else
+                                                        p = r139;
+                                                        p.FireServer(p, {
+                                                            ["Id"] = r176
+                                                        });
+                                                        if r168(function(...)
+                                                            return V[Qk][r176]; 
+                                                        end, 3, r170) then
+                                                        end;
+                                                    end; 
+                                                end;
+                                            end;
+                                        end;
+                                    end;
+                                end;
+                            end;
+                        end; 
+                    end;
+                    return;
+                end; 
+            end;
+            v5, v7 = v5, #r165() == 0 and os.clock() - os.clock() < 10; 
+        end;
+        local function r177(arg1_70, ...)
+            v1 = arg1_70;
+            if v1 then
+                v5 = r146 + 1;
+                r146 = v5;
+                s = r146;
+                v1 = v1;
+                W = r162(v1);
+                v5 = v5;
+                if not W or #W == 0 then
+                    r145 = false;
+                    r157("อ่านมาโครไม่ได้");
+                    return;
+                end;
+                r145 = true;
+                r169(W, s);
+                if s == r146 then
+                    v4 = r145;
+                    r145 = false;
+                    if v4 then
+                    end;
+                    v5 = v5;
+                    r157(v4 or "หยุดแล้ว | " .. #W .. " steps");
+                    v4, v5 = nil, v5;
+                end;
+                return;
+            else
+                h = r36.selected;
+            end; 
+        end;
+        local function r178(arg1_71, ...)
+            q = {
+                xpcall(r177, debug.traceback, arg1_71)
+            };
+            v6, s = xpcall(r177, debug.traceback, arg1_71), q[2];
+            if not v6 then
+                r145 = false;
+                warn("[KUY Macro] ERROR: " .. tostring(s));
+                v7 = tostring(s);
+                r157("⚠ Error: " .. v7.sub(v7, 1, 120));
+            end; 
+        end;
+        local function r179(...)
+            r145 = false;
+            r146 = r146 + 1; 
+        end;
+        r180 = 6;
+        r181 = false;
+        local function r115(...)
+            if r181 then
+                return;
+            end;
+            if not r36.play then
+                return;
+            end;
+            r181 = true;
+            task.spawn(function(...)
+                r179();
+                for O = r180, 1, -1 do
+                    q = v1;
+                    if not r36.play then
+                        r179 = false;
+                        return;
+                    else
+                        if r158 then
+                            h = r158;
+                            e = "PlayAgain -> เริ่มเล่นใหม่ใน %d วินาที...";
+                            h.Text = e.format(e, v1);
+                        end;
+                        task.wait(1);
+                    end; 
+                end;
+                if r36.play and (not r144 and r36.selected) then
+                    r178(r36.selected);
+                else
+                    r157("เล่นใหม่ไม่ได้ (ไม่พบมาโคร)");
+                end;
+                r181 = false; 
+            end); 
+        end;
+        if hookmetamethod and r141 then
+            pcall(function(...)
+                r182 = hookmetamethod(game, "__namecall", (newcclosure or function(arg1_73, ...)
+                    return arg1_73; 
+                end)(function(arg1_72, ...)
+                    v1 = arg1_72;
+                    W = r73();
+                    if W then
+                        h, v5 = v1 == r141 and getnamecallmethod() == "FireServer", Env[h];
+                    end;
+                    if W then
+                        task.defer(function(...)
+                            V[61](); 
+                        end);
+                    end;
+                    return r182(v1, ...); 
+                end)); 
+            end);
+        end;
+        local function dn(arg1_74, ...)
+            return r44.section(r75, arg1_74); 
+        end;
+        local function Un(...)
+            return r44.buttonRow(r75, select(-1, ...)); 
+        end;
+        local function En(...)
+            return r44.textRow(r75, select(-1, ...)); 
+        end;
+        an[1] = 135;
+        local function hn(...)
+            return r44.dropdownRow(r75, select(-1, ...)); 
+        end;
+        local function Bn(...)
+            return r44.toggleRow(r75, select(-1, ...)); 
+        end;
+        an[8] = 20976617580072;
+        an[11] = 24641009380562;
+        r158 = r44.statusRow(r75);
+        an[18] = 16207739100539;
+        local function r157(arg1_75, ...)
+            v5 = r158;
+            v5.Text = arg1_75; 
+        end;
+        local function r183(...)
+            v1 = r36.selected and r162(r36.selected);
+            v5 = r157;
+            if v1 then
+                e = #v1;
+            end;
+            v5 = v5;
+            v5("พร้อมใช้งาน | " .. (v1 or 0) .. " steps"); 
+        end;
+        V[an[1]] = nil;
+        an[10] = "\xcbm\x1c\xcaU\x1d\xea+";
+        an[7] = "\x88\x18\xa6O\xcd";
+        an[2] = function(...)
+            v1 = r161();
+            V[an[1]].setOptions(v1);
+            r184.setOptions(v1);
+            r185.setOptions(v1);
+            if r36.selected and not table.find(v1, r36.selected) then
+                v5 = r36;
+                v5.selected = nil;
+                r37();
+            end;
+            V[an[1]].set(r36.selected);
+            if r185.value and not table.find(v1, r185.value) then
+                r185.set(nil);
+            end;
+            if not r185.value then
+                r185.set(r36.selected);
+            end; 
+        end;
+        an[15] = 12905498646393;
+        r188 = an[2];
+        an[6] = 20976617580072;
+        an[3] = "Macro";
+        an[2] = dn("Macro");
+        an[7], an[8] = "/\xd4z\xe6\x91\xdfճ?\xbf\x97\xd3^{", 22462034962651;
+        an[6] = 22462034962651;
+        an[3] = "Save File Name";
+        an[5] = r36;
+        an[9] = 24641009380562;
+        an[6] = "saveName";
+        an[7] = "\x1a\x0b\xca\t\tCf\xca;\xfa'\xa8";
+        an[4] = an[5].saveName;
+        an[11] = 3714635892417;
+        an[5] = function(arg1_76, ...)
+            v5 = r36;
+            v5.saveName = arg1_76;
+            r37(); 
+        end;
+        an[8] = 14306495388165;
+        an[2] = En("Save File Name", an[4], an[5]);
+        an[9] = 28936537404578;
+        an[6] = 14306495388165;
+        an[14], an[8], an[10] = 31258952038620, "s\x9d\xe4\x12h\x04\xbe;\xc9<\xfe\xe7\x0c\x92L\xd0\xf5\x11\xff\xf3\x07\x06\x11f\x1d\xbd,#\xfe\xe30\xfc\xdd\xc9\xfeFۗ\x02\xf4\\\x00\xc5ǘ0\xb3\xc1U\x0b\x16\x90_Pa\xea\xf7fA\xe8\xa2(\xea\xb5}@\xe5\xe3", 23638295472895;
+        an[3] = "Start Record";
+        an[7] = 28936537404578;
+        an[4] = "(เปิด = เริ่มอัด / ปิด = หยุด)";
+        an[6] = function(arg1_77, ...)
+            if arg1_77 then
+                if r145 then
+                    r187(false);
+                    r157("หยุดเล่นก่อนจึงจะอัดได้");
+                    return;
+                end;
+                r147 = {};
+                r148 = {};
+                r149 = 0;
+                r150 = {};
+                r156 = {};
+                r144 = true;
+                r157("เริ่มอัด...");
+            else
+                r144 = false;
+                r157("หยุดอัด | " .. #r147 .. " steps (กด Save Macro)");
+            end; 
+        end;
+        an[5] = false;
+        an[2] = Bn("Start Record", "(เปิด = เริ่มอัด / ปิด = หยุด)", an[5], an[6]);
+        an[9] = 13166021531634;
+        r187 = an[2];
+        an[8] = "=\x83{\tf\x9d0\xcaȱrF\x9b:9";
+        an[7] = 13166021531634;
+        an[4] = "💾 Save Macro";
+        an[9] = 22349251094695;
+        an[5] = function(...)
+            r144 = false;
+            r187(false);
+            v1 = r77.cleanName(r36.saveName);
+            if v1 == "" then
+                r157("กรุณาตั้งชื่อมาโครก่อน");
+                return;
+            end;
+            if #r147 == 0 then
+                r157("ยังไม่มีข้อมูลที่บันทึก");
+                return;
+            end;
+            v6 = r136;
+            writefile(r160(v1), v6.JSONEncode(v6, r147));
+            h = r36;
+            h.selected = v1;
+            r37();
+            r188();
+            r157("เซฟแล้ว: " .. v1 .. " (" .. #r147 .. " steps)"); 
+        end;
+        an[3] = Un("💾 Save Macro", an[5]);
+        an[8] = "\xc37~\xe6=\x01u\x8e3%\xa7\x0f\xee\x8f\xe9";
+        an[7] = 22349251094695;
+        an[4] = "Macro Selection";
+        an[3] = dn("Macro Selection");
+        an[8] = "\xb6\xb6,\x86\xc0\x1f`\xa1\xc3\x07\xcf\\ׄ\x9d\x1d]";
+        an[9] = 18160011419912;
+        an[7] = 18160011419912;
+        an[4] = "Select Macro File";
+        an[5] = function(arg1_78, ...)
+            v1 = arg1_78;
+            v5 = r36;
+            s = v1;
+            v5.selected = s;
+            r37();
+            s = r36.play;
+            if r145 then
+                r179();
+            end;
+            r183();
+            if s then
+                h = not r144;
+            end;
+            if s then
+                task.defer(r178, v1);
+            end; 
+        end;
+        an[3] = hn("Select Macro File", an[5]);
+        V[an[1]] = an[3];
+        an[9] = "~ܚ\n\xff\x90\x13\x04\xb8\\\x95l|\x13Wk\xa1\xd4\xd8[\xabLÚ\xea@\x87F,\x0b>̜\xc7-\xf3\xd2,\xd8\xcb3pH*K\x9ezQ\xc0\"\xc4AQ/\xbe\xa4\x90\x0f\xf4t\x8e\x01";
+        an[8] = 23638295472895;
+        an[10] = 23457670556331;
+        an[5] = "🧩 เช็ค Slot เทียบกับมาโคร";
+        an[6] = function(...)
+            v1 = r36.selected and r162(r36.selected);
+            if not v1 then
+                r157("ยังไม่ได้เลือกมาโคร");
+                return;
+            end;
+            q = {
+                r166(v1)
+            };
+            v6 = q[3];
+            s = q[2];
+            q = r166(v1);
+            if q[4] == 0 then
+                r157("อ่าน Slot ไม่ได้ (ยังไม่โหลด?)");
+                return;
+            end;
+            for e, P in ipairs(r165()) do
+                v8 = e;
+                A = "[Slot%d] %s | %s";
+                print(A.format(A, "slot", "name", "id")); 
+            end;
+            v5 = r157;
+            v8 = v6 ~= "";
+            v5 = v5;
+            if v8 then
+                v6, s, v5 = nil, nil, v5;
+                v5(v8 and v6);
+                return;
+            else
+                e = "-";
+            end; 
+        end;
+        an[9] = "\xffTص\x81\xf5F\xa5\xef\xea\xba\xea\x06\xe4\xf6\x01\x93\r\x0e\xae\xb1\xe5\xc5j";
+        an[4] = Un("🧩 เช็ค Slot เทียบกับมาโคร", an[6]);
+        an[8] = 23457670556331;
+        an[13] = ",\xac\x9d\x16";
+        an[5] = "🔄 Refresh Macro Files";
+        an[6] = function(...)
+            r188();
+            r183(); 
+        end;
+        an[4] = Un("🔄 Refresh Macro Files", an[6]);
+        an[10] = 11012340651016;
+        an[9] = ")\xfeٳ\x18Us5\xa7\xfb";
+        an[8] = 11012340651016;
+        an[5] = "Play Macro";
+        an[10] = "";
+        an[9] = 3714635892417;
+        an[6] = "";
+        an[8] = r36;
+        an[12] = 31258952038620;
+        an[14], an[11] = 29292913063240, 32944858463213;
+        an[9] = "play";
+        an[7] = an[8].play;
+        an[8] = function(arg1_79, ...)
+            v1 = arg1_79;
+            v5 = r36;
+            v5.play = v1;
+            r37();
+            if v1 then
+                if r144 then
+                    v5 = r36;
+                    v5.play = false;
+                    r37();
+                    r186(false);
+                    r157("ปิดการอัดก่อนจึงจะเล่นได้");
+                    return;
+                end;
+                if not r36.selected or not isfile(r160(r36.selected)) then
+                    v5 = r36;
+                    v5.play = false;
+                    r37();
+                    r186(false);
+                    r157("ยังไม่ได้เลือกมาโคร");
+                    return;
+                end;
+                task.spawn(r178, r36.selected);
+            else
+                r179();
+                r157("หยุดแล้ว");
+            end; 
+        end;
+        an[10] = "7\"\x88C\xa26\xb3E\xf3¾\xb5\x0b\x02\xb0\xaa\x0b\xf8\xf4\x97\x0bAn\xecZѿ\x0b\x1bx\xc6(\xb3=\xe1\x16W\x0eM\xe4\x92g}H\xed\x9dPT\xbe\xce\xe8J\xd8";
+        an[4] = Bn("Play Macro", "", an[7], an[8]);
+        r186 = an[4];
+        an[12] = 10365361787610;
+        an[9] = 32944858463213;
+        an[11] = 5000352794904;
+        an[6] = "Share Macro (แชร์ให้คนอื่น)";
+        an[5] = dn("Share Macro (แชร์ให้คนอื่น)");
+        an[10] = "\x80\x98x`τ\x9e\x1f\x8e\xc6@\xac\xd2B\xe5\xdf>$\x8cb\x87";
+        an[9] = 5000352794904;
+        an[6] = "Select Macro to Share";
+        an[7] = function(...)
+ 
+        end;
+        an[5] = hn("Select Macro to Share", an[7]);
+        r185 = an[5];
+        an[11] = "\x0b\xa7v\xd3\x07\xd3\xfc\xa6\xb9\x11\xb6\xa8P\xc1\xa1\x15l{//";
+        an[10] = 10365361787610;
+        an[7] = "📤 Copy Share Code";
+        an[8] = function(...)
+            v1 = r185.value;
+            s = v1 and r162(v1);
+            if not s or #s == 0 then
+                r157("ยังไม่ได้เลือกมาโครที่จะแชร์");
+                return;
+            end;
+            r77.copyCode(v1, s, false, r157, r142); 
+        end;
+        an[6] = Un("📤 Copy Share Code", an[8]);
+        an[11] = "\xba\xe9\xc56D.}6\x0e\xdck\xee6\x07\xab\x8f";
+        an[12] = 8192614813414;
+        an[10] = 8192614813414;
+        an[12] = "";
+        an[7] = "Paste Share Code";
+        an[17], an[13] = "3\x7f\x8a%", 23714128341794;
+        an[11] = 23714128341794;
+        an[12] = "\xb6\x8a!\xec\x11\xdao\x915\x87\x95\xf4-\xbc\x1d";
+        an[8] = "";
+        an[9] = function(...)
+ 
+        end;
+        an[6] = En("Paste Share Code", "", an[9]);
+        an[7] = 142;
+        an[13] = 22143612348487;
+        V[an[7]] = an[6];
+        an[6] = V[an[7]];
+        an[11] = 22143612348487;
+        an[8] = "PlaceholderText";
+        an[13] = "\x1cʂ\x99N\xb1\xb5Z1%\xb0\xf4#\x1d\xc0\xd7\xf5\x93l\x883afa[\x0b\xf6@\xe1:\xf4\xfa\x05?\xffǵm\x18\x96\x93\xedip1\xceߺ\x11";
+        an[12] = 29292913063240;
+        an[9] = "วางรหัส KUY1:... ที่นี่";
+        an[14] = 3542562457201;
+        an[6][an[8]] = "วางรหัส KUY1:... ที่นี่";
+        an[6] = 143;
+        an[13] = "\xf3.\x1fƳ\xc4C\x8e)Z\x84*\xceti\xa5-\xc5\xcd\xf31\xd0\xc7R\x8dd\xc8|q\x0f,\x01DK;\xfa)#\xaf\xdc.Y\x0c\xac\xa0c\xec\xecze\xf5\xb1\xde\x7f";
+        an[8] = function(arg1_80, ...)
+            v6 = {
+                r77.decodeShare(arg1_80)
+            };
+            s = v6[2];
+            v6 = r77.decodeShare(arg1_80);
+            if not v6 then
+                r157("นำเข้าไม่สำเร็จ: " .. tostring(s));
+                return;
+            end;
+            v6 = r77.cleanName(v6);
+            v5 = v6 == "";
+            if v5 then
+                v6 = "Imported";
+            end;
+            while isfile(r160(v6)) do
+                q = v6 .. "_" .. 1 + 1; 
+            end;
+            P = r136;
+            writefile(r160(v6), P.JSONEncode(P, s));
+            v8 = r77.unitsNeeded(s);
+            print("[KUY Macro] นำเข้า '" .. v6 .. "' สำเร็จ ต้องมีตัวใน Slot: " .. table.concat(v8, ", "));
+            v2 = not r145;
+            v5 = v5;
+            if v2 and not r144 then
+                v7 = r36;
+                v7.selected = v2;
+                r37();
+            end;
+            r188();
+            r157("นำเข้า " .. v6 .. " แล้ว | " .. #s .. " steps | ต้องใช้ " .. #v8 .. " ตัว"); 
+        end;
+        V[an[6]] = an[8];
+        an[12] = 3542562457201;
+        an[9] = "📥 Import จากช่องวางรหัส";
+        an[10] = function(...)
+            V[an[6]](V[an[7]].Text);
+            v5 = V[an[7]];
+            v5.Text = ""; 
+        end;
+        an[8] = Un("📥 Import จากช่องวางรหัส", an[10]);
+        an[13] = ",\xcdߍ\x03\x89\xb1\x18\xc5i\xd2";
+        an[14] = 3665303144106;
+        an[12] = 3665303144106;
+        an[9] = "📋 Import";
+        an[10] = function(...)
+            if not getclipboard then
+                r157("executor ไม่รองรับอ่าน Clipboard ให้วางในช่องแล้วกด Import");
+                return;
+            end;
+            V[an[6]](getclipboard()); 
+        end;
+        an[8] = Un("📋 Import", an[10]);
+        an[13], an[14] = "\x86\xd7=\xe0\xe2ȏ\xa4\x14~;\xea", 26378389057531;
+        an[12] = 26378389057531;
+        an[9] = "Delete Macro";
+        an[8] = dn("Delete Macro");
+        an[13] = "B\\\x19\x87wܦ\xda\xfb\x9eյ\xde\xcb\xcf\x1e=\xbf6\xbf\xb7\x13";
+        an[14] = 14030664948101;
+        an[12] = 14030664948101;
+        an[9] = "Select Macro to Delete";
+        an[10] = function(...)
+ 
+        end;
+        an[8] = hn("Select Macro to Delete", an[10]);
+        r184 = an[8];
+        an[14] = "\xd0\x0c\xcb\x01ە\x7f\xc2\x8d+ɚ1T\x96\xe5";
+        an[13] = 12905498646393;
+        an[10] = "❌ Delete Macro";
+        an[11] = function(...)
+            v1 = r184.value;
+            if not v1 then
+                r157("ยังไม่ได้เลือกมาโครที่จะลบ");
+                return;
+            end;
+            pcall(delfile, r160(v1));
+            if r36.selected == v1 then
+                v5 = r36;
+                v5.selected = nil;
+                v5 = r36;
+                v5.play = false;
+                r179();
+                r186(false);
+                r37();
+            end;
+            r184.set(nil);
+            r188();
+            r157("ลบ " .. v1 .. " แล้ว"); 
+        end;
+        an[9] = Un("❌ Delete Macro", an[11]);
+        an[9] = r188;
+        an[10] = an[9]();
+        an[9] = r183;
+        an[10] = an[9]();
+        an[10] = not P;
+        an[12] = r36;
+        an[16] = 16207739100539;
+        an[13] = "play";
+        an[11] = an[12].play;
+        an[9] = an[11];
+        if an[11] then
+            an[17] = "9\x02\xca\xfb?\x9d\x83j";
+            an[12] = r36;
+            an[18] = 16594315025967;
+            an[16] = 16594315025967;
+            an[13] = "selected";
+            an[11] = an[12].selected;
+            an[9] = an[11];
+        end;
+        if an[9] then
+            an[11] = "task";
+            an[10] = Env[an[11]];
+            an[15] = "\x973\xdf\xe5L";
+            an[16] = 10289027371703;
+            an[14] = 10289027371703;
+            an[11] = "spawn";
+            an[9] = an[10].spawn;
+            an[11] = function(...)
+                h = game;
+                v5 = not h.IsLoaded(h);
+                if v5 then
+                    v5 = game.Loaded;
+                    v5.Wait(v5);
+                end;
+                v5 = r135;
+                v5.WaitForChild(v5, "leaderstats", 30);
+                if r36.play and (not r144 and r36.selected) then
+                    r178(r36.selected);
+                else
+                    r157("เล่นอัตโนมัติไม่ได้ (ไม่พบมาโคร)");
+                end; 
+            end;
+            an[10] = an[9](an[11]);
+        end;
+        an[6] = nil;
+        an[7] = nil;
+        an[1] = nil;
+        Bk = r44.webhookTab;
+        r189 = "Cameraman Tower Defense";
+        r190 = 3;
+        r191 = 10;
+        r192 = {
+            ["TotalMoney"] = true,
+            ["Battlepass"] = true
+        };
+        r193 = {
+            ["Battlepass.PassQuests"] = true
+        };
+        r194 = {
+            ["Money"] = "Coins"
+        };
+        r195 = "+1 Woman Crate";
+        if type(r36.webhook) ~= "table" then
+            dk = r36;
+            dk.webhook = {};
+        end;
+        r196 = r36.webhook;
+        if r196.enabled == nil then
+            dk = r196;
+            dk.enabled = true;
+        end;
+        if type(r196.url) ~= "string" then
+            dk = r196;
+            dk.url = "";
+        end;
+        v5 = an[10];
+        r197 = request or (http_request or syn);
+        r198 = os.clock();
+        local function r199(arg1_81, ...)
+            v1 = arg1_81;
+            s = type(v1) == "string";
+            if s then
+                v5 = an[10];
+                h = (v1.find(v1, "^https://discord%.com/api/webhooks/%d+/[%w_%-]+") or (v1.find(v1, "^https://discordapp%.com/api/webhooks/%d+/[%w_%-]+") or (v1.find(v1, "^https://ptb%.discord%.com/api/webhooks/%d+/[%w_%-]+") or v1.find(v1, "^https://canary%.discord%.com/api/webhooks/%d+/[%w_%-]+")))) ~= nil;
+            end;
+            return s; 
+        end;
+        local function r200(arg1_82, ...)
+            if not r197 then
+                return false, "executor ไม่รองรับ request";
+            end;
+            A = r34;
+            q = {
+                pcall(r197, {
+                    ["Url"] = r196.url,
+                    ["Method"] = "POST",
+                    ["Headers"] = {
+                        ["Content-Type"] = "application/json"
+                    },
+                    ["Body"] = A.JSONEncode(A, {
+                        ["embeds"] = {
+                            arg1_82
+                        }
+                    })
+                })
+            };
+            s = q[2];
+            if not pcall(r197, {
+                ["Url"] = r196.url,
+                ["Method"] = "POST",
+                ["Headers"] = {
+                    ["Content-Type"] = "application/json"
+                },
+                ["Body"] = A.JSONEncode(A, {
+                    ["embeds"] = {
+                        arg1_82
+                    }
+                })
+            }) then
+                return false, tostring(s);
+            end;
+            if s then
+                h = s.StatusCode;
+            end;
+            if s == 204 or s == 200 then
+                return true, s;
+            end;
+            return false, "status " .. tostring(s); 
+        end;
+        local function r201(arg1_83, ...)
+            repeat
+                s = h.gsub(h, "^(-?%d+)(%d%d%d)", "%1,%2");
+            until v4[2] == 0;
+            return tostring(math.floor(arg1_83)); 
+        end;
+        local function r202(arg1_84, arg2_84, ...)
+            v1 = arg1_84;
+            if type(v1) == "number" then
+                return r201(v1);
+            end;
+            v6 = type(v1) == "table";
+            if v6 then
+                if (arg2_84 or 0) > 3 then
+                    return "{...}";
+                end;
+                v6 = {};
+                for e, v7 in pairs(v1) do
+                    v5 = v5;
+                    v6[#v6 + 1] = (type(e) == "number" and "" or tostring(e) .. "=") .. r202(v7, h + 1); 
+                end;
+                return "{" .. table.concat(v6, ", ") .. "}";
+            end;
+            return tostring(v1); 
+        end;
+        local function r203(arg1_85, ...)
+            s = {};
+            v6 = {};
+            for q, v7 in pairs(arg1_85) do
+                v2, g = v5, s[v8] + 1;
+                A = type(v7) == "table" and v7.Name;
+                v5 = g;
+                if A then
+                    P = tostring(v7.Name);
+                end;
+                v5 = v2;
+                v8 = A or "Unknown";
+                if not s[v8] then
+                    s[v8] = 0;
+                    v6[#v6 + 1] = v8;
+                end;
+                s[v8] = s[v8] + 1; 
+            end;
+            if #v6 == 0 then
+                return "-";
+            end;
+            W = {};
+            for e, v8 in ipairs(v6) do
+                W[#W + 1] = v8 .. " x" .. s[v8]; 
+            end;
+            return table.concat(W, ", "); 
+        end;
+        local function r204(arg1_86, ...)
+            v1 = arg1_86;
+            W, h = e[2], e[1];
+            for q, v7 in ipairs({...}) do
+                if 129 then
+                    v8 = (129).FindFirstChild(129, v7);
+                end;
+                e, v6, v7 = nil, 129, nil; 
+            end;
+            return 129; 
+        end;
+        r44.section(Bk, "Webhook");
+        r44.toggleRow(Bk, "Enable Webhook", nil, r196.enabled, function(arg1_88, ...)
+            v5 = r196;
+            v5.enabled = arg1_88;
+            r37(); 
+        end);
+        r44.textRow(Bk, "Webhook URL", r196.url, function(arg1_89, ...)
+            v1, v6 = arg1_89, r196;
+            h = "url";
+            s = v1;
+            if v1 then
+                v5 = v5;
+                v6 = v1.gsub(v1, "^%s+", "");
+                v5[r15[W]] = v6.gsub(v6, "%s+$", "");
+                r37();
+                return;
+            else
+                s = "";
+            end; 
+        end);
+        Ak.PlaceholderText = "URL";
+        r206 = "  🧪 ส่งข้อความทดสอบ";
+        r207 = false;
+        r208 = r44.buttonRow(Bk, "🧪 ส่งข้อความทดสอบ", function(...)
+            if r207 then
+                return;
+            end;
+            r207 = true;
+            local function r209(arg1_90, ...)
+                v5 = r208;
+                v5.Text = "  " .. arg1_90;
+                task.delay(2, function(...)
+                    v5 = r208;
+                    v5.Text = r206;
+                    r207 = false; 
+                end); 
+            end;
+            if not r199(r196.url) then
+                r209("❌ URL ไม่ถูกต้อง");
+                return;
+            end;
+            h = r208;
+            h.Text = "  ⏳ กำลังส่ง...";
+            task.spawn(function(...)
+                P = DateTime.now();
+                v5 = r209;
+                W = r200({
+                    ["title"] = r189,
+                    ["description"] = "✅ ทดสอบ Webhook สำเร็จ\n**User :** " .. r29.DisplayName .. " (@" .. r29.Name .. ")",
+                    ["color"] = 3447003,
+                    ["timestamp"] = P.ToIsoDate(P)
+                });
+                v5 = v5;
+                if W then
+                    v5 = v5;
+                    v5(W and "✅ ส่งสำเร็จ");
+                    return;
+                else
+                    s = "❌ ส่งไม่สำเร็จ";
+                end; 
+            end); 
+        end);
+        if not (h.FindFirstChild(h, "Elevators") ~= nil) then
+            local function r210(...)
+                for O = 1, 12 do
+                    q = v1;
+                    v5 = r204;
+                    v4 = v5(r31, "GameUI", "FinalUI", "Content", "Content");
+                    if v4 then
+                        e = v4.ContentText;
+                    end;
+                    v5, h = v5, v4;
+                    if v4 then
+                        if e.find(e, "You Won!") then
+                            return true;
+                        else
+                            if e.find(e, "You Lost!") then
+                                return false;
+                            else
+                                task.wait(0.5);
+                            end;
+                        end;
+                    else
+                        h = "";
+                    end; 
+                end;
+                return nil; 
+            end;
+            local function r211(arg1_91, ...)
+                s = {};
+                v5 = r204;
+                v6 = v5(r31, "GameUI", "FinalUI", "Content", "Stats", "FrameCoins_Clone", "Template", "CoinAmount");
+                if v6 then
+                    W = "ContentText";
+                end;
+                v5, h = v5, v6;
+                if v6 then
+                    v5 = W ~= "";
+                    if v5 then
+                        if not W.find(W, "^%+") then
+                            W = "+" .. W;
+                        end;
+                        s[#s + 1] = W .. " Coins";
+                    end;
+                    v5 = v5;
+                    if arg1_91 == true and r204(r31, "GameUI", "FinalUI", "Content", "Stats", "FrameCoins", "MainShadow", "Template", "Mode") then
+                        s[#s + 1] = V[Wk];
+                    end;
+                    if #s == 0 then
+                        s[1] = "ไม่พบข้อมูลรางวัล";
+                    end;
+                    return table.concat(s, "\n");
+                else
+                    h = "";
+                end; 
+            end;
+            r212 = {};
+            r213 = {};
+            Ik = v5;
+            r215 = false;
+            bk = getgenv;
+            if bk then
+                fk = getgenv();
+            end;
+            v5 = v5;
+            r217 = bk or nil;
+            local function r218(...)
+                v1 = r210();
+                if v1 == nil then
+                    return;
+                end;
+                if not r196.enabled or not r199(r196.url) then
+                    return;
+                end;
+                s = os.clock();
+                v5 = math.max;
+                v4 = r217 and r217.__CTD_WH_SENT_AT;
+                if s - v5(r216 or -1000000000, v4 or -1000000000) < 30 then
+                    return;
+                end;
+                r216 = s;
+                if r217 then
+                    W = r217;
+                    v4 = os.clock();
+                    W.__CTD_WH_SENT_AT = v4;
+                end;
+                task.wait(1);
+                r211(v1);
+                W = {};
+                P = r213;
+                for v8, P in ipairs(P) do
+                    G = v5;
+                    v4 = v8;
+                    Q = r194[P];
+                    if Q then
+                        v5 = v5;
+                        W[#W + 1] = Q .. " : " .. r212[P];
+                    end; 
+                end;
+                if #W == 0 then
+                    W[1] = "ไม่มีข้อมูลจาก ReplicaSet";
+                end;
+                v4 = table.concat;
+                v8 = "**Player Infos**";
+                P = "**User :** " .. r29.DisplayName .. " (@" .. r29.Name .. ")";
+                G = v5;
+                A = "**Result :** ";
+                if v1 then
+                    Q = "Win";
+                end;
+                v5, g = v5, v1;
+                if v1 then
+                    e = e[v7]({
+                        "**Player Infos**",
+                        v2 .. r29.DisplayName .. " (@" .. r29[r15[r16("\x97\x966\xe3", b)]] .. C,
+                        r15[r16("GUq\x85\xb4x~\x9aj\xd7V9\x8b", x)] .. Q,
+                        "",
+                        "**Player Stats**",
+                        table.concat({}, "\n"),
+                        "",
+                        "**Rewards**",
+                        r211(v1)
+                    }, "\n");
+                    if #e > 4000 then
+                        e = e.sub(e, 1, 4000) .. "\n...";
+                    end;
+                    v, x = v5, v5;
+                    v = DateTime.now();
+                    if not r200({
+                        ["title"] = r189,
+                        ["description"] = e,
+                        ["color"] = r210() and 3066993 or 15158332,
+                        ["timestamp"] = v.ToIsoDate(v)
+                    }) then
+                        warn("[WH] ส่งไม่สำเร็จ:", A[2]);
+                    end;
+                    return;
+                else
+                    g = "Lose";
+                end; 
+            end;
+            r219 = tostring(os.clock()) .. tostring(math.random(1, 1000000000));
+            if r217 then
+                if r217.__CTD_WH_CONN then
+                    pcall(function(...)
+                        v5 = r217.__CTD_WH_CONN;
+                        v5.Disconnect(v5); 
+                    end);
+                end;
+                fk = r217;
+                fk.__CTD_WH_RUN = r219;
+                fk = r217;
+                fk.__CTD_WEBHOOK_LOADED = true;
+            end;
+            task.spawn(function(...)
+                v5 = r30;
+                v1 = v5.WaitForChild(v5, "RemoteEvents", 30);
+                s = v1 and v1.WaitForChild(v1, "ReplicaSet", 30);
+                if not s then
+                    warn("[WH] ไม่เจอ ReplicaSet");
+                    return;
+                end;
+                v5 = s.OnClientEvent;
+                v6 = v5.Connect(v5, function(...)
+                    if not r73() then
+                        return;
+                    end;
+                    s = {
+                        select(-2, ...)
+                    };
+                    v6 = s[2];
+                    if type(v6) ~= "table" then
+                        return;
+                    end;
+                    W = {};
+                    e = "ipairs";
+                    for v4, v8 in ipairs(v6) do
+                        v7 = v4;
+                        if r192[tostring(v8)] then
+                            return;
+                        else
+                            W[#W + 1] = tostring(v8);
+                        end; 
+                    end;
+                    if #W == 0 then
+                        return;
+                    end;
+                    if os.clock() - r198 < r191 then
+                        return;
+                    end;
+                    q = table.concat(W, ".");
+                    v8 = r193;
+                    P = {
+                        pairs(v8)
+                    };
+                    v7 = pairs(v8)(P[2], P[3]);
+                    while v7 do
+                        v8 = v4(e, P[3]);
+                        if q == v8 or q.sub(q, 1, #v8 + 1) == v8 .. "." then
+                            return;
+                        end; 
+                    end;
+                    if q == "Items" and type(s[3]) == "table" then
+                        v4 = r203(s[3]);
+                    else
+                        v5 = {};
+                        for P = 3, #s do
+                            v7[#v5 + 1] = r212(({
+                                S(v1)
+                            })[P]); 
+                        end;
+                        P = #v5 > 0;
+                        v5 = v5;
+                        if P then
+                            v4, v7 = P and table.concat(v5, ", "), nil;
+                            if r212[q] == nil then
+                                v5 = r213;
+                                v5[#r213 + 1] = table.concat(W, ".");
+                            end;
+                            v5 = r212;
+                            v6, v7 = nil, P and table.concat(v5, ", ");
+                            v5[q] = v7;
+                            r214 = os.clock();
+                            return;
+                        else
+                            v8 = "-";
+                        end;
+                    end; 
+                end);
+                if r217 then
+                    v5 = r217;
+                    W = "__CTD_WH_CONN";
+                    v5.__CTD_WH_CONN = W;
+                end; 
+            end);
+            task.spawn(function(...)
+                while r73() do
+                    task.wait(0.5);
+                    if r217 and r217.__CTD_WH_RUN ~= r219 then
+                        return;
+                    else
+                        if r214 and (not r215 and os.clock() - r214 >= r190) then
+                            r215 = true;
+                            if not pcall(r218) then
+                                warn("[WH] error:", W[2]);
+                            end;
+                            r212 = {};
+                            r213 = {};
+                            r215 = false;
+                        end;
+                    end; 
+                end; 
+            end);
+        end;
+        task.delay(1.5, function(...)
+            r41 = true; 
+        end);
+        return;
+    end; 
+end);
